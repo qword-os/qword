@@ -1,0 +1,8 @@
+/*.tar.bz2
+/*.tar.gz
+/os.iso
+/iso/boot/kernel.bin
+/kernel/**/*.o
+/kernel/**/*.bin
+/bochsout.txt
+/bx_enh_dbg.ini
