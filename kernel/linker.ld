@@ -9,7 +9,6 @@ SECTIONS
     {
         sections_text = .;
         *(.multiboot)
-        *(.startup)
         *(.text)
         sections_text_end = .;
     }
