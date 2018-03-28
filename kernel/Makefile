@@ -27,9 +27,9 @@ else
 $(error invalid architecture)
 endif
 
-C_FILES = $(shell find ./src/common -type f -name '*.c') $(shell find ./src/$(ARCH) -type f -name '*.c')
+C_FILES = $(shell find ./src/common -type f -name '*.c') $(shell find ./src/arch/$(ARCH) -type f -name '*.c')
 H_FILES = $(shell find . -type f -name '*.h')
-ASM_FILES = $(shell find ./src/common -type f -name '*.asm') $(shell find ./src/$(ARCH) -type f -name '*.asm')
+ASM_FILES = $(shell find ./src/common -type f -name '*.asm') $(shell find ./src/arch/$(ARCH) -type f -name '*.asm')
 OBJ = $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
 
 CLINKFLAGS = -nostdlib \
