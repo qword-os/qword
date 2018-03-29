@@ -4,22 +4,13 @@
 ; long mode.
 
 global _start
+global textmodeprint
 
-%include "checks.asm"
+extern check_cpuid
+extern check_long_mode
 
 section .text
 bits 32
-
-nolongmode:
-    call clearscreen
-    mov esi, .msg
-    call textmodeprint
-.halt:
-    cli
-    hlt
-    jmp .halt
-
-.msg    db  "This CPU does not support long mode.", 0
 
 textmodeprint:
     pusha
@@ -47,13 +38,8 @@ clearscreen:
     ret
 
 _start:
-    ; check if long mode is present
-    mov eax, 0x80000001
-    xor edx, edx
-    cpuid
-    and edx, 1 << 29
-    test edx, edx
-    jz nolongmode
+    call check_cpuid
+    call check_long_mode
 
     call clearscreen
     mov esi, .msg
@@ -64,6 +50,4 @@ _start:
     jmp .halt
 
 .msg    db "Hello world", 0
-
-; Includes should go here.
 

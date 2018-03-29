@@ -1,4 +1,7 @@
 global check_cpuid
+global check_long_mode
+
+extern textmodeprint
 
 section .text
 bits 32
@@ -24,9 +27,14 @@ check_cpuid:
 
     cmp eax, ecx
     je .no_cpuid
+    ret
 .no_cpuid:
     mov esi, .msg
-    jmp error
+    call textmodeprint
+.halt:
+    cli
+    hlt
+    jmp .halt
 
 .msg db "CPUID not supported", 0
 
@@ -42,12 +50,10 @@ check_long_mode:
     jz .no_long_mode
     ret
 .no_long_mode:
-    mov esi, msg
-
-error:
+    mov esi, .no_lm_msg
     call textmodeprint
-    jmp .halt
 .halt:
     cli
     hlt
-    jmp .halt ; Jump right back to this function if the CPU ever wakes up for SMM, an NMI, etc.
+    jmp .halt
+.no_lm_msg db "Long mode not available, system halted", 0
