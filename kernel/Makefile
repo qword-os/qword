@@ -1,4 +1,4 @@
-ARCH = i386
+ARCH = x86_64
 
 CC = $(ARCH)-elf-gcc
 
@@ -48,7 +48,7 @@ kernel.bin: $(BINS) $(OBJ) $(H_FILES)
 	$(ASM) $< -f bin -o $@
 
 %.o: %.asm
-	$(ASM) $< -f $(NASMFORMAT) -o $@
+	$(ASM) $< -f $(NASMFORMAT) -I./include -o $@
 
 clean:
 	rm -f $(OBJ) $(BINS) kernel.bin
