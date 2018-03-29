@@ -4,16 +4,29 @@
 ; long mode.
 
 global _start
+global pml4
+global pdpt
+global pd
 
 extern textmodeprint
 extern clearscreen
 extern check_cpuid
 extern check_long_mode
+extern paging_init
+extern gdt_ptr
+extern kmain
 
 section .bss
 
-align 16
-resb 2048
+align 4096
+pml4:
+    resb 4096
+pdpt:
+    resb 4096
+pd:
+    resb 4096
+stack_bottom:
+    resb 4096
 stack_top:
 
 section .text
@@ -23,11 +36,30 @@ _start:
     mov esp, stack_top
 
     call clearscreen
+    
+    mov esi, .msg    
+    call textmodeprint    
+
     call check_cpuid
     call check_long_mode
+    
+    call paging_init    
+    
 
-    mov esi, .msg
-    call textmodeprint
+    lgdt [gdt_ptr]
+    
+    jmp 0x08:.long_mode_init
+    
+.long_mode_init:
+bits 64 
+    mov ax, 0x10
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    call kmain
 .halt:
     cli
     hlt
