@@ -1,40 +1,25 @@
-; This file contains the code that is gonna be linked at the beginning of
+; This file contains the code that is going to be linked at the beginning of
 ; the kernel binary.
 ; It should contain core CPU initialisation routines such as entering
 ; long mode.
 
 global _start
 
-section .text
+extern textmodeprint
+extern clearscreen
 
+section .bss
+
+align 16
+resb 2048
+stack_top:
+
+section .text
 bits 32
 
-textmodeprint:
-    pusha
-    mov edi, 0xb8000
-    .loop:
-        lodsb
-        test al, al
-        jz .out
-        stosb
-        inc edi
-        jmp .loop
-    .out:
-    popa
-    ret
-
-clearscreen:
-    ; clear screen
-    pusha
-    mov edi, 0xb8000
-    mov ecx, 80*25
-    mov al, ' '
-    mov ah, 0x17
-    rep stosw
-    popa
-    ret
-
 _start:
+    mov esp, stack_top
+
     call clearscreen
     mov esi, .msg
     call textmodeprint
