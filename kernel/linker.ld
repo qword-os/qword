@@ -8,7 +8,7 @@ SECTIONS
     .text ALIGN(4K) :
     {
         sections_text = .;
-        *(.multiboot)
+        KEEP(*(.multiboot))
         *(.text)
         sections_text_end = .;
     }
