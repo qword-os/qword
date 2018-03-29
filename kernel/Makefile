@@ -43,6 +43,8 @@ CLINKFLAGS = -nostdlib \
 
 CFLAGS = -O2
 
+.PHONY: clean
+
 kernel.bin: $(BINS) $(OBJ) $(H_FILES)
 	$(CC) $(OBJ) $(CLINKFLAGS) -o $@
 
@@ -53,7 +55,7 @@ kernel.bin: $(BINS) $(OBJ) $(H_FILES)
 	$(ASM) $< -f bin -o $@
 
 %.o: %.asm
-	$(ASM) $< -f $(NASMFORMAT) -I./include -o $@
+	$(ASM) $< -f $(NASMFORMAT) -o $@
 
 clean:
 	rm -f $(OBJ) $(BINS) kernel.bin

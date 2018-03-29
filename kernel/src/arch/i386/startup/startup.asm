@@ -7,6 +7,7 @@ global _start
 
 extern textmodeprint
 extern clearscreen
+extern check_cpuid
 
 section .bss
 
@@ -21,6 +22,8 @@ _start:
     mov esp, stack_top
 
     call clearscreen
+    call check_cpuid
+
     mov esi, .msg
     call textmodeprint
     .halt:
