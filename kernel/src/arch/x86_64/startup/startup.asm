@@ -10,10 +10,18 @@ extern clearscreen
 extern check_cpuid
 extern check_long_mode
 
+section .bss
+
+align 16
+resb 2048
+stack_top:
+
 section .text
 bits 32
 
 _start:
+    mov esp, stack_top
+
     call clearscreen
     call check_cpuid
     call check_long_mode
