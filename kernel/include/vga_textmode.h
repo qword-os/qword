@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+void init_vga_textmode(void);
 void text_set_cursor_palette(uint8_t c);
 uint8_t text_get_cursor_palette(void);
 void text_set_text_palette(uint8_t c);

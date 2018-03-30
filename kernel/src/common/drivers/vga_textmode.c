@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <cio.h>
 #include <vga_textmode.h>
 
 #define VIDEO_BOTTOM ((VD_ROWS * VD_COLS) - 1)
@@ -20,6 +21,13 @@ static int *esc_value = &esc_value0;
 static int esc_default0 = 1;
 static int esc_default1 = 1;
 static int *esc_default = &esc_default0;
+
+void init_vga_textmode(void) {
+    port_out_b(0x3D4, 0x0A);
+    port_out_b(0x3D5, 0x20);
+    text_clear();
+    return;
+}
 
 void text_putstring(const char *str) {
     for (size_t i = 0; str[i]; i++)
