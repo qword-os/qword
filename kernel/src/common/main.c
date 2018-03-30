@@ -1,6 +1,8 @@
-// extern void textmodeprint(char *string);
+#include <vga_textmode.h>
 
-int kmain(int argc, char *argv) {
-    // textmodeprint("Hello, C world!");
+int kmain(int argc, char *argv[]) {
+    text_clear();
+    text_putstring("\e[5;5Hhello, C world");
+    for (;;);
     return 0;
 }
