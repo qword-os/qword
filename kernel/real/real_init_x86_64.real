@@ -1,0 +1,126 @@
+org 0x1000
+bits 64
+
+; Save stack
+mov qword [saved_stack], rsp
+
+; Save arg for later
+mov dword [arg], ebx
+
+; Save lmode IDT
+sidt [lmode_idt]
+
+; Load real mode IDT
+lidt [real_idt]
+
+; Save lmode GDT
+sgdt [lmode_gdt]
+
+; save cr3
+mov rax, cr3
+mov dword [cr3_reg], eax
+
+; Load 16-bit segments
+jmp far dword [ptr16]
+
+ptr16:
+dd pmode16
+dw 0x28
+
+pmode16:
+bits 16
+mov ax, 0x30
+mov ds, ax
+mov es, ax
+mov ss, ax
+mov fs, ax
+mov gs, ax
+
+; Leave compatibility mode
+mov eax, cr0
+and eax, 01111111111111111111111111111110b
+mov cr0, eax
+
+; leave long mode
+mov ecx, 0xc0000080
+rdmsr
+
+and eax, 0xfffffeff
+wrmsr
+
+; Load real mode segments
+jmp 0x0000:real_mode
+real_mode:
+xor ax, ax
+mov ds, ax
+mov es, ax
+mov fs, ax
+mov gs, ax
+mov ax, 0x1000
+mov ss, ax
+mov esp, 0xFFF0
+
+; Retrieve arg
+mov ebx, dword [arg]
+
+; Call actual routine
+call 0x8000
+
+; load cr3
+mov eax, dword [cr3_reg]
+mov cr3, eax
+
+mov ecx, 0xc0000080
+rdmsr
+
+or eax, 0x00000100
+wrmsr
+
+; load long mode GDT
+lgdt [lmode_gdt]
+
+; Enter long mode
+mov eax, cr0
+or eax, 0x80000001
+mov cr0, eax
+
+; Load long mode segments
+jmp 0x08:.lmode
+.lmode:
+bits 64
+mov ax, 0x10
+mov ds, ax
+mov es, ax
+mov fs, ax
+mov gs, ax
+mov ss, ax
+
+; Load lmode IDT
+lidt [lmode_idt]
+
+; Restore stack
+mov rsp, qword [saved_stack]
+
+; Return
+ret
+
+data:
+
+align 4
+lmode_idt:
+    dw 0
+    dq 0
+
+align 4
+real_idt:
+    dw 0x3FF
+    dq 0
+
+align 4
+lmode_gdt:
+    dw 0
+    dq 0
+
+arg dd 0
+cr3_reg dd 0
+saved_stack dq 0

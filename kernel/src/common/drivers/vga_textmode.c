@@ -23,8 +23,8 @@ static int esc_default1 = 1;
 static int *esc_default = &esc_default0;
 
 void init_vga_textmode(void) {
-    port_out_b(0x3D4, 0x0A);
-    port_out_b(0x3D5, 0x20);
+    port_out_b(0x3d4, 0x0a);
+    port_out_b(0x3d5, 0x20);
     text_clear();
     return;
 }
