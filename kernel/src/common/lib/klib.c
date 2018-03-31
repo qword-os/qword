@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <lock.h>
 #include <klib.h>
+#include <serial.h>
 #include <vga_textmode.h>
 
 int kstrcmp(const char *dst, const char *src) {
@@ -33,7 +34,12 @@ size_t kstrlen(const char *str) {
 }
 
 static void kputchar(char c) {
-    text_putchar(c);
+    #ifdef _KERNEL_SERIAL_
+        com1_write(c);
+    #endif
+    #ifdef _KERNEL_VGA_
+        text_putchar(c);
+    #endif
     return;
 }
 
