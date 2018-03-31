@@ -9,7 +9,8 @@ CHARDFLAGS = -std=gnu99 -masm=intel \
     -mno-red-zone \
     -nostdlib \
     -ffreestanding \
-    -I./include/
+    -I./include/ \
+    -D__X86_64__
 NASMFORMAT = elf64
 REAL_FILES = $(shell find ./real -type f -name '*.real') \
              $(shell find ./real -type l -name '*.real')
@@ -19,7 +20,8 @@ else ifeq ($(ARCH), i386)
 CHARDFLAGS = -std=gnu99 -masm=intel \
     -nostdlib \
     -ffreestanding \
-    -I./include/
+    -I./include/ \
+    -D__I386__
 NASMFORMAT = elf32
 REAL_FILES = $(shell find ./real -type f -name '*.real') \
              $(shell find ./real -type l -name '*.real')
