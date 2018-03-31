@@ -5,6 +5,7 @@
 #include <klib.h>
 #include <serial.h>
 #include <vga_textmode.h>
+#include <mm.h>
 
 int kstrcmp(const char *dst, const char *src) {
     size_t i;
@@ -174,3 +175,40 @@ out:
     spinlock_release(&kprint_lock);
     return;
 }
+
+typedef struct {
+    size_t pages;
+    size_t size;
+} alloc_metadata_t;
+
+void *kalloc(size_t size) {
+    size_t page_count = size / PAGE_SIZE;
+
+    if (size % PAGE_SIZE) page_count++;
+
+    char *ptr = pmm_alloc(page_count + 1);
+
+    if (!ptr) {
+        return (void *)0;
+    }
+
+    alloc_metadata_t *metadata = (alloc_metadata_t *)ptr;
+    ptr += PAGE_SIZE;
+
+    metadata->pages = page_count;
+    metadata->size = size;
+
+    // Zero pages.
+    for (size_t i = 0; i < (page_count * PAGE_SIZE); i++) {
+        ptr[i] = 0;
+    }
+
+    return (void *)ptr;
+}
+
+void kfree(void *ptr) {
+    alloc_metadata_t *metadata = (alloc_metadata_t *)((size_t)ptr - PAGE_SIZE);
+
+    pmm_free((void *)metadata, metadata->pages + 1);
+}
+

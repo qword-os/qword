@@ -13,5 +13,7 @@ size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);
 int kstrncmp(const char *, const char *, size_t);
 void kprint(int type, const char *fmt, ...);
+void *kalloc(size_t);
+void kfree(void *);
 
 #endif
