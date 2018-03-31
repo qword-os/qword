@@ -212,3 +212,59 @@ void kfree(void *ptr) {
     pmm_free((void *)metadata, metadata->pages + 1);
 }
 
+void *kmemcpy(void *dest, const void *src, size_t count) {
+    size_t i = 0;
+
+    uint8_t *dest2 = dest;
+    const uint8_t *src2 = src;
+    
+    /* Copy byte by byte */
+    for (i = 0; i < count; i++) {
+        dest2[i] = src2[i];
+    }
+    
+    return dest;
+}
+
+void *kmemset(void *s, int c, size_t count) {
+    uint8_t *p = s, *end = p + count;
+    for (; p != end; p++) {
+        *p = (uint8_t)c;
+    }
+
+    return s;    
+}
+
+void *kmemmove(void *dest, const void *src, size_t count) {
+    size_t i = 0;
+
+    uint8_t *dest2 = dest;
+    const uint8_t *src2 = src;
+
+    if (src > dest) {
+        for (i = 0; i < count; i++) {
+            dest2[i] = src2[i];
+        }
+    } else {
+        for (i = count; i > 0; i--) {
+            dest2[i - 1] = src2[i];
+        }
+    }
+
+    return dest;
+}
+
+int kmemcmp(const void *s1, const void *s2, size_t n) {
+    const uint8_t *a = s1;
+    const uint8_t *b = s2;
+    
+    for (size_t i = 0; i < n; i++) {
+        if (a[i] < b[i]) {
+            return -1;
+        } else if (a[i] > b[i]) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
