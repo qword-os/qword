@@ -1,7 +1,6 @@
 #ifndef __MM_H__
 #define __MM_H__
-
-static uint64_t memory_size;
+extern uint64_t memory_size;
 
 static int read_bitmap(size_t);
 static int write_bitmap(size_t, int);

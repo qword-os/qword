@@ -7,6 +7,8 @@
 void get_e820(void *);
 void calculate_free_memory_size(void);
 
+uint64_t memory_size;
+
 e820_entry_t e820_map[256];
 
 static const char *e820_type(uint32_t type) {
@@ -27,10 +29,10 @@ static const char *e820_type(uint32_t type) {
 }
 
 void init_e820(void) {
-    /* get e820 memory map */
+    // get e820 memory map
     get_e820(e820_map);
 
-    /* print out memory map */
+    // print out memory map.
     for (size_t i = 0; e820_map[i].type; i++) {
         kprint(KPRN_INFO, "e820: [%X -> %X] : %X  <%s>", e820_map[i].base,
                                               e820_map[i].base + e820_map[i].length,
