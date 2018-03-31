@@ -1,7 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <lock.h>
 #include <klib.h>
+#include <serial.h>
 #include <vga_textmode.h>
 
 int kstrcmp(const char *dst, const char *src) {
@@ -31,12 +33,17 @@ size_t kstrlen(const char *str) {
     return len;
 }
 
-void kputchar(char c) {
-    text_putchar(c);
+static void kputchar(char c) {
+    #ifdef _KERNEL_SERIAL_
+        com1_write(c);
+    #endif
+    #ifdef _KERNEL_VGA_
+        text_putchar(c);
+    #endif
     return;
 }
 
-void kputs(const char *string) {
+static void kputs(const char *string) {
     size_t i;
     
     for (i = 0; string[i]; i++) {
@@ -91,7 +98,11 @@ static void kprn_x(uint64_t x) {
     return;
 }
 
+static lock_t kprint_lock = 1;
+
 void kprint(int type, const char *fmt, ...) {
+    spinlock_acquire(&kprint_lock);
+
     va_list args;
 
     va_start(args, fmt);
@@ -114,7 +125,7 @@ void kprint(int type, const char *fmt, ...) {
             kputs("\e[36mDEBUG\e[37m: ");
             break;
         default:
-            return;
+            goto out;
     }
 
     char *str;
@@ -127,7 +138,7 @@ void kprint(int type, const char *fmt, ...) {
         if (!*fmt++) {
             va_end(args);
             kputchar('\n');
-            return;
+            goto out;
         }
         switch (*fmt++) {
             case 's':
@@ -158,4 +169,8 @@ void kprint(int type, const char *fmt, ...) {
                 break;
         }
     }
+
+out:
+    spinlock_release(&kprint_lock);
+    return;
 }

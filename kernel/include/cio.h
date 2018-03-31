@@ -1,7 +1,7 @@
-#include <stdint.h>
-
 #ifndef __CIO_H__
 #define __CIO_H__
+
+#include <stdint.h>
 
 #define port_out_b(port, value) ({				\
 	asm volatile (	"out dx, al"				\

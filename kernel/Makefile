@@ -1,4 +1,7 @@
 ARCH = x86_64
+DEBUG = vga
+
+BUILD_TIME = $(shell date)
 
 CC = $(ARCH)-elf-gcc
 
@@ -9,7 +12,8 @@ CHARDFLAGS = -std=gnu99 -masm=intel \
     -mno-red-zone \
     -nostdlib \
     -ffreestanding \
-    -I./include/
+    -I./include/ \
+    -D__X86_64__
 NASMFORMAT = elf64
 REAL_FILES = $(shell find ./real -type f -name '*.real') \
              $(shell find ./real -type l -name '*.real')
@@ -19,7 +23,8 @@ else ifeq ($(ARCH), i386)
 CHARDFLAGS = -std=gnu99 -masm=intel \
     -nostdlib \
     -ffreestanding \
-    -I./include/
+    -I./include/ \
+    -D__I386__
 NASMFORMAT = elf32
 REAL_FILES = $(shell find ./real -type f -name '*.real') \
              $(shell find ./real -type l -name '*.real')
@@ -28,6 +33,18 @@ ASM = nasm
 else
 $(error invalid architecture)
 endif
+
+ifeq ($(DEBUG), vga)
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_
+else ifeq ($(DEBUG), serial)
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_SERIAL_
+else ifeq ($(DEBUG), both)
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_SERIAL_
+else
+$(error variable DEBUG invalid)
+endif
+
+CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
 
 C_FILES = $(shell find ./src/common -type f -name '*.c') $(shell find ./src/arch/$(ARCH) -type f -name '*.c') \
           $(shell find ./src/common -type l -name '*.c') $(shell find ./src/arch/$(ARCH) -type l -name '*.c')
