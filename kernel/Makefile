@@ -1,5 +1,7 @@
 ARCH = x86_64
 
+BUILD_TIME = $(shell date)
+
 CC = $(ARCH)-elf-gcc
 
 ifeq ($(ARCH), x86_64)
@@ -10,7 +12,8 @@ CHARDFLAGS = -std=gnu99 -masm=intel \
     -nostdlib \
     -ffreestanding \
     -I./include/ \
-    -D__X86_64__
+    -D__X86_64__ \
+    -DBUILD_TIME='"$(BUILD_TIME)"'
 NASMFORMAT = elf64
 REAL_FILES = $(shell find ./real -type f -name '*.real') \
              $(shell find ./real -type l -name '*.real')
@@ -21,7 +24,8 @@ CHARDFLAGS = -std=gnu99 -masm=intel \
     -nostdlib \
     -ffreestanding \
     -I./include/ \
-    -D__I386__
+    -D__I386__ \
+    -DBUILD_TIME='"$(BUILD_TIME)"'
 NASMFORMAT = elf32
 REAL_FILES = $(shell find ./real -type f -name '*.real') \
              $(shell find ./real -type l -name '*.real')
