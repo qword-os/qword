@@ -50,7 +50,7 @@ void init_bitmap(void) {
             size_t page = addr / PAGE_SIZE;
 
             while (page >= bitmap_full * 32)
-                /* TODO */
+                bm_realloc();
             if (e820_map[i].type == 1)
                 write_bitmap(page, 0);
             else
@@ -101,8 +101,22 @@ void pmm_init(void) {
 
 void bm_realloc(void) {
     if ((tmp_bitmap = kalloc((bitmap_full + 2048) * sizeof(uint32_t))) == 0) {
-        /* TODO panic here */
+        kprint(KPRN_ERR, "");
+        for (;;);
     }
+    
+    kmemcpy((void *)tmp_bitmap, (void *)mem_bitmap, bitmap_full * sizeof(uint32_t));
+    for (size_t i = bitmap_full; i < bitmap_full + 2048; i++) {
+        tmp_bitmap[i] = 0xffffffff;
+    }
+    
+    bitmap_full += 2048;
 
-    /* TODO */
+    asm volatile (
+        "xchg rax, rdx;"
+        : "=a"(tmp_bitmap), "=d"(mem_bitmap)
+        : "a"(tmp_bitmap), "d"(mem_bitmap)   
+    );
+
+    kfree(tmp_bitmap);
 }

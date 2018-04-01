@@ -212,6 +212,30 @@ void kfree(void *ptr) {
     pmm_free((void *)metadata, metadata->pages + 1);
 }
 
+void *krealloc(void *ptr, size_t new) {
+    /* check if 0 */
+    if (!ptr) return kalloc(new);
+    if (!new) {
+        kfree(ptr);
+        return (void *)0;
+    }
+
+    /* Reference metadata page */
+    alloc_metadata_t *metadata = (alloc_metadata_t *)((size_t)ptr - PAGE_SIZE);
+
+    char *new_ptr;
+    if ((new_ptr = kalloc(new)) == 0) {
+        return (void *)0;
+    }
+
+    if (metadata->size > new)
+        /* Copy all the data from the old pointer to the new pointer,
+         * within the range specified by `size`. */
+        kmemcpy(new_ptr, (char *)ptr, new);
+    else
+        kmemcpy(new_ptr, (char *)ptr, metadata->size);
+}
+
 void *kmemcpy(void *dest, const void *src, size_t count) {
     size_t i = 0;
 
