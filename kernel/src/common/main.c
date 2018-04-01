@@ -10,15 +10,16 @@ int kmain(int argc, char *argv[]) {
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     init_e820();
-    pmm_init();
-    
+    init_pmm();
+
     kprint(KPRN_INFO, "Allocating physical memory...");
 
-    void *page = kalloc(2);
+    for (int i = 0; i < 5; i++)
+        kprint(KPRN_INFO, "page start address: %X", pmm_alloc(1));
+    for (int i = 0; i < 5; i++)
+        kprint(KPRN_INFO, "page start address: %X", kalloc(1));
 
-    kprint(KPRN_INFO, "page start address: %X", (uint64_t *)page);
-    
-    for(;;);
+    for (;;);
 
     return 0;
 }
