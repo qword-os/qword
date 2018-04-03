@@ -77,6 +77,11 @@ void init_pmm(void) {
     for (size_t i = 0; e820_map[i].type; i++) {
         for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
             size_t addr = e820_map[i].base + j * PAGE_SIZE;
+
+            /* FIXME: assume the first 32 MiB of memory to be free and usable */
+            if (addr < 0x2000000)
+                continue;
+
             size_t page = addr / PAGE_SIZE;
 
             while (page >= bitmap_full * 32)
