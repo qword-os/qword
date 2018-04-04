@@ -15,9 +15,19 @@ int kmain(int argc, char *argv[]) {
     kprint(KPRN_INFO, "Allocating physical memory...");
 
     for (int i = 0; i < 5; i++)
-        kprint(KPRN_INFO, "page start address: %X", pmm_alloc(1));
+        #ifdef __I386__
+            kprint(KPRN_INFO, "page start address: %x", pmm_alloc(1));
+        #endif
+        #ifdef __X86_64__
+            kprint(KPRN_INFO, "page start address: %X", pmm_alloc(1));
+        #endif
     for (int i = 0; i < 5; i++)
-        kprint(KPRN_INFO, "page start address: %X", kalloc(1));
+        #ifdef __I386__
+            kprint(KPRN_INFO, "page start address: %x", kalloc(1));
+        #endif
+        #ifdef __X86_64__
+            kprint(KPRN_INFO, "page start address: %X", kalloc(1));
+        #endif
 
     for (;;);
 

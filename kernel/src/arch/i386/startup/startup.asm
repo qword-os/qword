@@ -8,27 +8,36 @@ global _start
 extern textmodeprint
 extern clearscreen
 extern check_cpuid
-
-section .bss
-
-align 16
-resb 2048
-stack_top:
+extern paging_init
+extern gdt_ptr
+extern kmain
 
 section .text
 bits 32
 
 _start:
-    mov esp, stack_top
+    mov esp, 0xeffff0
 
     call clearscreen
+
     call check_cpuid
 
-    mov esi, .msg
-    call textmodeprint
-    .halt:
-        cli
-        hlt
-        jmp .halt
+    call paging_init
 
-.msg    db "Hello world", 0
+    lgdt [gdt_ptr]
+
+    jmp 0x08:.pmode_init
+
+.pmode_init:
+    mov ax, 0x10
+    mov ss, ax
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    call kmain
+.halt:
+    cli
+    hlt
+    jmp .halt

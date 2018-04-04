@@ -44,11 +44,9 @@ static void bm_realloc(void) {
 
     bitmap_full += 2048;
 
-    asm volatile (
-        "xchg rax, rdx;"
-        : "=a" (tmp_bitmap), "=d" (mem_bitmap)
-        : "a" (tmp_bitmap), "d" (mem_bitmap)
-    );
+    volatile uint32_t *tmp = tmp_bitmap;
+    tmp_bitmap = mem_bitmap;
+    mem_bitmap = tmp;
 
     kfree((void *)tmp_bitmap);
 
@@ -75,6 +73,10 @@ void init_pmm(void) {
        fits in that region and if the region type indicates the area itself
        is usable, write that page as free in the bitmap. Otherwise, mark the page as used. */
     for (size_t i = 0; e820_map[i].type; i++) {
+        #ifdef __I386__
+            if (e820_map[i].base >= 0x100000000)
+                continue;
+        #endif
         for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
             size_t addr = e820_map[i].base + j * PAGE_SIZE;
 

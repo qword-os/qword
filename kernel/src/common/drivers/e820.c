@@ -5,7 +5,7 @@
 
 void get_e820(void *);
 
-size_t memory_size = 0;
+uint64_t memory_size = 0;
 
 e820_entry_t e820_map[256];
 
