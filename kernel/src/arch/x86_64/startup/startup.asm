@@ -4,9 +4,6 @@
 ; long mode.
 
 global _start
-global pml4
-global pdpt
-global pd
 
 extern textmodeprint
 extern clearscreen
@@ -16,42 +13,25 @@ extern paging_init
 extern gdt_ptr
 extern kmain
 
-section .bss
-
-align 4096
-pml4:
-    resb 4096
-pdpt:
-    resb 4096
-pd:
-    resb 4096
-stack_bottom:
-    resb 4096
-stack_top:
-
 section .text
 bits 32
 
 _start:
-    mov esp, stack_top
+    mov esp, 0xeffff0
 
     call clearscreen
-    
-    mov esi, .msg    
-    call textmodeprint    
 
     call check_cpuid
     call check_long_mode
-    
-    call paging_init    
-    
+
+    call paging_init
 
     lgdt [gdt_ptr]
-    
+
     jmp 0x08:.long_mode_init
-    
+
 .long_mode_init:
-bits 64 
+bits 64
     mov ax, 0x10
     mov ss, ax
     mov ds, ax
@@ -64,5 +44,3 @@ bits 64
     cli
     hlt
     jmp .halt
-
-.msg    db "Hello world", 0
