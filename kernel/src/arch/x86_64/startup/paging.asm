@@ -54,7 +54,7 @@ set_up_page_tables:
     mov eax, 0x03
     mov edi, kernel_pagemap.pt
     mov ecx, 512 * 16
-  .loop0:
+.loop0:
     stosd
     push eax
     xor eax, eax
@@ -68,7 +68,7 @@ set_up_page_tables:
     or eax, 0x03
     mov edi, kernel_pagemap.pd
     mov ecx, 16
-  .loop1:
+.loop1:
     stosd
     push eax
     xor eax, eax
