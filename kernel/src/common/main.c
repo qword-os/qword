@@ -29,8 +29,6 @@ int kmain(int argc, char *argv[]) {
         #ifdef __X86_64__
             kprint(KPRN_INFO, "page start address: %X", kalloc(1));
         #endif
-    
-    uint64_t *i = 0x0;
 
     for (;;);
 
