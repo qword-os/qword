@@ -1,4 +1,5 @@
 #include <mm.h>
+#include <klib.h>
 
 /* map physaddr -> virtaddr using pml4 pointer 
  * TODO: add typedef entry_t to uint64_t. */
@@ -65,6 +66,7 @@ void map_page(uint64_t *pml4, uint64_t phys_addr, uint64_t virt_addr, uint64_t f
     
     /* Set the entry as present and point it to the passed physical address */
     pt[pt_entry] = (uint64_t)(phys_addr | flags);
+    return;
 }
 
 int unmap_page(uint64_t *pml4, uint64_t virt_addr) {
@@ -98,6 +100,8 @@ int unmap_page(uint64_t *pml4, uint64_t virt_addr) {
 
     /* Unset all previous flags */
     pt[pt_entry] = (uint64_t)0;
+
+    return 0;
 }
 
 /* Update flags for a mapping */
@@ -106,7 +110,7 @@ int remap_page(uint64_t *pml4, uint64_t virt_addr, uint64_t flags) {
     size_t pml4_entry = (virt_addr & ((size_t)0x1ff << 39)) >> 39;
     size_t pdpt_entry = (virt_addr & ((size_t)0x1ff << 30)) >> 30;
     size_t pd_entry = (virt_addr & ((size_t)0x1ff << 21)) >> 21;
-    size_t pt_entry = (virt_addr & ((size_t)0x1ff) << 12) >> 12;
+    size_t pt_entry = (virt_addr & ((size_t)0x1ff << 12)) >> 12;
 
     uint64_t *pdpt, *pd, *pt;
 
@@ -131,5 +135,19 @@ int remap_page(uint64_t *pml4, uint64_t virt_addr, uint64_t flags) {
     }
 
     /* Update flags */
-    pt[pt_entry] = (pt[pt_entry]) | flags; 
+    pt[pt_entry] = (pt[pt_entry]) | flags;
+
+    return 0;
+}
+
+/* Identity map the first 4GiB of memory, this saves issues with MMIO hardware < 4GiB later on */
+void full_identity_map(void) {
+    kprint(KPRN_INFO, "Identity mapping the first 4GiB of memory...");
+
+    for (size_t i = 0; i * PAGE_SIZE < 0x100000000; i++) {
+        uint64_t addr = i * PAGE_SIZE;
+        map_page(kernel_pagemap, addr, addr, 0x03);
+    }
+
+    return;
 }

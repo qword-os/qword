@@ -40,7 +40,7 @@ void init_e820(void) {
             memory_size += e820_map[i].length;
     }
 
-    kprint(KPRN_INFO, "e820: Total usable memory: %U bytes", memory_size);
+    kprint(KPRN_INFO, "e820: Total usable memory: %U MiB", memory_size / 1024 / 1024);
 
     return;
 }

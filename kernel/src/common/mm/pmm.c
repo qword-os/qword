@@ -79,6 +79,8 @@ void init_pmm(void) {
         #endif
         for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
             size_t addr = e820_map[i].base + j * PAGE_SIZE;
+            
+            /* map_page(kernel_pagemap, addr, addr, 0x03); */
 
             /* FIXME: assume the first 32 MiB of memory to be free and usable */
             if (addr < 0x2000000)
