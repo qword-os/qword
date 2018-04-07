@@ -6,15 +6,26 @@
 
 #define PAGE_SIZE 4096
 
-extern uint64_t *kernel_pagemap;
+#ifdef __X86_64__
+    #define PAGE_TABLE_ENTRIES 512
+#endif
+
+#ifdef __X86_64__
+    typedef uint64_t pt_entry_t;
+#endif
+#ifdef __I386__
+    typedef uint32_t pt_entry_t;
+#endif
+
+extern pt_entry_t kernel_pagemap;
 
 void *pmm_alloc(size_t);
 void pmm_free(void *, size_t);
 void init_pmm(void);
 
-void map_page(uint64_t *, uint64_t, uint64_t, uint64_t);
-int unmap_page(uint64_t *, uint64_t);
-int remap_page(uint64_t *, uint64_t, uint64_t);
+void map_page(pt_entry_t *, size_t, size_t, size_t);
+int unmap_page(pt_entry_t *, size_t);
+int remap_page(pt_entry_t *, size_t, size_t);
 void full_identity_map(void);
 
 #endif
