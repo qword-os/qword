@@ -9,6 +9,9 @@
 #ifdef __X86_64__
     #define PAGE_TABLE_ENTRIES 512
 #endif
+#ifdef __I386__
+    #define PAGE_TABLE_ENTRIES 1024
+#endif
 
 #ifdef __X86_64__
     typedef uint64_t pt_entry_t;
