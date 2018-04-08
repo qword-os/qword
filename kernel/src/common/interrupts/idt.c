@@ -1,37 +1,59 @@
 #include <idt.h>
 #include <klib.h>
 
-extern void int_handler(void);
+void int_handler(void);
     
 static idt_entry_t idt[256];
 
 void init_idt(void) {
     for (size_t vec = 0; vec < 256; vec++) {
-        register_interrupt_handler(0, vec, int_handler, 0x8F);
+        register_interrupt_handler(vec, int_handler, 0x8F);
     }
-    
+
     idt_ptr_t idt_ptr = {
         sizeof(idt) - 1,
-        (uint64_t)idt
+        #ifdef __X86_64__
+            (uint64_t)idt
+        #endif
+        #ifdef __I386__
+            (uint32_t)idt
+        #endif
     };
 
-    asm volatile("lidt %0" : : "m"(idt_ptr));
+    asm volatile("lidt %0" : : "m" (idt_ptr));
 }
 
-int register_interrupt_handler(uint8_t ist_idx, size_t vec, void (handler)(void), uint8_t type) {
+#ifdef __X86_64__
+int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t type) {
     uint64_t p = (uint64_t)handler;
-    
+
     idt[vec].offset_lo = (p & 0xffff);
     idt[vec].selector = 0x08;
-    idt[vec].ist = ist_idx;
+    idt[vec].ist = 0;
     idt[vec].type_attr = type;
-    idt[vec].offset_mid = ((p & 0xFFFF0000) >> 16);
-    idt[vec].offset_hi = ((p & 0xFFFFFFFF00000000) >> 32);
+    idt[vec].offset_mid = ((p & 0xffff0000) >> 16);
+    idt[vec].offset_hi = ((p & 0xffffffff00000000) >> 32);
     idt[vec].zero = 0;
 
     return 0;
 }
+#endif /* x86_64 */
+
+#ifdef __I386__
+int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t type) {
+    uint32_t p = (uint32_t)handler;
+
+    idt[vec].offset_lo = (p & 0xffff);
+    idt[vec].selector = 0x08;
+    idt[vec].unused = 0;
+    idt[vec].type_attr = type;
+    idt[vec].offset_hi = ((p & 0xffff0000) >> 16);
+
+    return 0;
+}
+#endif /* i386 */
 
 void dummy_int_handler(void) {
     kprint(KPRN_INFO, "Interrupt!");
+    return;
 }
