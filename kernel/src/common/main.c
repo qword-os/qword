@@ -3,7 +3,9 @@
 #include <vga_textmode.h>
 #include <e820.h>
 #include <mm.h>
+#include <idt.h>
 
+/* Main kernel entry point, all the things should be initialised */
 int kmain(int argc, char *argv[]) {
     init_com1();
     init_vga_textmode();
@@ -12,6 +14,7 @@ int kmain(int argc, char *argv[]) {
     init_e820();
     init_pmm();
     full_identity_map();
+    init_idt();
 
     kprint(KPRN_INFO, "Allocating physical memory...");
 
@@ -28,7 +31,9 @@ int kmain(int argc, char *argv[]) {
         #endif
         #ifdef __X86_64__
             kprint(KPRN_INFO, "page start address: %X", kalloc(1));
-        #endif
+        #endif 
+     
+    asm volatile("int 0xff");
 
     for (;;);
 
