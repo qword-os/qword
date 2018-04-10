@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <mm.h>
 #include <klib.h>
+#include <e820.h>
 
 #ifdef __X86_64__
 /* map physaddr -> virtaddr using pml4 pointer */
@@ -228,12 +229,30 @@ int remap_page(pt_entry_t *pd, size_t virt_addr, size_t flags) {
 #endif /* i386 */
 
 /* Identity map the first 4GiB of memory, this saves issues with MMIO hardware < 4GiB later on */
-void full_identity_map(void) {
-    kprint(KPRN_INFO, "VMM: Identity mapping the first 4GiB of memory...");
+/* Then use the e820 to map all the available memory (saves on allocation time and it's easier) */
+/* The latter only applies to x86_64 */
+void init_vmm(void) {
+    kprint(KPRN_INFO, "VMM: Identity mapping e820 memory...");
 
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
         map_page(&kernel_pagemap, addr, addr, 0x03);
+    }
+
+    #ifdef __I386__
+        return;
+    #endif
+
+    for (size_t i = 0; e820_map[i].type; i++) {
+        for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
+            size_t addr = e820_map[i].base + j * PAGE_SIZE;
+
+            /* FIXME: assume the first 32 MiB of memory to be free and usable */
+            if (addr < 0x2000000)
+                continue;
+
+            map_page(&kernel_pagemap, addr, addr, 0x03);
+        }
     }
 
     return;

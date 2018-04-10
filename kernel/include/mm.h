@@ -29,6 +29,6 @@ void init_pmm(void);
 void map_page(pt_entry_t *, size_t, size_t, size_t);
 int unmap_page(pt_entry_t *, size_t);
 int remap_page(pt_entry_t *, size_t, size_t);
-void full_identity_map(void);
+void init_vmm(void);
 
 #endif

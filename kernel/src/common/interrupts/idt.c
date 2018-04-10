@@ -55,8 +55,7 @@ int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t type) 
 #endif /* i386 */
 
 void dummy_int_handler(void) {
-    kprint(KPRN_INFO, "Interrupt!");
-    /* ACK this interrupt to the PICS */
-    port_out_b(0x20, 0x20);
+    kprint(KPRN_INFO, "Unhandled interrupt occurred");
+
     return;
 }

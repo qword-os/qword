@@ -7,12 +7,6 @@
 #define MODE_8086 0x01
 #define EOI 0x20
 
-void init_pic8259(void) {
-    /* Set PIC offsets */
-    pic8259_remap(0x20, 0x28);
-    return;
-}
-
 void pic8259_eoi0(void) {
     port_out_b(0x20, EOI);
     io_wait();
@@ -32,6 +26,10 @@ void pic8259_remap(uint8_t pic0_offset, uint8_t pic1_offset) {
     kprint(KPRN_INFO,"pic_8259: Initialising with offsets %x and %x",
             (uint32_t)pic0_offset,
             (uint32_t)pic1_offset);
+
+    /* Save masks */
+    uint8_t pic0_mask = port_in_b(0x21);
+    uint8_t pic1_mask = port_in_b(0xa1);
 
     port_out_b(0x20, CMD_INIT);
     io_wait();
@@ -53,10 +51,11 @@ void pic8259_remap(uint8_t pic0_offset, uint8_t pic1_offset) {
     port_out_b(0xA1, MODE_8086);
     io_wait();
 
-    /* Clear all masks, enabling all IRQs. */
-    for (uint8_t line = 0; line < 16; line++) {
-        pic8259_set_mask(line, 0);
-    }
+    /* Restore masks */
+    port_out_b(0x21, pic0_mask);
+    io_wait();
+    port_out_b(0xa1, pic1_mask);
+    io_wait();
 
     return;
 }
