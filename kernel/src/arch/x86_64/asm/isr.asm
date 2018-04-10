@@ -3,14 +3,16 @@ extern dummy_int_handler
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
+    cli
+
     pusham
 
     call %1
 
     popam
 
+    sti
     iretq
-
 %endmacro
 
 ; Save registers.

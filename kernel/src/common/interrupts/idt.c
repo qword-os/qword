@@ -1,13 +1,14 @@
 #include <idt.h>
 #include <klib.h>
+#include <cio.h>
 
 void int_handler(void);
-    
+
 static idt_entry_t idt[256];
 
 void init_idt(void) {
     for (size_t vec = 0; vec < 256; vec++) {
-        register_interrupt_handler(vec, int_handler, 0x8F);
+        register_interrupt_handler(vec, int_handler, 0);
     }
 
     idt_ptr_t idt_ptr = {
@@ -55,5 +56,7 @@ int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t type) 
 
 void dummy_int_handler(void) {
     kprint(KPRN_INFO, "Interrupt!");
+    /* ACK this interrupt to the PICS */
+    port_out_b(0x20, 0x20);
     return;
 }
