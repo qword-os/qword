@@ -8,7 +8,7 @@ static idt_entry_t idt[256];
 
 void init_idt(void) {
     for (size_t vec = 0; vec < 256; vec++) {
-        register_interrupt_handler(vec, int_handler, 0);
+        register_interrupt_handler(vec, int_handler, 0x8f);
     }
 
     idt_ptr_t idt_ptr = {

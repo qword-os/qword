@@ -4,7 +4,7 @@
 #include <e820.h>
 #include <mm.h>
 #include <idt.h>
-#include <pic.h>
+#include <pic8259.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(int argc, char *argv[]) {
@@ -19,10 +19,8 @@ int kmain(int argc, char *argv[]) {
     init_pmm();
     full_identity_map();
 
-    /* Set PIC offsets */
-    remap_pic(0x20, 0x28);
-
     init_idt();
+    init_pic8259();
 
     kprint(KPRN_INFO, "Allocating physical memory...");
 
@@ -39,7 +37,9 @@ int kmain(int argc, char *argv[]) {
         #endif
         #ifdef __X86_64__
             kprint(KPRN_INFO, "page start address: %X", kalloc(1));
-        #endif 
+        #endif
+
+    asm volatile ("sti;");
 
     for (;;);
 

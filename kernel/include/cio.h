@@ -51,4 +51,6 @@
 	value;										\
 })
 
+#define io_wait() ({ port_out_b(0x80, 0x00); })
+
 #endif
