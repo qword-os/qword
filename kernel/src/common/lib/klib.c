@@ -133,7 +133,7 @@ void kprint(int type, const char *fmt, ...) {
 
     for (;;) {
         char c;
-        size_t len;
+
         while (*fmt && *fmt != '%')
             kputchar(*(fmt++));
         if (!*fmt++) {
@@ -234,6 +234,10 @@ void *krealloc(void *ptr, size_t new) {
         kmemcpy(new_ptr, (char *)ptr, new);
     else
         kmemcpy(new_ptr, (char *)ptr, metadata->size);
+
+    kfree(ptr);
+
+    return new_ptr;
 }
 
 void *kmemcpy(void *dest, const void *src, size_t count) {
