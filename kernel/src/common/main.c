@@ -4,7 +4,7 @@
 #include <e820.h>
 #include <mm.h>
 #include <idt.h>
-#include <pic8259.h>
+#include <pic.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(int argc, char *argv[]) {
@@ -20,8 +20,8 @@ int kmain(int argc, char *argv[]) {
     init_e820();
     init_pmm();
     init_vmm();
-
-    kprint(KPRN_INFO, "Kernel bootup finished. Nothing to see here yet :^)");
+    
+    init_pic();
 
     for (;;)
         asm volatile ("hlt;");

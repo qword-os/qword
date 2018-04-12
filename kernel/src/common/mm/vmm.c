@@ -232,7 +232,7 @@ int remap_page(pt_entry_t *pd, size_t virt_addr, size_t flags) {
 /* Then use the e820 to map all the available memory (saves on allocation time and it's easier) */
 /* The latter only applies to x86_64 */
 void init_vmm(void) {
-    kprint(KPRN_INFO, "VMM: Identity mapping e820 memory...");
+    kprint(KPRN_INFO, "vmm: Identity mapping memory as specified by the e820...");
 
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
