@@ -2,6 +2,8 @@
 #include <klib.h>
 #include <cpuid.h>
 
+#define APIC_CPUID_BIT ( 1 << 9)
+
 int should_use_apic = 0;
 
 void check_apic(void) {

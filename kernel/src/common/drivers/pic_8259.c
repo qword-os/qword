@@ -13,7 +13,7 @@ void pic_8259_eoi(uint8_t current_vector) {
         port_out_b(0xa0, 0x20);
     }
 
-    port_out_b(0xa0, 0x20);
+    port_out_b(0x20, 0x20);
 }
 
 /* Remap the PIC IRQs to the given vector offsets */
