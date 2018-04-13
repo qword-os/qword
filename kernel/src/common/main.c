@@ -5,6 +5,7 @@
 #include <mm.h>
 #include <idt.h>
 #include <pic.h>
+#include <acpi.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(int argc, char *argv[]) {
@@ -20,7 +21,9 @@ int kmain(int argc, char *argv[]) {
     init_e820();
     init_pmm();
     init_vmm();
-    
+
+    init_acpi();
+
     init_pic();
 
     for (;;)

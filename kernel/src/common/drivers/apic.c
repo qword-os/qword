@@ -7,16 +7,16 @@
 int apic_supported(void) {
     unsigned int eax, ebx, ecx, edx = 0;
 
-    kprint(KPRN_INFO, "APIC: Checking for support...");
+    kprint(KPRN_INFO, "apic: Checking for support...");
 
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
 
     /* Check if the apic bit is set */
     if ((edx & APIC_CPUID_BIT)) {
-        kprint(KPRN_INFO, "APIC: Supported!");
+        kprint(KPRN_INFO, "apic: Supported!");
         return 1;
     } else {
-        kprint(KPRN_INFO, "APIC: Unsupported!");
+        kprint(KPRN_INFO, "apic: Unsupported!");
         return 0;
     }
 }
