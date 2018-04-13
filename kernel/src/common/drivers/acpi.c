@@ -6,13 +6,18 @@
 #define ACPI_TABLES_MAX 256
 
 int acpi_available = 0;
-int madt_available = 0;
 
 static int use_xsdt = 0;
 
 rsdp_t *rsdp;
 rsdt_t *rsdt;
 xsdt_t *xsdt;
+
+/* Table initialisations should go here */
+
+/* MADT */
+
+int madt_available = 0;
 madt_t *madt;
 
 madt_local_apic_t **madt_local_apics;
@@ -26,6 +31,62 @@ size_t madt_iso_ptr = 0;
 
 madt_nmi_t **madt_nmis;
 size_t madt_nmi_ptr = 0;
+
+static void init_madt(void) {
+    /* search for MADT table */
+    for (size_t i = 0; i < rsdt->sdt.length; i++) {
+        madt = (madt_t *)(size_t)rsdt->sdt_ptr[i];
+        if (!kstrncmp(madt->sdt.signature, "APIC", 4)) {
+            kprint(KPRN_INFO, "acpi: Found MADT at %x", (size_t)madt);
+            goto madt_found;
+        }
+    }
+    madt_available = 0;
+    kprint(KPRN_INFO, "acpi: MADT not found");
+    return;
+madt_found:
+
+    madt_available = 1;
+
+    madt_local_apics = kalloc(ACPI_TABLES_MAX);
+    madt_io_apics = kalloc(ACPI_TABLES_MAX);
+    madt_isos = kalloc(ACPI_TABLES_MAX);
+    madt_nmis = kalloc(ACPI_TABLES_MAX);
+
+    /* parse the MADT entries */
+    for (uint8_t *madt_ptr = (uint8_t *)(&madt->madt_entries_begin);
+        (size_t)madt_ptr < (size_t)madt + madt->sdt.length;
+        madt_ptr += *(madt_ptr + 1)) {
+        switch (*(madt_ptr)) {
+            case 0:
+                /* processor local APIC */
+                kprint(KPRN_INFO, "acpi: Found local APIC #%u", madt_local_apic_ptr);
+                madt_local_apics[madt_local_apic_ptr++] = (madt_local_apic_t *)madt_ptr;
+                break;
+            case 1:
+                /* I/O APIC */
+                kprint(KPRN_INFO, "acpi: Found I/O APIC #%u", madt_io_apic_ptr);
+                madt_io_apics[madt_io_apic_ptr++] = (madt_io_apic_t *)madt_ptr;
+                break;
+            case 2:
+                /* interrupt source override */
+                kprint(KPRN_INFO, "acpi: Found ISO #%u", madt_iso_ptr);
+                madt_isos[madt_iso_ptr++] = (madt_iso_t *)madt_ptr;
+                break;
+            case 4:
+                /* NMI */
+                kprint(KPRN_INFO, "acpi: Found NMI #%u", madt_nmi_ptr);
+                madt_nmis[madt_nmi_ptr++] = (madt_nmi_t *)madt_ptr;
+                break;
+            default:
+                break;
+        }
+    }
+
+    return;
+}
+
+/* MADT end */
 
 /* This function should look for all the ACPI tables and index them for
    later use */
@@ -68,59 +129,8 @@ rsdp_found:
         rsdt = (rsdt_t *)(size_t)rsdp->rsdt_addr;
     }
 
-    /****** MADT ******/
-
-    /* search for MADT table */
-    for (size_t i = 0; i < rsdt->sdt.length; i++) {
-        madt = (madt_t *)(size_t)rsdt->sdt_ptr[i];
-        if (!kstrncmp(madt->sdt.signature, "APIC", 4)) {
-            kprint(KPRN_INFO, "acpi: Found MADT at %x", (size_t)madt);
-            goto madt_found;
-        }
-    }
-    madt_available = 0;
-    kprint(KPRN_INFO, "acpi: MADT not found");
-    goto madt_not_found;
-madt_found:
-
-    madt_available = 1;
-
-    madt_local_apics = kalloc(ACPI_TABLES_MAX);
-    madt_io_apics = kalloc(ACPI_TABLES_MAX);
-    madt_isos = kalloc(ACPI_TABLES_MAX);
-    madt_nmis = kalloc(ACPI_TABLES_MAX);
-
-    /* parse the MADT entries */
-    for (uint8_t *madt_ptr = (uint8_t *)(&madt->madt_entries_begin);
-        (size_t)madt_ptr < (size_t)madt + madt->sdt.length;
-        madt_ptr += *(madt_ptr + 1)) {
-        switch (*(madt_ptr)) {
-            case 0:
-                /* processor local APIC */
-                kprint(KPRN_INFO, "acpi: Found local APIC #%u", madt_local_apic_ptr);
-                madt_local_apics[madt_local_apic_ptr++] = (madt_local_apic_t *)madt_ptr;
-                break;
-            case 1:
-                /* I/O APIC */
-                kprint(KPRN_INFO, "acpi: Found I/O APIC #%u", madt_io_apic_ptr);
-                madt_io_apics[madt_io_apic_ptr++] = (madt_io_apic_t *)madt_ptr;
-                break;
-            case 2:
-                /* interrupt source override */
-                kprint(KPRN_INFO, "acpi: Found ISO #%u", madt_iso_ptr);
-                madt_isos[madt_iso_ptr++] = (madt_iso_t *)madt_ptr;
-                break;
-            case 4:
-                /* NMI */
-                kprint(KPRN_INFO, "acpi: Found NMI #%u", madt_nmi_ptr);
-                madt_nmis[madt_nmi_ptr++] = (madt_nmi_t *)madt_ptr;
-                break;
-            default:
-                break;
-        }
-    }
-madt_not_found:
+    /* Call table inits */
+    init_madt();
 
     return;
-
 }
