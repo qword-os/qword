@@ -1,21 +1,31 @@
+#include <stdint.h>
+#include <apic.h>
+#include <pic_8259.h>
 #include <pic.h>
 
-void send_eoi(uint8_t current_vector) {
+static int should_use_apic = 0;
+
+void pic_send_eoi(uint8_t current_vector) {
     if (should_use_apic) {
         /* TODO Send APIC EOI */
+    } else {
+        pic_8259_eoi(current_vector);
     }
 
-    pic_8259_eoi(current_vector);
+    return;
 }
 
 void init_pic(void) {
-    check_apic();
-    
-    if (should_use_apic) {
+    if (apic_supported()) {
         /* TODO initialise APIC, mask PIC interrupts */
+        should_use_apic = 1;
+        pic_8259_remap(0x30, 0x38);
+    } else {
+        /* FIXME: Should we make these offsets tunable? (might coincide with other vectors
+           we don't want to be tunable ...) */
+        should_use_apic = 0;
+        pic_8259_remap(0x20, 0x28);
     }
-    
-    /* FIXME: Should we make these offsets tunable? (might coincide with other vectors
-    * we don't want to be tunable ...) */ 
-    pic_8259_remap(0x20, 0x28);
+
+    return;
 }
