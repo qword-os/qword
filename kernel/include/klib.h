@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern char cmdline[];
-
 #define KPRN_INFO   0
 #define KPRN_WARN   1
 #define KPRN_ERR    2
