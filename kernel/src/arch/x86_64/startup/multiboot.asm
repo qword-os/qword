@@ -10,10 +10,13 @@ legacy_skip_header:
     jmp _start
 
 align 4
+
+FLAGS equ 0x00010000
+
 multiboot_header:
     .magic dd 0x1BADB002
-    .flags dd 0x00010000
-    .checksum dd -(0x1BADB002 + 0x00010000)
+    .flags dd FLAGS
+    .checksum dd -(0x1BADB002 + FLAGS)
     .header_addr dd multiboot_header
     .load_addr dd sections_text
     .load_end_addr dd sections_data_end

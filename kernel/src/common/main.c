@@ -8,7 +8,7 @@
 #include <acpi.h>
 
 /* Main kernel entry point, all the things should be initialised */
-int kmain(int argc, char *argv[]) {
+int kmain(void) {
     init_idt();
 
     init_com1();
@@ -16,6 +16,7 @@ int kmain(int argc, char *argv[]) {
 
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
+    kprint(KPRN_INFO, "Command line: %s", cmdline);
 
     /* Memory-related stuff */
     init_e820();
