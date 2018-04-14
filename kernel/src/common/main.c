@@ -1,6 +1,6 @@
 #include <klib.h>
 #include <serial.h>
-#include <vga_textmode.h>
+#include <tty.h>
 #include <e820.h>
 #include <mm.h>
 #include <idt.h>
@@ -13,13 +13,11 @@ int kmain(void) {
     init_idt();
 
     init_com1();
-    init_vga_textmode();
+    init_tty();
 
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
-
-    kprint(KPRN_INFO, "Value of key \"%s\": %s", "hello", cmdline_get_value("hello"));
 
     /* Memory-related stuff */
     init_e820();
