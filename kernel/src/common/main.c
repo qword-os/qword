@@ -22,7 +22,7 @@ int kmain(int argc, char *argv[]) {
     init_vmm();
     
     init_pic();
-
+ 
     for (;;)
         asm volatile ("hlt;");
 
