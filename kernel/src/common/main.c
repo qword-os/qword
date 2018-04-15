@@ -1,6 +1,7 @@
 #include <klib.h>
 #include <serial.h>
 #include <tty.h>
+#include <vbe.h>
 #include <e820.h>
 #include <mm.h>
 #include <idt.h>
@@ -18,6 +19,8 @@ int kmain(void) {
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
+
+    init_vbe();
 
     /* Memory-related stuff */
     init_e820();
