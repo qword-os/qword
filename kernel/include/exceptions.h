@@ -1,8 +1,6 @@
 #ifndef __EXCEPTIONS_H__
 #define __EXCEPTIONS_H__
 
-#include <stdint.h>
-
 /* Assembly routines */
 void exc_div0_handler(void);
 void exc_debug_handler(void);

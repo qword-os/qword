@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <exceptions.h>
 #include <klib.h>
 #include <panic.h>
@@ -8,10 +9,15 @@
 
 /* TODO pass exception error codes as debug info if possible */
 
-void page_fault_handler(void) {
-    uint64_t faulting_addr;
+/* TODO delet dis */
 
-    asm volatile("mov %0, cr2": "=r"(faulting_addr));
+void page_fault_handler(void) {
+    size_t faulting_addr;
+
+    asm volatile (
+        "mov %0, cr2"
+        : "=r" (faulting_addr)
+    );
 
     panic("CPU exception: Page fault!", 0x1, faulting_addr);
 }

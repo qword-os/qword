@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-void panic(const char *, int, uint64_t);
-void halt(void);
+void panic(const char *, uint64_t, uint64_t);
 
 #endif
