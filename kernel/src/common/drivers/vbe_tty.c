@@ -34,7 +34,7 @@ static int cols;
 uint8_t vga_font[16 * 256];
 
 static void plot_px(int x, int y, uint32_t hex) {
-    size_t fb_i = x + vbe_width * y;
+    size_t fb_i = x + (vbe_pitch / sizeof(uint32_t)) * y;
 
     vbe_framebuffer[fb_i] = hex;
 

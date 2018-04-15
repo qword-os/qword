@@ -44,7 +44,8 @@ typedef struct {
 } __attribute__((packed)) edid_info_struct_t;
 
 typedef struct {
-    uint8_t pad0[18];
+    uint8_t pad0[16];
+    uint16_t pitch;
     uint16_t res_x;
     uint16_t res_y;
     uint8_t pad1[3];
@@ -62,6 +63,7 @@ typedef struct {
 extern uint32_t *vbe_framebuffer;
 extern int vbe_width;
 extern int vbe_height;
+extern int vbe_pitch;
 
 extern int vbe_available;
 
