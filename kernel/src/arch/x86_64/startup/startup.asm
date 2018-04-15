@@ -4,6 +4,7 @@
 ; long mode.
 
 global _start
+global cmdline
 
 extern textmodeprint
 extern clearscreen
@@ -13,11 +14,29 @@ extern paging_init
 extern gdt_ptr
 extern kmain
 
+section .bss
+
+cmdline resb 2048
+
 section .text
 bits 32
 
 _start:
     mov esp, 0xeffff0
+
+    mov esi, dword [ebx+16]
+    mov edi, cmdline
+    mov ecx, 2047
+  .cpycmdline:
+    lodsb
+    test al, al
+    jz .cpycmdline_out
+    stosb
+    dec ecx
+    jnz .cpycmdline
+  .cpycmdline_out:
+    xor al, al
+    stosb
 
     call clearscreen
 

@@ -58,7 +58,7 @@ CLINKFLAGS = -nostdlib \
     -static-libgcc -lgcc \
     -T ./linker.ld
 
-CFLAGS = -O2
+CFLAGS = -O2 -Wall -Wextra
 
 .PHONY: clean
 

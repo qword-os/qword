@@ -9,6 +9,7 @@
 #define KPRN_ERR    2
 #define KPRN_DBG    3
 
+char *kstrcpy(char *, const char *);
 size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);
 int kstrncmp(const char *, const char *, size_t);

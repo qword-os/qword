@@ -2,19 +2,21 @@
 #include <klib.h>
 #include <cpuid.h>
 
-#define APIC_CPUID_BIT ( 1 << 9)
+#define APIC_CPUID_BIT (1 << 9)
 
-int should_use_apic = 0;
+int apic_supported(void) {
+    unsigned int eax, ebx, ecx, edx = 0;
 
-void check_apic(void) {
-	uint32_t eax, ebx, ecx, edx = 0;
-	__get_cpuid(1, &eax, &ebx, &ecx, &edx);
-    
-    kprint(KPRN_INFO, "Checking APIC support...");
+    kprint(KPRN_INFO, "apic: Checking for support...");
+
+    __get_cpuid(1, &eax, &ebx, &ecx, &edx);
 
     /* Check if the apic bit is set */
     if ((edx & APIC_CPUID_BIT)) {
-        kprint(KPRN_INFO, "CPU supports APIC!");
-        should_use_apic = 1;
+        kprint(KPRN_INFO, "apic: Supported!");
+        return 1;
+    } else {
+        kprint(KPRN_INFO, "apic: Unsupported!");
+        return 0;
     }
 }

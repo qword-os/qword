@@ -4,8 +4,19 @@
 #include <lock.h>
 #include <klib.h>
 #include <serial.h>
-#include <vga_textmode.h>
+#include <tty.h>
 #include <mm.h>
+
+char *kstrcpy(char *dest, const char *src) {
+    size_t i = 0;
+
+    for (i = 0; src[i]; i++)
+        dest[i] = src[i];
+
+    dest[i] = 0;
+
+    return dest;
+}
 
 int kstrcmp(const char *dst, const char *src) {
     size_t i;
@@ -39,7 +50,7 @@ static void kputchar(char c) {
         com1_write(c);
     #endif
     #ifdef _KERNEL_VGA_
-        text_putchar(c);
+        tty_putchar(c);
     #endif
     return;
 }
