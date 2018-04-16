@@ -21,6 +21,6 @@ void *kmemset(void *, int, size_t);
 void *kmemcpy(void *, const void*, size_t);
 int kmemcmp(const void *, const void *, size_t);
 void *memmove(void *, const void *, size_t);
-
+void kexcept(const char *, size_t, size_t, size_t, size_t);
 
 #endif

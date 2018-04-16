@@ -24,3 +24,17 @@ void panic(const char *msg, uint64_t err_code, uint64_t debug_info) {
             "jmp 1b;"
     );
 }
+
+void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t debug) {
+    kprint(KPRN_ERR, "CPU EXCEPTION:");
+    kprint(KPRN_ERR, msg);
+    kprint(KPRN_ERR, "Instruction pointer: %X", ip);
+    kprint(KPRN_ERR, "Value of CS register: %X", cs);
+    kprint(KPRN_ERR, "Debug info: %X", debug);
+
+    asm volatile(
+            "1:"
+            "hlt;"
+            "jmp 1b;"            
+    );
+}

@@ -56,46 +56,69 @@ extern security_handler
 
 %endmacro
 
+%macro except_handler_err_code 1
+    ; Since GPRs get trashed by an exception anyway we don't need to save them.
+    pop esi
+    pop edi
+    ; Pop the error code as well.
+    pop edx
+    
+    call %1
+
+    iretd
+%endmacro
+
+%macro except_handler 1
+    pop esi
+    pop edi
+
+    call %1
+
+    iretd
+%endmacro
+
+section .text
+bits 32
+
 int_handler:
     common_handler dummy_int_handler
-
 exc_div0_handler:
-    common_handler div0_handler
+    except_handler div0_handler
 exc_debug_handler:
-    common_handler debug_handler
+    except_handler debug_handler
 exc_nmi_handler:
-    common_handler nmi_handler
+    except_handler nmi_handler
 exc_breakpoint_handler:
-    common_handler breakpoint_handler
+    except_handler breakpoint_handler
 exc_overflow_handler:
-    common_handler overflow_handler
+    except_handler overflow_handler
 exc_bound_range_handler:
-    common_handler bound_range_handler
+    except_handler bound_range_handler
 exc_inv_opcode_handler:
-    common_handler inv_opcode_handler
+    except_handler inv_opcode_handler
 exc_no_dev_handler:
-    common_handler no_dev_handler
+    except_handler no_dev_handler
 exc_double_fault_handler:
-    common_handler double_fault_handler
+    except_handler_err_code double_fault_handler
 exc_inv_tss_handler:
-    common_handler inv_tss_handler
+    except_handler_err_code inv_tss_handler
 exc_no_segment_handler:
-    common_handler no_segment_handler
+    except_handler_err_code no_segment_handler
 exc_ss_fault_handler:
-    common_handler ss_fault_handler
+    except_handler_err_code ss_fault_handler
 exc_gpf_handler:
-    common_handler gpf_handler
+    except_handler_err_code gpf_handler
 exc_page_fault_handler:
-    common_handler page_fault_handler
+    except_handler_err_code page_fault_handler
 exc_x87_fp_handler:
-    common_handler x87_fp_handler
+    except_handler x87_fp_handler
 exc_alignment_check_handler:
-    common_handler alignment_check_handler
+    except_handler_err_code alignment_check_handler
 exc_machine_check_handler:
-    common_handler machine_check_handler
+    except_handler machine_check_handler
 exc_simd_fp_handler:
-    common_handler simd_fp_handler
+    except_handler simd_fp_handler
 exc_virt_handler:
-    common_handler virt_handler
+    except_handler virt_handler
 exc_security_handler:
-    common_handler security_handler
+    except_handler_err_code security_handler

@@ -9,9 +9,60 @@
 
 /* TODO pass exception error codes as debug info if possible */
 
-/* TODO delet dis */
 
-void page_fault_handler(void) {
+void div0_handler(size_t cs, size_t ip) {
+    kexcept("Page fault!", cs, ip, 0, 0);
+}
+
+void debug_handler(size_t cs, size_t ip) {
+    kexcept("Debug exception!", cs, ip, 0, 0);
+}
+
+void nmi_handler(size_t cs, size_t ip) {
+    kexcept("Non-maskable interrupt, please check your hardware!", cs, ip, 0, 0);
+}
+
+void breakpoint_handler(size_t cs, size_t ip) {
+    kexcept("Breakpoint exception!", cs, ip, 0, 0);
+}
+
+void overflow_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: Overflow", cs, ip, 0, 0);
+}
+
+void bound_range_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: Bound range exceeded!", cs, ip, 0, 0);
+}
+
+void inv_opcode_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: Invalid opcode!", cs, ip, 0, 0);
+}
+
+void no_dev_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: Device not found!", cs, ip, 0, 0);
+}
+
+void double_fault_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: Double fault!", cs, ip, error_code, 0);
+}
+
+void inv_tss_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: Invalid TSS!", cs, ip, error_code, 0);
+}
+
+void no_segment_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: Segment not present!", cs, ip, error_code, 0);
+}
+
+void ss_fault_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: Stack segment fault!", cs, ip, error_code, 0);
+}
+
+void gpf_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: General protection fault!", cs, ip, error_code, 0);
+}
+
+void page_fault_handler(size_t cs, size_t ip, size_t error_code) {
     size_t faulting_addr;
 
     asm volatile (
@@ -19,81 +70,29 @@ void page_fault_handler(void) {
         : "=r" (faulting_addr)
     );
 
-    panic("CPU exception: Page fault!", 0x1, faulting_addr);
+    kexcept("CPU exception: Page fault!", cs, ip, error_code, faulting_addr);
 }
 
-void div0_handler(void) {
-    panic("CPU exception: Divide-by-zero!", 0x1, 0);
+void x87_fp_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: x87 floating-point exception!", cs, ip, 0, 0);
 }
 
-void debug_handler(void) {
-    panic("CPU exception: Debug exception.", 0x0, 0);
+void alignment_check_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: Alignment check!", cs, ip, error_code, 0);
 }
 
-void nmi_handler(void) {
-    panic("CPU exception: Non-maskable interrupt. Please check your hardware!", 0x2, 0); 
+void machine_check_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: Machine check! Possible internal processor error.", cs, ip, 0, 0);
 }
 
-void breakpoint_handler(void) {
-    kprint(KPRN_DBG, "CPU exception: Breakpoint");
+void simd_fp_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: SIMD floating-point exception!", cs, ip, 0, 0);
 }
 
-void overflow_handler(void) {
-    panic("CPU exception: Overflow", 0x0, 0);
+void virt_handler(size_t cs, size_t ip) {
+    kexcept("CPU exception: Virtualization exception!", cs, ip, 0, 0);
 }
 
-void bound_range_handler(void) {
-    panic("CPU exception: Bound range exceeded!", 0x1, 0);
-}
-
-void inv_opcode_handler(void) {
-    panic("CPU exception: Invalid opcode!", 0x1, 0);
-}
-
-void no_dev_handler(void) {
-    panic("CPU exception: Device not found!", 0x1, 0);
-}
-
-void double_fault_handler(void) {
-    panic("CPU exception: Double fault!", 0x2, 0);
-}
-
-void inv_tss_handler(void) {
-    panic("CPU exception: Invalid TSS!", 0x1, 0);
-}
-
-void no_segment_handler(void) {
-    panic("CPU exception: Segment not present!", 0x1, 0);
-}
-
-void ss_fault_handler(void) {
-    panic("CPU exception: Stack segment fault!", 0x1, 0);
-}
-
-void gpf_handler(void) {
-    panic("CPU exception: General protection fault!", 0x1, 0);
-}
-
-void x87_fp_handler(void) {
-    panic("CPU exception: x87 floating-point exception!", 0x1, 0);
-}
-
-void alignment_check_handler(void) {
-    panic("CPU exception: Alignment check!", 0x1, 0);
-}
-
-void machine_check_handler(void) {
-    panic("CPU exception: Machine check! Possible internal processor error.", 0x2, 0);
-}
-
-void simd_fp_handler(void) {
-    panic("CPU exception: SIMD floating-point exception!", 0x1, 0);
-}
-
-void virt_handler(void) {
-    panic("CPU exception: Virtualization exception!", 0x1, 0);
-}
-
-void security_handler(void) {
-    panic("CPU exception: Security exception!", 0x1, 0);
+void security_handler(size_t cs, size_t ip, size_t error_code) {
+    kexcept("CPU exception: Security exception!", cs, ip, error_code, 0);
 }
