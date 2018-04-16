@@ -2,7 +2,6 @@
 #define __VBE_H__
 
 #include <stdint.h>
-#include <stddef.h>
 
 typedef struct {
     uint8_t version_min;
@@ -45,7 +44,8 @@ typedef struct {
 } __attribute__((packed)) edid_info_struct_t;
 
 typedef struct {
-    uint8_t pad0[18];
+    uint8_t pad0[16];
+    uint16_t pitch;
     uint16_t res_x;
     uint16_t res_y;
     uint8_t pad1[3];
@@ -63,14 +63,14 @@ typedef struct {
 extern uint32_t *vbe_framebuffer;
 extern int vbe_width;
 extern int vbe_height;
+extern int vbe_pitch;
 
 extern int vbe_available;
 
-void get_vbe_info(vbe_info_struct_t *vbe_info_struct);
-void get_edid_info(edid_info_struct_t *edid_info_struct);
-void get_vbe_mode_info(get_vbe_t *get_vbe);
-void set_vbe_mode(uint16_t mode);
-void dump_vga_font(uint8_t *bitmap);
+void get_vbe_info(vbe_info_struct_t *);
+void get_edid_info(edid_info_struct_t *);
+void get_vbe_mode_info(get_vbe_t *);
+void set_vbe_mode(uint16_t);
 
 void init_vbe(void);
 

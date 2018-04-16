@@ -13,6 +13,7 @@ static uint16_t vid_modes[1024];
 uint32_t *vbe_framebuffer;
 int vbe_width;
 int vbe_height;
+int vbe_pitch;
 
 int vbe_available = 0;
 
@@ -116,6 +117,7 @@ modeset:
             /* mode found */
             kprint(KPRN_INFO, "vbe: Found matching mode %x, attempting to set.", (uint32_t)get_vbe.mode);
             vbe_framebuffer = (uint32_t *)(size_t)vbe_mode_info.framebuffer;
+            vbe_pitch = vbe_mode_info.pitch;
             kprint(KPRN_INFO, "vbe: Framebuffer address: %x", (uint32_t)vbe_mode_info.framebuffer);
             set_vbe_mode(get_vbe.mode);
             goto success;

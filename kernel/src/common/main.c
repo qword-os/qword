@@ -1,6 +1,8 @@
 #include <klib.h>
 #include <serial.h>
 #include <tty.h>
+#include <vga_textmode.h>
+#include <vbe_tty.h>
 #include <vbe.h>
 #include <e820.h>
 #include <mm.h>
@@ -14,18 +16,21 @@ int kmain(void) {
     init_idt();
 
     init_com1();
+    init_vga_textmode();
+
     init_tty();
 
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
 
-    init_vbe();
-
     /* Memory-related stuff */
     init_e820();
     init_pmm();
     init_vmm();
+
+    init_vbe();
+    init_vbe_tty();
 
     init_acpi();
 
