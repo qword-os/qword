@@ -56,22 +56,13 @@ extern security_handler
 
 %endmacro
 
-%macro except_handler_err_code 1
-    ; Since GPRs get trashed by an exception anyway we don't need to save them.
-    pop esi
-    pop edi
-    ; Pop the error code as well.
-    pop edx
-    
+%macro except_handler_err_code 1   
     call %1
 
     iretd
 %endmacro
 
 %macro except_handler 1
-    pop esi
-    pop edi
-
     call %1
 
     iretd

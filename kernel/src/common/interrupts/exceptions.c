@@ -1,14 +1,6 @@
 #include <stddef.h>
 #include <exceptions.h>
-#include <klib.h>
 #include <panic.h>
-
-/* FIXME: For exceptions that are recoverable, we should kill the offending process. However,
- * if we are the kernel (as we will be when an exception occurs for the foreseeable future,
- * we should just panic (except for breakpoints) */
-
-/* TODO pass exception error codes as debug info if possible */
-
 
 void div0_handler(size_t cs, size_t ip) {
     kexcept("Page fault!", cs, ip, 0, 0);
