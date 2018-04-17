@@ -43,6 +43,10 @@ extern simd_fp_handler
 extern virt_handler
 extern security_handler
 
+; IRQs
+global irq0_handler
+extern pit_handler
+
 ; Misc.
 extern dummy_int_handler
 global int_handler
@@ -160,3 +164,6 @@ exc_virt_handler:
     except_handler virt_handler
 exc_security_handler:
     except_handler_err_code security_handler
+
+irq0_handler:
+    common_handler pit_handler

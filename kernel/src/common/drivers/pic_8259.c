@@ -63,7 +63,7 @@ void pic_8259_set_mask(uint8_t line, int status) {
     if (line < 8) {
         port = 0x21;
     } else {
-        port = 0xA1;
+        port = 0xa1;
         line -= 8;
     }
 
@@ -76,4 +76,9 @@ void pic_8259_set_mask(uint8_t line, int status) {
     io_wait();
 
     return;
+}
+
+void pic_8259_mask_all(void) {
+    port_out_b(0xa1, 0xff);
+    port_out_b(0x21, 0xff);
 }

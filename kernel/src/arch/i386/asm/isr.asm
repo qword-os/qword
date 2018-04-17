@@ -44,6 +44,10 @@ extern simd_fp_handler
 extern virt_handler
 extern security_handler
 
+; IRQs
+global irq0_handler
+extern pit_handler
+
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
     pusha
@@ -113,3 +117,6 @@ exc_virt_handler:
     except_handler virt_handler
 exc_security_handler:
     except_handler_err_code security_handler
+
+irq0_handler:
+    common_handler pit_handler
