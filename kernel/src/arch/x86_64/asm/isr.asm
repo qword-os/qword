@@ -47,6 +47,10 @@ extern security_handler
 global irq0_handler
 extern pit_handler
 
+; IPIs
+global ipi_abort
+extern ipi_abort_handler
+
 ; Misc.
 extern dummy_int_handler
 global int_handler
@@ -165,5 +169,10 @@ exc_virt_handler:
 exc_security_handler:
     except_handler_err_code security_handler
 
+; IRQs
 irq0_handler:
     common_handler pit_handler
+
+; IPIs
+ipi_abort:
+    common_handler ipi_abort_handler

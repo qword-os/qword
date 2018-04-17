@@ -48,6 +48,10 @@ extern security_handler
 global irq0_handler
 extern pit_handler
 
+; IPIs
+global ipi_abort
+extern ipi_abort_handler
+
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
     pusha
@@ -120,3 +124,6 @@ exc_security_handler:
 
 irq0_handler:
     common_handler pit_handler
+
+ipi_abort:
+    common_handler ipi_abort_handler

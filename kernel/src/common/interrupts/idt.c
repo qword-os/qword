@@ -3,6 +3,7 @@
 #include <cio.h>
 #include <exceptions.h>
 #include <irq.h>
+#include <ipi.h>
 
 void int_handler(void);
 
@@ -37,6 +38,9 @@ void init_idt(void) {
     register_interrupt_handler(0x1e, exc_security_handler, 0x8f);
     
     register_interrupt_handler(0x20, irq0_handler, 0x8f);
+    
+    /* Inter-processor interrupts */
+    register_interrupt_handler(0x40, ipi_abort, 0x8f);
 
     idt_ptr_t idt_ptr = {
         sizeof(idt) - 1,

@@ -66,6 +66,11 @@ void lapic_eoi(void) {
     lapic_write(0xb0, 0);
 }
 
+void lapic_send_ipi(uint8_t vector, uint8_t target_id) {
+    lapic_write(0x300, ((uint32_t)target_id << 24));
+    lapic_write(0x310, 0x4000 | vector);
+}
+
 /* Read from the `io_apic_num`'th I/O APIC as described by the MADT */
 uint32_t io_apic_read(size_t io_apic_num, uint32_t reg) {
     volatile uint32_t *base = (volatile uint32_t *)madt_io_apics[io_apic_num]->addr;
