@@ -15,6 +15,16 @@ void pic_send_eoi(uint8_t current_vector) {
     return;
 }
 
+void pic_set_mask(int irq, int status) {
+    if (should_use_apic) {
+        io_apic_set_mask(irq, status);
+    } else {
+        pic_8259_set_mask(irq, status);
+    }
+
+    return;
+}
+
 void init_pic(void) {
     if (apic_supported()) {
         /* TODO initialise APIC, mask PIC interrupts */

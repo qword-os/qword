@@ -126,19 +126,26 @@ void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t api
     io_apic_write(io_apic, ioredtbl + 1, (uint32_t)(redirect >> 32));
 }
 
-void install_redirects(void) {
-    /* Install all redirects */
-    for (size_t i = 0; i < madt_iso_ptr; i++) {
-        io_apic_set_redirect(madt_isos[i]->irq_source, 
-                        madt_isos[i]->gsi,
-                        madt_isos[i]->flags,
-                        madt_local_apics[0]->apic_id);
+void io_apic_set_mask(int irq, int status) {
+    if (status) {
+        /* install IRQ ISO */
+        for (size_t i = 0; i < madt_iso_ptr; i++) {
+            if (madt_isos[i]->irq_source == irq) {
+                io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
+                                madt_isos[i]->flags, madt_local_apics[0]->apic_id);
+                return;
+            }
+        }
+        /* not found in the ISOs, redirect normally */
+        io_apic_set_redirect(irq, irq, 0, madt_local_apics[0]->apic_id);
+    } else {
+        /* TODO: code to mask APIC IRQs */
     }
+
+    return;
 }
 
 void init_apic(void) {
-    kprint(KPRN_INFO, "apic: Installing interrupt source overrides...");
-    install_redirects();
     kprint(KPRN_INFO, "apic: Installing non-maskable interrupts...");
     lapic_install_nmis();
     kprint(KPRN_INFO, "apic: Enabling local APIC...");

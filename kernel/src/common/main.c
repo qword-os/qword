@@ -34,13 +34,13 @@ int kmain(void) {
     init_vbe();
     init_vbe_tty();
 
-    init_pit();
-
     init_acpi();
 
     init_pic();
 
     asm volatile ("sti");
+
+    init_pit();
 
     init_smp();
  

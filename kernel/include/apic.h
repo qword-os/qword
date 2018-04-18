@@ -20,7 +20,7 @@ void io_apic_write(size_t, uint32_t, uint32_t);
 size_t io_apic_from_redirect(uint32_t);
 uint32_t io_apic_get_max_redirect(size_t);
 void io_apic_set_redirect(uint8_t, uint32_t, uint16_t, uint8_t);
-void install_redirects(void);
+void io_apic_set_mask(int, int);
 
 void init_apic(void);
 

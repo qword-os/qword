@@ -24,6 +24,11 @@ bits 32
 _start:
     mov esp, 0xeffff0
 
+    ; mask the PIC right away
+    mov al, 0xff
+    out 0x21, al
+    out 0xa1, al
+
     mov esi, dword [ebx+16]
     mov edi, cmdline
     mov ecx, 2047
