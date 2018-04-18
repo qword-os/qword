@@ -1,0 +1,46 @@
+org 0x1000
+bits 16
+
+cli
+cld
+
+xor ax, ax
+mov ds, ax
+
+; set the flag
+mov byte [0x510], 1
+
+jmp 0x0:fix_cs
+fix_cs:
+mov es, ax
+mov fs, ax
+mov gs, ax
+mov ss, ax
+
+mov esp, dword [0x550]
+
+lgdt [0x580]
+lidt [0x590]
+
+mov edx, dword [0x540]
+mov cr3, edx
+
+mov eax, cr0
+or eax, 0x80000001
+and eax, ~(0x60000000)
+mov cr0, eax
+
+jmp 0x08:.mode32
+.mode32:
+bits 32
+mov ax, 0x10
+mov ds, ax
+mov es, ax
+mov ss, ax
+mov gs, ax
+mov ax, 0x38
+mov fs, ax
+
+; jump to entry point
+mov ebx, dword [0x520]
+call ebx

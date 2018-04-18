@@ -1,4 +1,5 @@
 global gdt_ptr
+global gdt_set_fs_base
 
 section .data
 
@@ -71,4 +72,26 @@ align 16
     db 10001111b        ; Granularity
     db 0x00             ; Base (high 8 bits)
 
+.fs:
+    dw 0xFFFF           ; Limit
+  .fs_base_low:
+    dw 0x0000           ; Base (low 16 bits)
+  .fs_base_mid:
+    db 0x00             ; Base (mid 8 bits)
+    db 10010010b        ; Access
+    db 11001111b        ; Granularity
+  .fs_base_high:
+    db 0x00             ; Base (high 8 bits)
+
 .gdt_end:
+
+section .text
+
+gdt_set_fs_base:
+    ; new base in EAX
+    mov word [gdt_ptr.fs_base_low], ax
+    shr eax, 16
+    mov byte [gdt_ptr.fs_base_mid], al
+    shr eax, 8
+    mov byte [gdt_ptr.fs_base_high], al
+    ret

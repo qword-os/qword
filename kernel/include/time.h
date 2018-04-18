@@ -7,6 +7,6 @@
 extern uint64_t uptime_raw;
 extern uint64_t uptime_sec;
 
-void ksleep(size_t);
+void ksleep(uint64_t);
 
 #endif
