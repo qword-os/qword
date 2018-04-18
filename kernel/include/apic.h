@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define APICREG_ICR0 0x300
+#define APICREG_ICR1 0x310
+
 int apic_supported(void);
 
 uint32_t lapic_read(uint32_t);

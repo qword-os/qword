@@ -6,6 +6,7 @@
 #include <serial.h>
 #include <tty.h>
 #include <mm.h>
+#include <time.h>
 
 char *kstrcpy(char *dest, const char *src) {
     size_t i = 0;
@@ -120,8 +121,8 @@ void kprint(int type, const char *fmt, ...) {
     va_start(args, fmt);
 
     /* print timestamp */
-    /*kputs("["); kprn_ui(uptime_sec); kputs(".");
-    kprn_ui(uptime_raw); kputs("] ");*/
+    kputs("["); kprn_ui(uptime_sec); kputs(".");
+    kprn_ui(uptime_raw); kputs("] ");
 
     switch (type) {
         case KPRN_INFO:

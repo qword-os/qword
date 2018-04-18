@@ -10,6 +10,8 @@
 #include <pic.h>
 #include <acpi.h>
 #include <cmdline.h>
+#include <pit.h>
+#include <smp.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -32,9 +34,15 @@ int kmain(void) {
     init_vbe();
     init_vbe_tty();
 
+    init_pit();
+
     init_acpi();
 
     init_pic();
+
+    asm volatile ("sti");
+
+    init_smp();
  
     for (;;)
         asm volatile ("hlt;");
