@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
-extern uint64_t uptime_raw;
-extern uint64_t uptime_sec;
+extern volatile uint64_t uptime_raw;
+extern volatile uint64_t uptime_sec;
 
 void ksleep(uint64_t);
 

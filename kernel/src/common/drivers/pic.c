@@ -28,10 +28,10 @@ void pic_set_mask(int irq, int status) {
 void init_pic(void) {
     if (apic_supported()) {
         /* TODO initialise APIC, mask PIC interrupts */
+        pic_8259_remap(0xa0, 0xa8);
+        pic_8259_mask_all();
         should_use_apic = 1;
         init_apic();
-        pic_8259_remap(0x30, 0x38);
-        pic_8259_mask_all();
     } else {
         /* FIXME: Should we make these offsets tunable? (might coincide with other vectors
            we don't want to be tunable ...) */

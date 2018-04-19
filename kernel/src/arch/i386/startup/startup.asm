@@ -12,6 +12,8 @@ extern check_cpuid
 extern paging_init
 extern gdt_ptr
 extern kmain
+extern sections_bss
+extern sections_bss_end
 
 section .bss
 
@@ -27,6 +29,13 @@ _start:
     mov al, 0xff
     out 0x21, al
     out 0xa1, al
+
+    ; zero out bss
+    mov edi, sections_bss
+    mov ecx, sections_bss_end
+    sub ecx, sections_bss
+    xor eax, eax
+    rep stosb
 
     mov esi, dword [ebx+16]
     mov edi, cmdline

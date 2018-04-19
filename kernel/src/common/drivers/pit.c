@@ -12,7 +12,9 @@ void init_pit(void) {
         x++;
         
     port_out_b(0x40, (uint8_t)(x & 0x00ff));
+    io_wait();
     port_out_b(0x40, (uint8_t)((x & 0xff00) >> 8));
+    io_wait();
 
     kprint(KPRN_INFO, "pit: Frequency updated");
 
