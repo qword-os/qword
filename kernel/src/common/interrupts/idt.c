@@ -41,6 +41,16 @@ void init_idt(void) {
     
     /* Inter-processor interrupts */
     register_interrupt_handler(0x40, ipi_abort, 0x8f);
+    
+    for (size_t i = 0; i < 8; i++) {
+        register_interrupt_handler(0x90 + i, apic_nmi, 0x8f);
+    } 
+
+    for (size_t i = 0; i < 16; i++) {
+        register_interrupt_handler(0xa0 + i, pic_generic, 0x8f);
+    }
+
+    register_interrupt_handler(0xff, apic_spurious, 0x8f);
 
     idt_ptr_t idt_ptr = {
         sizeof(idt) - 1,
