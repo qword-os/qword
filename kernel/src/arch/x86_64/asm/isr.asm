@@ -45,12 +45,14 @@ extern security_handler
 
 ; IRQs
 global irq0_handler
-global pic_generic
+global pic0_generic
+global pic1_generic
 global apic_nmi
 global apic_spurious
 
 extern pit_handler
-extern pic_generic_handler
+extern pic0_generic_handler
+extern pic1_generic_handler
 extern apic_nmi_handler
 extern apic_spurious_handler
 
@@ -179,8 +181,10 @@ exc_security_handler:
 ; IRQs
 irq0_handler:
     common_handler pit_handler
-pic_generic:
-    common_handler pic_generic_handler
+pic0_generic:
+    common_handler pic0_generic_handler
+pic1_generic:
+    common_handler pic1_generic_handler
 
 ; IPIs
 ipi_abort:

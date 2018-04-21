@@ -5,6 +5,13 @@
 #include <klib.h>
 #include <time.h>
 #include <pit.h>
+#include <cio.h>
+
+void dummy_int_handler(void) {
+    kprint(KPRN_INFO, "Unhandled interrupt occurred");
+
+    return;
+}
 
 void pit_handler(void) {
     if (!(++uptime_raw % PIT_FREQUENCY)) {
@@ -14,14 +21,19 @@ void pit_handler(void) {
     return;
 }
 
-void pic_generic_handler(void) {
-    /* Hacky, but it ensures both of the PICs are EOI'd, hence all eventualities are covered. */
-    pic_8259_eoi(8); 
+void pic0_generic_handler(void) {
+    port_out_b(0x20, 0x20);
+    return;
+}
+
+void pic1_generic_handler(void) {
+    port_out_b(0xa0, 0x20);
+    port_out_b(0x20, 0x20);
     return;
 }
 
 void apic_nmi_handler(void) {
-    kprint(KPRN_WARN, "Warning: Non-maskable interrupt occured. Possible hardware issue...");
+    kprint(KPRN_WARN, "apic: Non-maskable interrupt occured. Possible hardware issue...");
     lapic_eoi();
     return;
 }

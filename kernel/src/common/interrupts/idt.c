@@ -5,8 +5,6 @@
 #include <irq.h>
 #include <ipi.h>
 
-void int_handler(void);
-
 static idt_entry_t idt[256];
 
 void init_idt(void) {
@@ -42,12 +40,15 @@ void init_idt(void) {
     /* Inter-processor interrupts */
     register_interrupt_handler(0x40, ipi_abort, 0x8f);
     
-    for (size_t i = 0; i < 8; i++) {
+    for (size_t i = 0; i < 16; i++) {
         register_interrupt_handler(0x90 + i, apic_nmi, 0x8f);
     } 
 
-    for (size_t i = 0; i < 16; i++) {
-        register_interrupt_handler(0xa0 + i, pic_generic, 0x8f);
+    for (size_t i = 0; i < 8; i++) {
+        register_interrupt_handler(0xa0 + i, pic0_generic, 0x8f);
+    }
+    for (size_t i = 0; i < 8; i++) {
+        register_interrupt_handler(0xa8 + i, pic1_generic, 0x8f);
     }
 
     register_interrupt_handler(0xff, apic_spurious, 0x8f);
@@ -94,9 +95,3 @@ int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t type) 
     return 0;
 }
 #endif /* i386 */
-
-void dummy_int_handler(void) {
-    kprint(KPRN_INFO, "Unhandled interrupt occurred");
-
-    return;
-}
