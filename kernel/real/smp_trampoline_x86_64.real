@@ -66,6 +66,10 @@ mov rax, qword [0x560]
 xor rdx, rdx
 wrmsr
 
+; Load TSS
+mov ax, 0x38
+ltr ax
+
 ; jump to entry point
 mov rbx, qword [0x520]
 call rbx

@@ -4,6 +4,8 @@ global smp_check_ap_flag
 global smp_get_cpu_number
 global smp_get_cpu_kernel_stack
 
+extern load_tss
+
 section .data
 
 %define smp_trampoline_size  smp_trampoline_end - smp_trampoline
@@ -20,6 +22,7 @@ bits 64
 smp_prepare_trampoline:
     ; entry point in rdi, page table in rsi
     ; stack pointer in rdx, cpu local in rcx
+    ; tss in r8
 
     ; prepare variables
     mov byte [0x510], 0
@@ -35,6 +38,9 @@ smp_prepare_trampoline:
     mov rdi, TRAMPOLINE_ADDR
     mov rcx, smp_trampoline_size
     rep movsb
+
+    mov rdi, r8
+    call load_tss
 
     mov rax, TRAMPOLINE_ADDR / PAGE_SIZE
     ret
@@ -53,6 +59,22 @@ smp_init_cpu0_local:
     mov rax, rdi
     xor rdx, rdx
     wrmsr
+
+    ; enable SSE
+    mov rax, cr0
+    and al, 0xfb
+    or al, 0x02
+    mov cr0, rax
+    mov rax, cr4
+    or ax, 3 << 9
+    mov cr4, rax
+
+    mov rdi, rsi
+    call load_tss
+
+    mov ax, 0x38
+    ltr ax
+
     ret
 
 smp_get_cpu_number:

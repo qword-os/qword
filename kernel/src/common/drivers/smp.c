@@ -12,7 +12,18 @@
 
 int smp_cpu_count = 1;
 
+#ifdef __X86_64__
+    typedef struct {
+        uint32_t unused __attribute__((aligned(16)));
+        uint32_t sp;
+        uint32_t entries[24];
+    } __attribute__((packed)) tss_t;
+#endif
+
 static size_t cpu_stack_top = 0xeffff0;
+
+static cpu_local_t cpu_locals[MAX_CPUS];
+static tss_t cpu_tss[MAX_CPUS] __attribute__((aligned(16)));
 
 static void ap_kernel_entry(void) {
     /* APs jump here after initialisation */
@@ -32,16 +43,18 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     }
 
     /* create CPU local struct */
-    cpu_local_t *cpu_local = kalloc(sizeof(cpu_local_t));
-    if (!cpu_local)
-        panic("", 0, 0);
+    cpu_local_t *cpu_local = &cpu_locals[cpu_number];
 
     cpu_local->cpu_number = cpu_number;
     cpu_local->kernel_stack = cpu_stack_top;
 
-    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, &kernel_pagemap, (void *)cpu_stack_top, cpu_local);
+    /* prepare TSS */
+    tss_t *tss = &cpu_tss[cpu_number];
 
-    cpu_stack_top -= CPU_STACK_SIZE;
+    tss->sp = (uint32_t)cpu_stack_top;
+
+    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, &kernel_pagemap,
+                                (void *)cpu_stack_top, cpu_local, tss);
 
     /* Send the INIT IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
@@ -54,7 +67,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     /* wait 1ms */
     ksleep(1);
     if (smp_check_ap_flag()) {
-        return 0;
+        goto success;
     } else {
         /* Send the Startup IPI again */
         lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
@@ -62,23 +75,30 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
         /* wait 1s */
         ksleep(1000);
         if (smp_check_ap_flag())
-            return 0;
+            goto success;
         else
             return -1;
     }
+
+success:
+    cpu_stack_top -= CPU_STACK_SIZE;
+    return 0;
 }
 
 static void init_cpu0(void) {
     /* create CPU 0 local struct */
-    cpu_local_t *cpu_local = kalloc(sizeof(cpu_local_t));
-    if (!cpu_local)
-        panic("", 0, 0);
+    cpu_local_t *cpu_local = &cpu_locals[0];
 
     cpu_local->cpu_number = 0;
     cpu_local->kernel_stack = cpu_stack_top;
-    cpu_stack_top -= CPU_STACK_SIZE;
 
-    smp_init_cpu0_local(cpu_local);
+    tss_t *tss = &cpu_tss[0];
+
+    tss->sp = (uint32_t)cpu_stack_top;
+
+    smp_init_cpu0_local(cpu_local, tss);
+
+    cpu_stack_top -= CPU_STACK_SIZE;
 
     return;
 }
