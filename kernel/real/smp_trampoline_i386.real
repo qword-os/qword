@@ -41,6 +41,9 @@ mov gs, ax
 mov ax, 0x38
 mov fs, ax
 
+mov ax, 0x40
+ltr ax
+
 ; jump to entry point
 mov ebx, dword [0x520]
 call ebx

@@ -1,12 +1,7 @@
 global gdt_ptr
 global load_tss
-global gdt_phys
-global gdt_len
 
 section .data
-
-gdt_phys dq gdt_ptr.gdt_start
-gdt_len dw gdt_ptr.gdt_end - gdt_ptr.gdt_start - 1
 
 align 16
 
@@ -14,7 +9,7 @@ gdt_ptr:
     dw .gdt_end - .gdt_start - 1  ; GDT size
     dd .gdt_start                 ; GDT start
 
-align 4096
+align 16
 .gdt_start:
 
 ; Null descriptor (required)

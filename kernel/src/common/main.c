@@ -7,7 +7,6 @@
 #include <e820.h>
 #include <mm.h>
 #include <idt.h>
-#include <gdt.h>
 #include <pic.h>
 #include <acpi.h>
 #include <cmdline.h>
@@ -34,10 +33,6 @@ int kmain(void) {
 
     init_vbe();
     init_vbe_tty();
-
-    /* No more BIOS calls below this point */
-
-    init_gdt();
 
     init_acpi();
 

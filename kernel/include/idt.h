@@ -30,14 +30,14 @@
         uint16_t size;
         /* Start address */
         uint64_t address; 
-    } __attribute__((packed)) idt_ptr_t;
+    } __attribute((packed)) idt_ptr_t;
 #endif
 #ifdef __I386__
     typedef struct idt_ptr_t {
         uint16_t size;
         /* Start address */
         uint32_t address; 
-    } __attribute__((packed)) idt_ptr_t;
+    } __attribute((packed)) idt_ptr_t;
 #endif
 
 void init_idt(void);
