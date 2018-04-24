@@ -19,8 +19,7 @@ mov ss, ax
 
 mov esp, dword [0x550]
 
-lgdt [0x580]
-lidt [0x590]
+lgdt [gdt_ptr]  ; local GDT
 
 mov edx, dword [0x540]
 mov cr3, edx
@@ -43,6 +42,9 @@ mov cr0, eax
 jmp 0x08:.mode64
 .mode64:
 bits 64
+; Load effective GDT and LDT
+lgdt [0x580]
+lidt [0x590]
 mov ax, 0x10
 mov ds, ax
 mov es, ax
@@ -73,3 +75,31 @@ ltr ax
 ; jump to entry point
 mov rbx, qword [0x520]
 call rbx
+
+align 16
+gdt_ptr:
+    dw .gdt_end - .gdt_start - 1  ; GDT size
+    dd .gdt_start                 ; GDT start
+
+align 16
+.gdt_start:
+
+; Null descriptor (required)
+.null_descriptor:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 00000000b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+; 64 bit mode kernel
+.kernel_code_64:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 10011010b        ; Access
+    db 00100000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+.gdt_end:
