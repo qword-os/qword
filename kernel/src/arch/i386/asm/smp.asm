@@ -5,7 +5,6 @@ global smp_get_cpu_number
 global smp_get_cpu_kernel_stack
 
 extern gdt_set_fs_base
-extern load_tss
 
 section .data
 
@@ -23,7 +22,6 @@ bits 32
 smp_prepare_trampoline:
     ; entry point in esp+16, page table in esp+20
     ; stack pointer in esp+24, cpu local in esp+28
-    ; tss in esp+32
 
     push esi
     push edi
@@ -48,9 +46,6 @@ smp_prepare_trampoline:
     mov ecx, smp_trampoline_size
     rep movsb
 
-    mov edi, [esp+32]
-    call load_tss
-
     pop ecx
     pop edi
     pop esi
@@ -69,15 +64,6 @@ smp_init_cpu0_local:
     call gdt_set_fs_base
     mov ax, 0x38
     mov fs, ax
-
-    push edi
-    mov edi, dword [esp+12]
-    call load_tss
-
-    mov ax, 0x40
-    ltr ax
-    pop edi
-
     ret
 
 smp_get_cpu_number:
