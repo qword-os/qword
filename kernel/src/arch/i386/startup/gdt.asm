@@ -1,9 +1,18 @@
 global gdt_ptr
+global gdt_ptr_lowerhalf
 global gdt_set_fs_base
 
 global load_tss
 
+%define kernel_phys_offset 0xa0000000
+
 section .data
+
+align 16
+
+gdt_ptr_lowerhalf:
+    dw gdt_ptr.gdt_end - gdt_ptr.gdt_start - 1  ; GDT size
+    dd gdt_ptr.gdt_start - kernel_phys_offset  ; GDT start
 
 align 16
 

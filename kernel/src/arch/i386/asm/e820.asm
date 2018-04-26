@@ -2,6 +2,8 @@ extern real_routine
 
 global get_e820
 
+%define kernel_phys_offset 0xa0000000
+
 section .data
 
 %define e820_size           e820_end - e820_bin
@@ -16,6 +18,7 @@ get_e820:
     ; void get_e820(e820_entry_t *e820_map);
     push ebx
     mov ebx, dword [esp+8]
+    sub ebx, kernel_phys_offset
     push esi
     push edi
     push ebp

@@ -30,8 +30,8 @@ smp_prepare_trampoline:
     mov qword [0x540], rsi
     mov qword [0x550], rdx
     mov qword [0x560], rcx
-    a32 o32 sgdt [0x580]
-    a32 o32 sidt [0x590]
+    sgdt [0x580]
+    sidt [0x590]
 
     ; Copy trampoline blob to 0x1000
     mov rsi, smp_trampoline
@@ -56,8 +56,9 @@ smp_init_cpu0_local:
     mov fs, ax
     mov gs, ax
     mov rcx, 0xc0000100
-    mov rax, rdi
-    xor rdx, rdx
+    mov eax, edi
+    shr rdi, 32
+    mov edx, edi
     wrmsr
 
     ; enable SSE

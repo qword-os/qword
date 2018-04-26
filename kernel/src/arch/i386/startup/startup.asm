@@ -11,13 +11,23 @@ extern clearscreen
 extern check_cpuid
 extern paging_init
 extern gdt_ptr
+extern gdt_ptr_lowerhalf
 extern kmain
 extern sections_bss
 extern sections_bss_end
 
+%define kernel_phys_offset 0xa0000000
+
 section .bss
 
 cmdline resb 2048
+
+section .data
+
+calls:
+    .clearscreen        dd clearscreen - kernel_phys_offset
+    .check_cpuid        dd check_cpuid - kernel_phys_offset
+    .paging_init        dd paging_init - kernel_phys_offset
 
 section .text
 bits 32
@@ -38,28 +48,28 @@ _start:
     rep stosb
 
     mov esi, dword [ebx+16]
-    mov edi, cmdline
+    mov edi, cmdline - kernel_phys_offset
     mov ecx, 2047
   .cpycmdline:
     lodsb
     test al, al
-    jz .cpycmdline_out
+    jz near .cpycmdline_out
     stosb
     dec ecx
-    jnz .cpycmdline
+    jnz near .cpycmdline
   .cpycmdline_out:
     xor al, al
     stosb
 
-    call clearscreen
+    call [(calls.clearscreen) - kernel_phys_offset]
 
-    call check_cpuid
+    call [(calls.check_cpuid) - kernel_phys_offset]
 
-    call paging_init
+    call [(calls.paging_init) - kernel_phys_offset]
 
-    lgdt [gdt_ptr]
+    lgdt [gdt_ptr_lowerhalf - kernel_phys_offset]
 
-    jmp 0x08:.pmode_init
+    jmp 0x08:.pmode_init - kernel_phys_offset
 
 .pmode_init:
     mov ax, 0x10
@@ -69,7 +79,17 @@ _start:
     mov fs, ax
     mov gs, ax
 
+    ; Jump to the higher half
+    mov eax, .higher_half
+    jmp eax
+
+  .higher_half:
+    mov esp, kernel_phys_offset + 0xeffff0
+
+    lgdt [gdt_ptr - kernel_phys_offset]
+
     call kmain
+
 .halt:
     cli
     hlt

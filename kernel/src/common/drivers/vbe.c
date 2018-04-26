@@ -3,6 +3,7 @@
 #include <vbe.h>
 #include <klib.h>
 #include <cmdline.h>
+#include <mm.h>
 
 static vbe_info_struct_t vbe_info_struct;
 static edid_info_struct_t edid_info_struct;
@@ -107,7 +108,7 @@ void init_vbe(void) {
 
 modeset:
     /* try to set the mode */
-    get_vbe.vbe_mode_info = (uint32_t)(size_t)&vbe_mode_info;
+    get_vbe.vbe_mode_info = (uint32_t)((size_t)&vbe_mode_info - KERNEL_PHYS_OFFSET);
     for (size_t i = 0; vid_modes[i] != 0xffff; i++) {
         get_vbe.mode = vid_modes[i];
         get_vbe_mode_info(&get_vbe);

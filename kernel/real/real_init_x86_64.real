@@ -10,11 +10,11 @@ mov dword [arg], ebx
 ; Save lmode IDT
 sidt [lmode_idt]
 
-; Load real mode IDT
-lidt [real_idt]
-
 ; Save lmode GDT
 sgdt [lmode_gdt]
+
+; Load real mode IDT
+lidt [real_idt]
 
 ; save cr3
 mov rax, cr3
@@ -66,6 +66,9 @@ mov ebx, dword [arg]
 ; Call actual routine
 call 0x8000
 
+; Load intermediate bootstrap GDT
+lgdt [gdt_ptr]
+
 ; load cr3
 mov eax, dword [cr3_reg]
 mov cr3, eax
@@ -75,9 +78,6 @@ rdmsr
 
 or eax, 0x00000100
 wrmsr
-
-; load long mode GDT
-lgdt [lmode_gdt]
 
 ; Enter long mode
 mov eax, cr0
@@ -97,6 +97,9 @@ mov ss, ax
 
 ; Load lmode IDT
 lidt [lmode_idt]
+
+; Load lmode GDT
+lgdt [lmode_gdt]
 
 ; Restore stack
 mov rsp, qword [saved_stack]
@@ -124,3 +127,40 @@ lmode_gdt:
 arg dd 0
 cr3_reg dd 0
 saved_stack dq 0
+
+align 16
+
+gdt_ptr:
+    dw .gdt_end - .gdt_start - 1  ; GDT size
+    dq .gdt_start                 ; GDT start
+
+align 16
+.gdt_start:
+
+; Null descriptor (required)
+.null_descriptor:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 00000000b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+; 64 bit mode kernel
+.kernel_code_64:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 10011010b        ; Access
+    db 00100000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+.kernel_data:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 10010010b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+.gdt_end:

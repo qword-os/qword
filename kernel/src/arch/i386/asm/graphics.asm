@@ -6,6 +6,8 @@ global get_vbe_mode_info
 global set_vbe_mode
 global dump_vga_font
 
+%define kernel_phys_offset 0xa0000000
+
 section .data
 
 %define get_vbe_info_size           get_vbe_info_end - get_vbe_info_bin
@@ -36,6 +38,7 @@ get_vbe_info:
     ; void get_vbe_info(vbe_info_struct_t* vbe_info_struct);
     push ebx
     mov ebx, dword [esp+8]
+    sub ebx, kernel_phys_offset
     push esi
     push edi
     push ebp
@@ -54,6 +57,7 @@ get_edid_info:
     ; void get_edid_info(edid_info_struct_t* edid_info_struct);
     push ebx
     mov ebx, dword [esp+8]
+    sub ebx, kernel_phys_offset
     push esi
     push edi
     push ebp
@@ -72,6 +76,7 @@ get_vbe_mode_info:
     ; void get_vbe_mode_info(get_vbe_t* get_vbe);
     push ebx
     mov ebx, dword [esp+8]
+    sub ebx, kernel_phys_offset
     push esi
     push edi
     push ebp
@@ -108,6 +113,7 @@ dump_vga_font:
     ; void dump_vga_font(uint8_t *bitmap);
     push ebx
     mov ebx, dword [esp+8]
+    sub ebx, kernel_phys_offset
     push esi
     push edi
     push ebp

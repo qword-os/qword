@@ -17,10 +17,7 @@ mov fs, ax
 mov gs, ax
 mov ss, ax
 
-mov esp, dword [0x550]
-
-lgdt [0x580]
-lidt [0x590]
+lgdt [gdt_ptr]
 
 mov edx, dword [0x540]
 mov cr3, edx
@@ -51,6 +48,11 @@ mov ax, 0x23
 mov fs, ax
 mov gs, ax
 
+mov rsp, qword [0x550]
+
+lgdt [0x580]
+lidt [0x590]
+
 ; enable SSE
 mov rax, cr0
 and al, 0xfb
@@ -62,8 +64,8 @@ mov cr4, rax
 
 ; Load FS with the CPU local struct base address
 mov rcx, 0xc0000100
-mov rax, qword [0x560]
-xor rdx, rdx
+mov eax, dword [0x560]
+mov edx, dword [0x560+4]
 wrmsr
 
 ; Load TSS
@@ -73,3 +75,57 @@ ltr ax
 ; jump to entry point
 mov rbx, qword [0x520]
 call rbx
+
+align 16
+
+gdt_ptr:
+    dw .gdt_end - .gdt_start - 1  ; GDT size
+    dq .gdt_start                 ; GDT start
+
+align 16
+.gdt_start:
+
+; Null descriptor (required)
+.null_descriptor:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 00000000b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+; 64 bit mode kernel
+.kernel_code_64:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 10011010b        ; Access
+    db 00100000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+.kernel_data:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 10010010b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+; Null descriptor (alignment)
+.null_descriptor_align:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 00000000b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+.user_data_64:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 11110010b        ; Access
+    db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+
+.gdt_end:

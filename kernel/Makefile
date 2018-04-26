@@ -10,6 +10,7 @@ CHARDFLAGS = -std=gnu99 -masm=intel \
     -mno-sse \
     -mno-sse2 \
     -mno-red-zone \
+    -mcmodel=kernel \
     -nostdlib \
     -ffreestanding \
     -I./include/ \
@@ -56,7 +57,7 @@ OBJ = $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
 
 CLINKFLAGS = -nostdlib \
     -static-libgcc -lgcc \
-    -T ./linker.ld
+    -T ./linker_$(ARCH).ld
 
 CFLAGS = -O2 -Wall -Wextra
 

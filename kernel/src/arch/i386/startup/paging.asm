@@ -1,6 +1,8 @@
 global paging_init
 global kernel_pagemap
 
+%define kernel_phys_offset 0xa0000000
+
 section .bss
 
 align 4096
@@ -21,7 +23,7 @@ paging_init:
     ret
 
 enable_paging:
-    mov eax, kernel_pagemap
+    mov eax, kernel_pagemap - kernel_phys_offset
     mov cr3, eax
 
     mov eax, cr0
@@ -33,13 +35,13 @@ enable_paging:
 set_up_page_tables:
     ; zero out page tables
     xor eax, eax
-    mov edi, kernel_pagemap
+    mov edi, kernel_pagemap - kernel_phys_offset
     mov ecx, (kernel_pagemap.end - kernel_pagemap) / 4
     rep stosd
 
     ; set up page tables
     mov eax, 0x03
-    mov edi, kernel_pagemap.pt
+    mov edi, kernel_pagemap.pt - kernel_phys_offset
     mov ecx, 1024 * 8
 .loop0:
     stosd
@@ -47,13 +49,22 @@ set_up_page_tables:
     loop .loop0
 
     ; set up page directories
-    mov eax, kernel_pagemap.pt
+    mov eax, kernel_pagemap.pt - kernel_phys_offset
     or eax, 0x03
-    mov edi, kernel_pagemap.pd
+    mov edi, kernel_pagemap.pd - kernel_phys_offset
     mov ecx, 8
 .loop1:
     stosd
     add eax, 0x1000
     loop .loop1
+
+    mov eax, kernel_pagemap.pt - kernel_phys_offset
+    or eax, 0x03
+    mov edi, kernel_pagemap.pd - kernel_phys_offset + 640 * 4
+    mov ecx, 8
+.loop2:
+    stosd
+    add eax, 0x1000
+    loop .loop2
 
     ret

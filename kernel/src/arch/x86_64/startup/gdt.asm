@@ -1,13 +1,24 @@
+bits 64
+
 global gdt_ptr
+global gdt_ptr_lowerhalf
 global load_tss
+
+%define kernel_phys_offset 0xffffffffc0000000
 
 section .data
 
 align 16
 
+gdt_ptr_lowerhalf:
+    dw gdt_ptr.gdt_end - gdt_ptr.gdt_start - 1  ; GDT size
+    dd gdt_ptr.gdt_start - kernel_phys_offset  ; GDT start
+
+align 16
+
 gdt_ptr:
     dw .gdt_end - .gdt_start - 1  ; GDT size
-    dd .gdt_start                 ; GDT start
+    dq .gdt_start                 ; GDT start
 
 align 16
 .gdt_start:
@@ -83,21 +94,36 @@ align 16
     db 00000000b
   .tss_high:
     db 0
-    dq 0                ; res
+  .tss_upper32:
+    dd 0
+  .tss_reserved:
+    dd 0
+
 .gdt_end:
 
 load_tss:
     ; addr in RDI
+    push rbx
     mov eax, edi
-    mov word [gdt_ptr.tss_low], ax
+    mov rbx, gdt_ptr.tss_low
+    mov word [rbx], ax
     mov eax, edi
     and eax, 0xff0000
     shr eax, 16
-    mov byte [gdt_ptr.tss_mid], al
+    mov rbx, gdt_ptr.tss_mid
+    mov byte [rbx], al
     mov eax, edi
     and eax, 0xff000000
     shr eax, 24
-    mov byte [gdt_ptr.tss_high], al
-    mov byte [gdt_ptr.tss_flags1], 10001001b
-    mov byte [gdt_ptr.tss_flags2], 0
+    mov rbx, gdt_ptr.tss_high
+    mov byte [rbx], al
+    mov rax, rdi
+    shr rax, 32
+    mov rbx, gdt_ptr.tss_upper32
+    mov dword [rbx], eax
+    mov rbx, gdt_ptr.tss_flags1
+    mov byte [rbx], 10001001b
+    mov rbx, gdt_ptr.tss_flags2
+    mov byte [rbx], 0
+    pop rbx
     ret

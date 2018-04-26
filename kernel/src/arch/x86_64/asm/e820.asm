@@ -2,6 +2,8 @@ extern real_routine
 
 global get_e820
 
+%define kernel_phys_offset 0xffffffffc0000000
+
 section .data
 
 %define e820_size           e820_end - e820_bin
@@ -22,6 +24,7 @@ get_e820:
     push r15
 
     mov rbx, rdi
+    sub rbx, kernel_phys_offset
     mov rsi, e820_bin
     mov rcx, e820_size
     call real_routine

@@ -236,6 +236,12 @@ void init_vmm(void) {
 
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
+
+        #ifdef __I386__
+            if (addr >= 0xa0000000 && addr < 0xa0000000 + 0x2000000)
+                continue;
+        #endif
+
         map_page(&kernel_pagemap, addr, addr, 0x03);
     }
 
