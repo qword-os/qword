@@ -287,7 +287,7 @@ void *kmemmove(void *dest, const void *src, size_t count) {
         }
     } else {
         for (i = count; i > 0; i--) {
-            dest2[i - 1] = src2[i];
+            dest2[i - 1] = src2[i - 1];
         }
     }
 
@@ -308,5 +308,3 @@ int kmemcmp(const void *s1, const void *s2, size_t n) {
 
     return 0;
 }
-
-
