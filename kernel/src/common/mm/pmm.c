@@ -2,24 +2,34 @@
 #include <stddef.h>
 #include <mm.h>
 #include <klib.h>
+#include <lock.h>
 #include <e820.h>
 
 #define MBITMAP_FULL ((0x4000000 / PAGE_SIZE) / 32)
-static volatile size_t bitmap_full = MBITMAP_FULL;
 #define BASE (0x1000000 / PAGE_SIZE)
 
+static volatile size_t bitmap_full = MBITMAP_FULL;
 static volatile uint32_t *mem_bitmap;
 static volatile uint32_t initial_bitmap[MBITMAP_FULL];
 static volatile uint32_t *tmp_bitmap;
 
+/* A core wishing to modify the PMM bitmap must first acquire this lock,
+ * to ensure other cores cannot simultaneously modify the bitmap */
+static lock_t bitmap_lock = 1;
+
 static inline int read_bitmap(size_t i) {
+    spinlock_acquire(&bitmap_lock);
+
     size_t which_entry = i / 32;
     size_t offset = i % 32;
-
+    
+    spinlock_release(&bitmap_lock);
     return (int)((mem_bitmap[which_entry] >> offset) & 1);
 }
 
 static inline void write_bitmap(size_t i, int val) {
+    spinlock_acquire(&bitmap_lock);
+
     size_t which_entry = i / 32;
     size_t offset = i % 32;
 
@@ -27,6 +37,8 @@ static inline void write_bitmap(size_t i, int val) {
         mem_bitmap[which_entry] |= (1 << offset);
     else
         mem_bitmap[which_entry] &= ~(1 << offset);
+    
+    spinlock_release(&bitmap_lock);
 
     return;
 }
@@ -41,7 +53,7 @@ static void bm_realloc(void) {
     for (size_t i = bitmap_full; i < bitmap_full + 2048; i++) {
         tmp_bitmap[i] = 0xffffffff;
     }
-
+    
     bitmap_full += 2048;
 
     volatile uint32_t *tmp = tmp_bitmap;
