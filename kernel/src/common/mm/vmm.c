@@ -254,7 +254,7 @@ int remap_page(pagemap_t *pd, size_t virt_addr, size_t flags) {
 /* Then use the e820 to map all the available memory (saves on allocation time and it's easier) */
 /* The latter only applies to x86_64 */
 void init_vmm(void) {
-    kernel_pagemap.pagemap = &kernel_cr3;
+    kernel_pagemap.pagemap = (pt_entry_t *)((size_t)&kernel_cr3 - KERNEL_PHYS_OFFSET);
     kernel_pagemap.lock = 1;
 
     kprint(KPRN_INFO, "vmm: Identity mapping memory as specified by the e820...");

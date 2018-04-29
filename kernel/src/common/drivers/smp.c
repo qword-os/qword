@@ -66,7 +66,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
         tss->ss = 0x08;
     #endif
 
-    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)((size_t)kernel_pagemap.pagemap - KERNEL_PHYS_OFFSET),
+    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pagemap,
                                 (void *)cpu_stack_top, cpu_local, tss);
 
     /* Send the INIT IPI */
