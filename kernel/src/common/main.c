@@ -12,6 +12,7 @@
 #include <cmdline.h>
 #include <pit.h>
 #include <smp.h>
+#include <task.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -31,18 +32,18 @@ int kmain(void) {
     init_pmm();
     init_vmm();
 
+    /* Driver inits */
     init_vbe();
     init_vbe_tty();
-
     init_acpi();
-
     init_pic();
-
+    
+    /* TODO move this someplace else */
     asm volatile ("sti");
 
     init_pit();
-
     init_smp();
+    init_task_table();
  
     for (;;)
         asm volatile ("hlt;");
