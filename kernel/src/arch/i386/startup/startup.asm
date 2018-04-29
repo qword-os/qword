@@ -88,7 +88,10 @@ _start:
 
     lgdt [gdt_ptr - kernel_phys_offset]
 
-    call kmain
+    xor eax, eax
+    not eax
+    push eax
+    jmp kmain
 
 .halt:
     cli
