@@ -1,4 +1,3 @@
-OUTPUT_FORMAT(binary)
 ENTRY(_start)
 
 SECTIONS
@@ -18,7 +17,8 @@ SECTIONS
         sections_data = . - 0xffffffffc0000000;
         KEEP(*(.data))
         KEEP(*(.rodata))
-        KEEP(*(.debug_symbols))
+        debug_symbols_names = .;
+        debug_symbols_addresses = .;
         sections_data_end = . - 0xffffffffc0000000;
     }
 

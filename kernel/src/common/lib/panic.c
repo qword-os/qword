@@ -1,6 +1,7 @@
 #include <panic.h>
 #include <klib.h>
 #include <lock.h>
+#include <trace.h>
 
 static lock_t panic_lock = 1;
 
@@ -14,6 +15,9 @@ void panic(const char *msg, uint64_t err_code, uint64_t debug_info) {
     kprint(KPRN_ERR, "KERNEL PANIC:");
     kprint(KPRN_ERR, "%s, error code: %X", msg, err_code);
     kprint(KPRN_ERR, "Debug info: %X", debug_info);
+
+    print_stacktrace(KPRN_ERR);
+
     kprint(KPRN_ERR, "System halted");
 
     /* Never release the spinlock */

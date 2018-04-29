@@ -13,6 +13,7 @@ CHARDFLAGS = -std=gnu99 -masm=intel \
     -mcmodel=kernel \
     -nostdlib \
     -ffreestanding \
+    -fno-omit-frame-pointer \
     -I./include/ \
     -D__X86_64__
 NASMFORMAT = elf64
@@ -24,6 +25,7 @@ else ifeq ($(ARCH), i386)
 CHARDFLAGS = -std=gnu99 -masm=intel \
     -nostdlib \
     -ffreestanding \
+    -fno-omit-frame-pointer \
     -I./include/ \
     -D__I386__
 NASMFORMAT = elf32
@@ -56,18 +58,21 @@ ASM_FILES = $(shell find ./src/common -type f -name '*.asm') $(shell find ./src/
 OBJ = $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
 
 CLINKFLAGS = -nostdlib \
-    -static-libgcc -lgcc \
-    -T ./linker_$(ARCH).ld
+    -static-libgcc -lgcc
 
 CFLAGS = -O2 -Wall -Wextra
 
 .PHONY: clean
 
 kernel.bin: $(BINS) $(OBJ) $(H_FILES)
-	$(CC) $(OBJ) $(CLINKFLAGS) -o $@
+	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker_$(ARCH)_syms.ld -o kernel.sym
+	./gensyms_$(ARCH).sh > kernelsym.asm
+	$(ASM) kernelsym.asm -f $(NASMFORMAT) -o kernelsym.o
+	$(CC) $(OBJ) kernelsym.o $(CLINKFLAGS) -T ./linker_$(ARCH).ld -o $@
+	rm -f kernel.sym kernelsym.asm kernelsym.o
 
 %.o: %.c
-	$(CC) $(CHARDFLAGS) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CHARDFLAGS) -c $< -o $@
 
 %.bin: %.real
 	$(ASM) $< -f bin -o $@
