@@ -16,7 +16,7 @@ extern kmain
 extern sections_bss
 extern sections_bss_end
 
-%define kernel_phys_offset 0xa0000000
+%define kernel_phys_offset 0xc0000000
 
 section .bss
 

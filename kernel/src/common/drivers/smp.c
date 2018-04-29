@@ -29,12 +29,7 @@ int smp_cpu_count = 1;
     } __attribute__((packed)) tss_t;
 #endif
 
-#ifdef __X86_64__
-    static size_t cpu_stack_top = 0xffffffffc0effff0;
-#endif
-#ifdef __I386__
-    static size_t cpu_stack_top = 0xa0effff0;
-#endif
+static size_t cpu_stack_top = KERNEL_PHYS_OFFSET + 0xeffff0;
 
 static cpu_local_t cpu_locals[MAX_CPUS];
 static tss_t cpu_tss[MAX_CPUS] __attribute__((aligned(16)));

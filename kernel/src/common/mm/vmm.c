@@ -263,7 +263,7 @@ void init_vmm(void) {
         size_t addr = i * PAGE_SIZE;
 
         #ifdef __I386__
-            if (addr >= 0xa0000000 && addr < 0xa0000000 + 0x2000000)
+            if (addr >= KERNEL_PHYS_OFFSET && addr < KERNEL_PHYS_OFFSET + 0x2000000)
                 continue;
         #endif
 

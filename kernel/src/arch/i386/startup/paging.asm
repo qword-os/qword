@@ -1,7 +1,7 @@
 global paging_init
 global kernel_cr3
 
-%define kernel_phys_offset 0xa0000000
+%define kernel_phys_offset 0xc0000000
 
 section .bss
 
@@ -36,7 +36,7 @@ set_up_page_tables:
     ; zero out page tables
     xor eax, eax
     mov edi, kernel_cr3 - kernel_phys_offset
-    mov ecx, (kernel_cr3.end - kernel_pagemap) / 4
+    mov ecx, (kernel_cr3.end - kernel_cr3) / 4
     rep stosd
 
     ; set up page tables
@@ -60,7 +60,7 @@ set_up_page_tables:
 
     mov eax, kernel_cr3.pt - kernel_phys_offset
     or eax, 0x03
-    mov edi, kernel_cr3.pd - kernel_phys_offset + 640 * 4
+    mov edi, kernel_cr3.pd - kernel_phys_offset + (640 + 128) * 4
     mov ecx, 8
 .loop2:
     stosd

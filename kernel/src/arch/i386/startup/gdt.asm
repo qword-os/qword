@@ -4,7 +4,7 @@ global gdt_set_fs_base
 
 global load_tss
 
-%define kernel_phys_offset 0xa0000000
+%define kernel_phys_offset 0xc0000000
 
 section .data
 

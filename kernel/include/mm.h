@@ -13,7 +13,7 @@
 #endif
 #ifdef __I386__
     #define PAGE_TABLE_ENTRIES 1024
-    #define KERNEL_PHYS_OFFSET ((size_t)0xa0000000)
+    #define KERNEL_PHYS_OFFSET ((size_t)0xc0000000)
 #endif
 
 #ifdef __X86_64__

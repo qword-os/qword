@@ -3,7 +3,7 @@ extern sections_data_end
 extern sections_bss_end
 extern _start
 
-%define kernel_phys_offset 0xa0000000
+%define kernel_phys_offset 0xc0000000
 
 section .multiboot
 

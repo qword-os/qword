@@ -2,7 +2,7 @@ extern real_routine
 
 global get_e820
 
-%define kernel_phys_offset 0xa0000000
+%define kernel_phys_offset 0xc0000000
 
 section .data
 
