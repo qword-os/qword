@@ -15,21 +15,16 @@ static volatile uint32_t *tmp_bitmap;
 
 /* A core wishing to modify the PMM bitmap must first acquire this lock,
  * to ensure other cores cannot simultaneously modify the bitmap */
-static lock_t bitmap_lock = 1;
+static lock_t pmm_lock = 1;
 
 static inline int read_bitmap(size_t i) {
-    spinlock_acquire(&bitmap_lock);
-
     size_t which_entry = i / 32;
     size_t offset = i % 32;
-    
-    spinlock_release(&bitmap_lock);
+
     return (int)((mem_bitmap[which_entry] >> offset) & 1);
 }
 
 static inline void write_bitmap(size_t i, int val) {
-    spinlock_acquire(&bitmap_lock);
-
     size_t which_entry = i / 32;
     size_t offset = i % 32;
 
@@ -37,8 +32,6 @@ static inline void write_bitmap(size_t i, int val) {
         mem_bitmap[which_entry] |= (1 << offset);
     else
         mem_bitmap[which_entry] &= ~(1 << offset);
-    
-    spinlock_release(&bitmap_lock);
 
     return;
 }
@@ -112,6 +105,8 @@ void init_pmm(void) {
 
 /* Allocate physical memory. */
 void *pmm_alloc(size_t pg_count) {
+    spinlock_acquire(&pmm_lock);
+
     /* Allocate contiguous free pages. */
     size_t counter = 0;
     size_t i;
@@ -125,6 +120,7 @@ void *pmm_alloc(size_t pg_count) {
         if (counter == pg_count)
             goto found;
     }
+    spinlock_release(&pmm_lock);
     return (void *)0;
 
 found:
@@ -132,18 +128,24 @@ found:
     for (i = start; i < (start + pg_count); i++) {
         write_bitmap(i, 1);
     }
-    
+
+    spinlock_release(&pmm_lock);
+
     /* Return the physical address that represents the start of this physical page(s). */
     return (void *)(start * PAGE_SIZE);
 }
 
 /* Release physical memory. */
 void pmm_free(void *ptr, size_t pg_count) {
+    spinlock_acquire(&pmm_lock);
+
     size_t start = (size_t)ptr / PAGE_SIZE;
 
     for (size_t i = start; i < (start + pg_count); i++) {
         write_bitmap(i, 0);
     }
+
+    spinlock_release(&pmm_lock);
 
     return;
 }

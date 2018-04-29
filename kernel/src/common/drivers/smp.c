@@ -71,7 +71,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
         tss->ss = 0x08;
     #endif
 
-    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)((size_t)&kernel_pagemap - KERNEL_PHYS_OFFSET),
+    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)((size_t)kernel_pagemap.pagemap - KERNEL_PHYS_OFFSET),
                                 (void *)cpu_stack_top, cpu_local, tss);
 
     /* Send the INIT IPI */
@@ -84,6 +84,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     lapic_write(APICREG_ICR0, 0x4600 | (uint32_t)(size_t)trampoline);
     /* wait 1ms */
     ksleep(1);
+
     if (smp_check_ap_flag()) {
         goto success;
     } else {
