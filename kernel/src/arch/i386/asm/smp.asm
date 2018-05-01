@@ -95,11 +95,11 @@ smp_get_cpu_current_process:
     mov rax, dword [fs:0008]
     ret
 smp_get_cpu_current_thread:
-    mov rax, qword [fs:0012]
+    mov rax, dword [fs:0012]
     ret
 smp_set_cpu_current_process:
-    mov qword [fs:0008], rdi
+    mov dword [fs:0008], rdi
     ret
 smp_set_cpu_current_thread:
-    mov qword [fs:0012], rdi
+    mov dword [fs:0012], rdi
     ret

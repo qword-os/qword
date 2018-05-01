@@ -4,6 +4,11 @@
 #include <stddef.h>
 
 typedef struct {
+    size_t process_idx;
+    size_t thread_idx;
+} thread_identifier_t;
+
+typedef struct {
     size_t cpu_number;
     size_t kernel_stack;
     /* The index into the task table */
@@ -12,7 +17,9 @@ typedef struct {
      * that represents the current thread of execution on
      * a given processor */
     size_t current_thread;
+    thread_identifier_t run_queue[1024];
 } cpu_local_t;
+
 
 void init_smp(void);
 void smp_init_cpu0_local(void *, void *);
