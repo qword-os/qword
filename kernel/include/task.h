@@ -21,9 +21,9 @@ typedef struct {
     uint16_t pid;
 } process_t;
 
-extern process_t **task_table;
+extern process_t **process_table;
 
-void init_task_table(void);
+void init_sched(void);
 void thread_spinup(size_t, size_t);
 void thread_return(void);
 

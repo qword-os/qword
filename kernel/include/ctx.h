@@ -19,8 +19,6 @@ typedef struct {
 
 #ifdef __X86_64__
 typedef struct {
-    uint64_t es;
-    uint64_t ds;
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;
@@ -47,5 +45,7 @@ typedef struct {
 ctx_t *new_ctx(void);
 void ctx_switch(ctx_t *);
 void set_ctx_krnl(ctx_t *);
+
+extern ctx_t default_krnl_ctx;
 
 #endif

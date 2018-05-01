@@ -5,28 +5,28 @@
 #include <smp.h>
 #include <ctx.h>
 
-process_t **task_table;
-/* Hack for using sub-structs with CPU local */
-#define cpu_local ((cpu_local_t *)0)
+process_t **process_table;
 
-void init_task_table(void) {
+ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
+
+void init_sched(void) {
     kprint(KPRN_INFO, "sched: Initialising task table...");
     /* Make room for task table */
-    if ((task_table = kalloc(MAX_PROCESSES * sizeof(process_t *))) == 0) {
+    if ((process_table = kalloc(MAX_PROCESSES * sizeof(process_t *))) == 0) {
         panic("sched: Unable to allocate task table.", 0, 0);
     }
 
     /* Now make space for PID 0 */
     kprint(KPRN_INFO, "sched: Creating PID 0");
-    if ((task_table[0] = kalloc(sizeof(process_t *))) == 0) {
+    if ((process_table[0] = kalloc(sizeof(process_t *))) == 0) {
         panic("sched: Unable to allocate space for kernel task", 0, 0);
     }
-    if ((task_table[0]->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
+    if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0);
     }
 
-    task_table[0]->pagemap = &kernel_pagemap;
-    task_table[0]->pid = 0;
+    process_table[0]->pagemap = &kernel_pagemap;
+    process_table[0]->pid = 0;
     
     kprint(KPRN_INFO, "sched: Init done.");
 
@@ -47,14 +47,14 @@ void task_resched(ctx_t *prev) {
 /* Create kernel task from function pointer 
  * TODO: Make this a special case of spawning a thread, passing 0 as a parameter
  * to some more generic function which will spawn the thread in the kernel process */
-int spawn_kthread(void *entry(void)) {
+int spawn_kthread(void (*entry)(void)) {
     size_t *stack = kalloc(KRNL_STACK_SIZE);
     thread_t *new_task = {0};
 
     /* Search for free thread ID */
     size_t new_tid;
     for (new_tid = 0; new_tid++; new_tid++) {
-        if ((!task_table[0]->threads[new_tid]) || (task_table[0]->threads[new_tid] == (thread_t *)-1)) 
+        if ((!process_table[0]->threads[new_tid]) || (process_table[0]->threads[new_tid] == (thread_t *)-1)) 
             break;
     }
 
@@ -62,13 +62,13 @@ int spawn_kthread(void *entry(void)) {
         return -1;
     
     /* Try to make space for this new task */
-    if ((task_table[0]->threads[new_tid] = kalloc(sizeof(thread_t *))) == 0) {
-        task_table[0]->threads[new_tid] = (thread_t *)-1;
+    if ((process_table[0]->threads[new_tid] = kalloc(sizeof(thread_t *))) == 0) {
+        process_table[0]->threads[new_tid] = (thread_t *)-1;
         return -1;
     }    
     
     /* Set registers to defaults */
-    set_ctx_krnl(new_task->ctx);
+    new_task->ctx = &default_krnl_ctx;
 
     new_task->ctx->rip = (size_t)(entry); 
     stack[KRNL_STACK_SIZE - 1] = (size_t)(void *)(thread_return);

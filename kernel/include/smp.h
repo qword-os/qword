@@ -20,6 +20,8 @@ typedef struct {
     thread_identifier_t run_queue[1024];
 } cpu_local_t;
 
+/* Hack for using sub-structs with CPU local */
+#define global_cpu_local ((cpu_local_t *)0)
 
 void init_smp(void);
 void smp_init_cpu0_local(void *, void *);
@@ -29,8 +31,6 @@ size_t smp_get_cpu_number(void);
 size_t smp_get_cpu_kernel_stack(void);
 size_t smp_get_cpu_current_process(void);
 size_t smp_get_cpu_current_thread(void);
-void smp_set_cpu_current_process(size_t);
-void smp_set_cpu_current_thread(size_t);
 
 extern int smp_cpu_count;
 
