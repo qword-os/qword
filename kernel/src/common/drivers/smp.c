@@ -7,6 +7,7 @@
 #include <smp.h>
 #include <time.h>
 #include <mm.h>
+#include <task.h>
 
 #define MAX_CPUS 128
 #define CPU_STACK_SIZE (8192+8192)
@@ -39,7 +40,7 @@ static void ap_kernel_entry(void) {
 
     kprint(KPRN_INFO, "smp: Started up AP #%u", smp_get_cpu_number());
     kprint(KPRN_INFO, "smp: AP #%u kernel stack top: %X", smp_get_cpu_number(), smp_get_cpu_kernel_stack());
-
+    
     /* halt and catch fire */
     for (;;) { asm volatile ("cli; hlt"); }
 }
@@ -54,6 +55,8 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
 
     cpu_local->cpu_number = cpu_number;
     cpu_local->kernel_stack = cpu_stack_top;
+    cpu_local->current_process = 0;
+    cpu_local->current_thread = 0;
 
     /* prepare TSS */
     tss_t *tss = &cpu_tss[cpu_number];
@@ -105,6 +108,8 @@ static void init_cpu0(void) {
 
     cpu_local->cpu_number = 0;
     cpu_local->kernel_stack = cpu_stack_top;
+    cpu_local->current_process = 0;
+    cpu_local->current_thread = 0;
 
     tss_t *tss = &cpu_tss[0];
 

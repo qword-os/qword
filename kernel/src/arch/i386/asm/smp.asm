@@ -3,6 +3,10 @@ global smp_init_cpu0_local
 global smp_check_ap_flag
 global smp_get_cpu_number
 global smp_get_cpu_kernel_stack
+global smp_get_cpu_current_process
+global smp_get_cpu_current_thread
+global smp_set_cpu_current_process
+global smp_set_cpu_current_thread
 
 extern gdt_set_fs_base
 extern load_tss
@@ -86,4 +90,16 @@ smp_get_cpu_number:
 
 smp_get_cpu_kernel_stack:
     mov eax, dword [fs:0004]
+    ret
+smp_get_cpu_current_process:
+    mov rax, dword [fs:0008]
+    ret
+smp_get_cpu_current_thread:
+    mov rax, qword [fs:0012]
+    ret
+smp_set_cpu_current_process:
+    mov qword [fs:0008], rdi
+    ret
+smp_set_cpu_current_thread:
+    mov qword [fs:0012], rdi
     ret

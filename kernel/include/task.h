@@ -15,7 +15,7 @@ typedef struct {
 } thread_t;
 
 typedef struct {
-    pt_entry_t *pagemap;
+    pagemap_t *pagemap;
     thread_t **threads;
     uint16_t pid;
 } process_t;

@@ -21,7 +21,7 @@ void init_task_table(void) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0);
     }
 
-    task_table[0]->pagemap = &kernel_cr3;
+    task_table[0]->pagemap = &kernel_pagemap;
     task_table[0]->pid = 0;
     
     kprint(KPRN_INFO, "sched: Init done.");
