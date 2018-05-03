@@ -6,24 +6,24 @@
 #ifdef __X86_64__
 #define fsr(offset) ({ \
     size_t value; \
-    asm volatile ("mov rax, qword [fs:$0]" : : "D"(offset) :); \
+    asm volatile ("mov rax, qword [fs:rbx]" : "=a"(value) : "b"(offset) :); \
     value; \
 })
 
 #define fsw(offset, value) ({ \
-    asm volatile ("mov qword [fs:$0], $1", : : "D"(offset), "S"(value) :); \
+    asm volatile ("mov qword [fs:rbx], rax", : : "a"(value), "b"(offset) :); \
 })
 #endif
 
 #ifdef __I386__
 #define fsr(offset) ({ \
     size_t value; \
-    asm volatile ("mov eax, dword [fs:$0]" : : "D"(offset) :); \
+    asm volatile ("mov eax, dword [fs:ebx]" : "=a"(value) : "b"(offset) :); \
     value; \
 })
 
 #define fsw(offset, value) ({ \
-    asm volatile ("mov dword [fs:$0], $1" : : "D"(offset), "S"(value) : ); \
+    asm volatile ("mov dword [fs:ebx], eax" : "a"(value), "b"(offset) : ); \
 })
 #endif
 

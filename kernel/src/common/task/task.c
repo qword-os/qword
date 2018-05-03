@@ -83,12 +83,12 @@ int spawn_kthread(void (*entry)(void)) {
 
 void thread_return(void) {
     /* Get thread and process indices */
-    size_t pid = fsr(&cpu_local->current_process);
-    size_t tid = fsr(&cpu_local->current_thread);
+    size_t pid = fsr(&global_cpu_local->current_process);
+    size_t tid = fsr(&global_cpu_local->current_thread);
     
-    thread_t *prev = task_table[pid]->threads[tid];
+    thread_t *prev = process_table[pid]->threads[tid];
     /* Free thread memory */
-    kfree(&prev->stack, KRNL_STACK_SIZE);
+    kfree(&prev->stk);
 
     return;
 }
