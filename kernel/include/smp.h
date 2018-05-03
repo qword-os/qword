@@ -3,6 +3,30 @@
 
 #include <stddef.h>
 
+#ifdef __X86_64__
+#define fsr(offset) ({ \
+    size_t value; \
+    asm volatile ("mov rax, qword [fs:$0]" : : "D"(offset) :); \
+    value; \
+})
+
+#define fsw(offset, value) ({ \
+    asm volatile ("mov qword [fs:$0], $1", : : "D"(offset), "S"(value) :); \
+})
+#endif
+
+#ifdef __I386__
+#define fsr(offset) ({ \
+    size_t value; \
+    asm volatile ("mov eax, dword [fs:$0]" : : "D"(offset) :); \
+    value; \
+})
+
+#define fsw(offset, value) ({ \
+    asm volatile ("mov dword [fs:$0], $1" : : "D"(offset), "S"(value) : ); \
+})
+#endif
+
 typedef struct {
     size_t process_idx;
     size_t thread_idx;

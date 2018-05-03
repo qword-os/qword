@@ -10,7 +10,7 @@
 #include <mm.h>
 
 typedef struct {
-    ctx_t *ctx;
+    ctx_t ctx;
     uint16_t tid;
     size_t *stk; 
 } thread_t;

@@ -7,7 +7,10 @@
 
 process_t **process_table;
 
+/* These represent the default new-thread register contexts for kernel space and
+ * userspace. */
 ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
+ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
 
 void init_sched(void) {
     kprint(KPRN_INFO, "sched: Initialising task table...");
@@ -39,8 +42,8 @@ void task_resched(ctx_t *prev) {
      * 1: Look for new thread identifier in run queue of CPU 
      * which the scheduler is currently running on.
      * 2: Use data from thread identifier to lookup thread in global task table
-     * 3: Spinup thread context */
-    /* TODO */
+     * 3: Spinup thread context *
+    TODO: Implement load balancing */
     return; 
 }
 
@@ -68,18 +71,24 @@ int spawn_kthread(void (*entry)(void)) {
     }    
     
     /* Set registers to defaults */
-    new_task->ctx = &default_krnl_ctx;
+    new_task->ctx = default_krnl_ctx;
 
-    new_task->ctx->rip = (size_t)(entry); 
+    new_task->ctx.rip = (size_t)(entry); 
     stack[KRNL_STACK_SIZE - 1] = (size_t)(void *)(thread_return);
-    new_task->ctx->rsp = stack[KRNL_STACK_SIZE - 1];
+    new_task->ctx.rsp = stack[KRNL_STACK_SIZE - 1];
     new_task->stk = stack;
-    /* TODO task status */
 
     return 0;
 }
 
 void thread_return(void) {
-    /* TODO Kill process */
+    /* Get thread and process indices */
+    size_t pid = fsr(&cpu_local->current_process);
+    size_t tid = fsr(&cpu_local->current_thread);
+    
+    thread_t *prev = task_table[pid]->threads[tid];
+    /* Free thread memory */
+    kfree(&prev->stack, KRNL_STACK_SIZE);
+
     return;
 }
