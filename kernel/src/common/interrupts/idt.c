@@ -38,12 +38,15 @@ void init_idt(void) {
     register_interrupt_handler(0x20, irq0_handler, 0x8f);
     
     /* Inter-processor interrupts */
-    register_interrupt_handler(0x40, ipi_abort, 0x8f);
+    register_interrupt_handler(IPI_ABORT, ipi_abort, 0x8f);
     
     for (size_t i = 0; i < 16; i++) {
         register_interrupt_handler(0x90 + i, apic_nmi, 0x8f);
     } 
 
+    /* Register dummy PIC handlers
+     * TODO: Register these conditionally based on whether
+     * we use the APIC or not */
     for (size_t i = 0; i < 8; i++) {
         register_interrupt_handler(0xa0 + i, pic0_generic, 0x8f);
     }
