@@ -85,18 +85,7 @@ smp_init_cpu0_local:
 smp_get_cpu_number:
     mov rax, qword [fs:0000]
     ret
+
 smp_get_cpu_kernel_stack:
     mov rax, qword [fs:0008]
-    ret
-smp_get_cpu_current_process:
-    mov rax, qword [fs:0016]
-    ret
-smp_get_cpu_current_thread:
-    mov rax, qword [fs:0024]
-    ret
-smp_set_cpu_current_process:
-    mov qword [fs:0016], rdi
-    ret
-smp_set_cpu_current_thread:
-    mov qword [fs:0024], rdi
     ret

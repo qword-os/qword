@@ -20,6 +20,18 @@ typedef volatile uint64_t lock_t;
     ); \
 })
 
+#define spinlock_test_and_acquire(lock) ({ \
+    lock_t ret; \
+    asm volatile ( \
+        "xor rax, rax;" \
+        "lock xchg rax, qword ptr ds:[rbx];" \
+        : "=a" (ret) \
+        : "b" (lock) \
+        : \
+    ); \
+    ret; \
+})
+
 #define spinlock_release(lock) ({ \
     asm volatile ( \
         "xor rax, rax;" \
@@ -48,6 +60,18 @@ typedef volatile uint32_t lock_t;
         : "b" (lock) \
         : "eax" \
     ); \
+})
+
+#define spinlock_test_and_acquire(lock) ({ \
+    lock_t ret; \
+    asm volatile ( \
+        "xor eax, eax;" \
+        "lock xchg eax, dword ptr ds:[ebx];" \
+        : "=a" (ret) \
+        : "b" (lock) \
+        : \
+    ); \
+    ret; \
 })
 
 #define spinlock_release(lock) ({ \

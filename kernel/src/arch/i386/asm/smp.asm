@@ -91,15 +91,3 @@ smp_get_cpu_number:
 smp_get_cpu_kernel_stack:
     mov eax, dword [fs:0004]
     ret
-smp_get_cpu_current_process:
-    mov rax, dword [fs:0008]
-    ret
-smp_get_cpu_current_thread:
-    mov rax, dword [fs:0012]
-    ret
-smp_set_cpu_current_process:
-    mov dword [fs:0008], rdi
-    ret
-smp_set_cpu_current_thread:
-    mov dword [fs:0012], rdi
-    ret
