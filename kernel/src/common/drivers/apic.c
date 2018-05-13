@@ -5,8 +5,6 @@
 #include <cpuid.h>
 #include <acpi/madt.h>
 
-/* TODO Add inter-processor interrupts */
-
 #define APIC_CPUID_BIT (1 << 9)
 
 int apic_supported(void) {

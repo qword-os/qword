@@ -1,3 +1,5 @@
+extern kernel_pagemap
+
 global int_handler
 
 ; Exception handlers.
@@ -180,7 +182,22 @@ exc_security_handler:
 
 ; IRQs
 irq0_handler:
-    common_handler pit_handler
+    pusham
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov rsi, cr3
+    ; Context swap to kernel.
+    mov rax, qword [kernel_pagemap]
+    mov cr3, rax
+    add rsp, 8
+    mov ax, 0x10
+    mov ss, ax
+    mov rdi, rsp
+    call pit_handler
+    popam
+    iretq
+
 pic0_generic:
     common_handler pic0_generic_handler
 pic1_generic:

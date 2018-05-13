@@ -35,13 +35,14 @@ typedef struct {
 typedef struct {
     size_t cpu_number;
     size_t kernel_stack;
+    size_t idle;
     /* The index into the task table */
     size_t current_process;
     /* The index into the current processes thread array
      * that represents the current thread of execution on
      * a given processor */
     size_t current_thread;
-    thread_identifier_t run_queue[1024];
+    thread_identifier_t *run_queue;
 } cpu_local_t;
 
 /* Hack for using sub-structs with CPU local */

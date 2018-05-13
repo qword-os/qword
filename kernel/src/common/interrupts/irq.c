@@ -1,11 +1,13 @@
 #include <irq.h>
 #include <pic.h>
 #include <apic.h>
+#include <acpi/madt.h>
 #include <pic_8259.h>
 #include <klib.h>
 #include <time.h>
 #include <pit.h>
 #include <cio.h>
+#include <task.h>
 
 void dummy_int_handler(void) {
     kprint(KPRN_INFO, "Unhandled interrupt occurred");
@@ -13,11 +15,17 @@ void dummy_int_handler(void) {
     return;
 }
 
-void pit_handler(void) {
+/* Interrupts should be OFF */
+void pit_handler(ctx_t *prev, uint64_t *pagemap) {
     if (!(++uptime_raw % PIT_FREQUENCY)) {
         uptime_sec++;
     }
+
     pic_send_eoi(0);
+
+    /* This function will release the lock after updating the process table */
+    task_resched(prev, pagemap);
+
     return;
 }
 

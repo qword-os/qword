@@ -55,8 +55,12 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
 
     cpu_local->cpu_number = cpu_number;
     cpu_local->kernel_stack = cpu_stack_top;
+    cpu_local->idle = 1;
     cpu_local->current_process = 0;
     cpu_local->current_thread = 0;
+    if ((cpu_local->run_queue = kalloc(MAX_THREADS * sizeof(thread_identifier_t))) == 0) {
+        panic("smp: Failed to allocate thread array for CPU with number: ", cpu_number, 0);
+    }
 
     /* prepare TSS */
     tss_t *tss = &cpu_tss[cpu_number];

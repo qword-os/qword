@@ -4,7 +4,12 @@
 #include <panic.h>
 #include <smp.h>
 #include <ctx.h>
+#include <lock.h>
 
+size_t find_process(void);
+size_t thread_resched(size_t);
+
+lock_t process_table_lock = 1;
 process_t **process_table;
 
 /* These represent the default new-thread register contexts for kernel space and
@@ -42,15 +47,42 @@ void init_sched(void) {
     return;
 }
 
-/* Called from assembly */
-void task_resched(ctx_t *prev) {
-    /* Search for a new thread to run 
-     * 1: Look for new thread identifier in run queue of CPU 
-     * which the scheduler is currently running on.
-     * 2: Use data from thread identifier to lookup thread in global task table
-     * 3: Spinup thread context *
-    TODO: Implement load balancing */
-    return; 
+void task_resched(ctx_t *prev, uint64_t *pagemap) {
+    /* Save context */
+    size_t prev_pid = fsr(&global_cpu_local->current_process);
+    size_t prev_tid = fsr(&global_cpu_local->current_thread);
+    process_table[prev_pid]->threads[prev_tid]->ctx = *(prev);
+    process_table[prev_pid]->pagemap->pagemap = pagemap;
+
+    size_t next_proc = find_process();
+    if (!next_proc)
+        return;
+    else {
+        /* Now decide upon a thread to run */
+        size_t next_thread = thread_resched(next_proc);
+        thread_identifier_t t = {
+            next_proc,
+            next_thread 
+        };
+
+        /* cpu_local_t *cpu = &cpu_locals[1]; */
+        /* more TODO 
+         * ... 
+         * lapic_send_ipi(IPI_RESCHED, ...);
+         * */
+    }
+}
+
+size_t thread_resched(size_t proc) {
+    /* TODO */
+    return 1;
+}
+
+
+/* Return the index into the process table of the next process to be run */
+size_t find_process(void) {
+    /* TODO */
+    return 1;
 }
 
 /* Create kernel task from function pointer 
@@ -83,10 +115,13 @@ found_new_tid:
     new_thread->ctx = default_krnl_ctx;
 
     #ifdef __X86_64__
+        /* Set instruction pointer to entry point and set stack pointer to a catch-all 
+         * function that will ensure a process is killed properly upon process return */
         new_thread->ctx.rip = (size_t)(entry);
         new_thread->ctx.rsp = (size_t)&stack[KRNL_STACK_SIZE - 1];
     #endif
     #ifdef __I386__
+        /* Same here */
         new_thread->ctx.eip = (size_t)(entry);
         new_thread->ctx.esp = (size_t)&stack[KRNL_STACK_SIZE - 1];
     #endif
@@ -100,7 +135,6 @@ found_new_tid:
 }
 
 void thread_return(void) {
-    /* Should clear interrupts */
     asm volatile ("cli");
 
     /* Get thread and process indices */
@@ -114,7 +148,5 @@ void thread_return(void) {
     kfree(prev);
 
     process_table[pid]->threads[tid] = 0;
-
-    /* Should call the scheduler. Return here makes no sense */
-    /* TODO */
+    task_resched(&prev->ctx, process_table[pid]->pagemap->pagemap);
 }

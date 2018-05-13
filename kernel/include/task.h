@@ -5,6 +5,10 @@
 #define MAX_THREADS 1024
 #define KRNL_STACK_SIZE 2048
 
+#define PROC_STS_RUNNING 0
+#define PROC_STS_READY 1
+#define PROC_STS_BLOCKED 2
+
 #include <stdint.h>
 #include <ctx.h>
 #include <mm.h>
@@ -19,12 +23,16 @@ typedef struct {
     pagemap_t *pagemap;
     thread_t **threads;
     uint16_t pid;
+    uint8_t sts;
+    uint8_t priority;
 } process_t;
 
 extern process_t **process_table;
+extern lock_t process_table_lock;
 
 void init_sched(void);
 void thread_spinup(size_t, size_t);
 void thread_return(void);
+void task_resched(ctx_t *, uint64_t *);
 
 #endif

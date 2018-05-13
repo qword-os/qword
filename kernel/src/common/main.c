@@ -39,12 +39,12 @@ int kmain(void) {
     init_pic();
     
     /* TODO move this someplace else */
-    asm volatile ("sti");
+    /* asm volatile ("sti"); */
 
     init_pit();
     init_smp();
     init_sched();
- 
+    
     for (;;)
         asm volatile ("hlt;");
 
