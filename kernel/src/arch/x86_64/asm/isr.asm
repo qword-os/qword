@@ -79,9 +79,9 @@ global int_handler
 
 %macro except_handler_err_code 1
     ; Since GPRs get trashed by an exception anyway we don't need to save them.
+    pop rdx
     pop rsi
     pop rdi
-    pop rdx
     
     call %1
 
@@ -183,17 +183,8 @@ exc_security_handler:
 ; IRQs
 irq0_handler:
     pusham
-    mov ax, 0x10
-    mov ds, ax
-    mov es, ax
     mov rsi, cr3
-    ; Context swap to kernel.
-    mov rax, kernel_cr3
-    mov cr3, rax
     mov rdi, rsp
-    add rdi, 8    
-    mov ax, 0x10
-    mov ss, ax
 
     call pit_handler
     popam
