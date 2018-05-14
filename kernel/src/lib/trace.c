@@ -34,13 +34,13 @@ void print_stacktrace(int type) {
     kprint(type, ">>> STACKTRACE BEGIN <<<");
 
 	for (;;) {
+		if (!bp)
+            break;
 		size_t ip = bp[1];
         size_t displacement;
-		if (ip == 0xffffffffffffffff)
-            break;
 		bp = (size_t *)bp[0];
         char *name = get_symbol_from_address(&displacement, ip);
-        kprint(type, "%s + %X", name, displacement);
+        kprint(type, "%X: %s + %X", ip, name, displacement);
 	}
 
     kprint(type, ">>> STACKTRACE END <<<");

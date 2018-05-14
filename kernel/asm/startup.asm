@@ -92,10 +92,8 @@ _start:
 
     lgdt [gdt_ptr - kernel_phys_offset]
 
-    xor rax, rax
-    not rax
-    push rax
-    jmp kmain
+    xor rbp, rbp
+    call kmain
 
 .halt:
     cli

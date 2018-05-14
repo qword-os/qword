@@ -24,3 +24,9 @@ debug_symbols_addresses:
 EOF
 
 x86_64-elf-nm -n kernel.sym | awk '/ T | t / {printf "dq 0x%s\n", $1;}'
+
+cat <<EOF
+
+dq 0xffffffffffffffff
+
+EOF
