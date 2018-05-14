@@ -1,41 +1,20 @@
-ARCH = x86_64
 DEBUG = vga
 
 BUILD_TIME = $(shell date)
 
-CC = $(ARCH)-elf-gcc
+CC = x86_64-elf-gcc
+AS = nasm
 
-ifeq ($(ARCH), x86_64)
 CHARDFLAGS = -std=gnu99 -masm=intel \
     -mno-sse \
     -mno-sse2 \
     -mno-red-zone \
     -mcmodel=kernel \
-    -nostdlib \
     -ffreestanding \
     -fno-omit-frame-pointer \
-    -I./include/ \
-    -D__X86_64__
+    -I./include/
+
 NASMFORMAT = elf64
-REAL_FILES = $(shell find ./real -type f -name '*.real') \
-             $(shell find ./real -type l -name '*.real')
-BINS = $(REAL_FILES:.real=.bin)
-ASM = nasm
-else ifeq ($(ARCH), i386)
-CHARDFLAGS = -std=gnu99 -masm=intel \
-    -nostdlib \
-    -ffreestanding \
-    -fno-omit-frame-pointer \
-    -I./include/ \
-    -D__I386__
-NASMFORMAT = elf32
-REAL_FILES = $(shell find ./real -type f -name '*.real') \
-             $(shell find ./real -type l -name '*.real')
-BINS = $(REAL_FILES:.real=.bin)
-ASM = nasm
-else
-$(error invalid architecture)
-endif
 
 ifeq ($(DEBUG), vga)
 CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_
@@ -49,13 +28,12 @@ endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
 
-C_FILES = $(shell find ./src/common -type f -name '*.c') $(shell find ./src/arch/$(ARCH) -type f -name '*.c') \
-          $(shell find ./src/common -type l -name '*.c') $(shell find ./src/arch/$(ARCH) -type l -name '*.c')
-H_FILES = $(shell find . -type f -name '*.h') \
-          $(shell find . -type l -name '*.h')
-ASM_FILES = $(shell find ./src/common -type f -name '*.asm') $(shell find ./src/arch/$(ARCH) -type f -name '*.asm') \
-            $(shell find ./src/common -type l -name '*.asm') $(shell find ./src/arch/$(ARCH) -type l -name '*.asm')
+REAL_FILES = $(shell find ./real -type f -name '*.real')
+BINS = $(REAL_FILES:.real=.bin)
+C_FILES = $(shell find ./src -type f -name '*.c')
+ASM_FILES = $(shell find ./asm -type f -name '*.asm')
 OBJ = $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
+H_FILES = $(shell find ./include -type f -name '*.h')
 
 CLINKFLAGS = -nostdlib \
     -static-libgcc -lgcc
@@ -65,20 +43,20 @@ CFLAGS = -O2 -Wall -Wextra
 .PHONY: clean
 
 kernel.bin: $(BINS) $(OBJ) $(H_FILES)
-	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker_$(ARCH)_syms.ld -o kernel.sym
-	./gensyms_$(ARCH).sh > kernelsym.asm
-	$(ASM) kernelsym.asm -f $(NASMFORMAT) -o kernelsym.o
-	$(CC) $(OBJ) kernelsym.o $(CLINKFLAGS) -T ./linker_$(ARCH).ld -o $@
+	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker_syms.ld -o kernel.sym
+	./gensyms.sh > kernelsym.asm
+	$(AS) kernelsym.asm -f $(NASMFORMAT) -o kernelsym.o
+	$(CC) $(OBJ) kernelsym.o $(CLINKFLAGS) -T ./linker.ld -o $@
 	rm -f kernel.sym kernelsym.asm kernelsym.o
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CHARDFLAGS) -c $< -o $@
 
 %.bin: %.real
-	$(ASM) $< -f bin -o $@
+	$(AS) $< -f bin -o $@
 
 %.o: %.asm
-	$(ASM) $< -f $(NASMFORMAT) -o $@
+	$(AS) $< -f $(NASMFORMAT) -o $@
 
 clean:
 	rm -f $(OBJ) $(BINS) kernel.bin

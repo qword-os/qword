@@ -26,39 +26,21 @@ char *get_symbol_from_address(size_t *displacement, size_t addr) {
 void print_stacktrace(int type) {
     size_t *bp;
 
-    #ifdef __X86_64__
-        asm volatile (
-            "mov rax, rbp"
-            : "=a" (bp)
-        );
-    #endif
-    #ifdef __I386__
-        asm volatile (
-            "mov eax, ebp"
-            : "=a" (bp)
-        );
-    #endif
+    asm volatile (
+        "mov rax, rbp"
+        : "=a" (bp)
+    );
 
     kprint(type, ">>> STACKTRACE BEGIN <<<");
 
 	for (;;) {
 		size_t ip = bp[1];
         size_t displacement;
-        #ifdef __X86_64__
 		if (ip == 0xffffffffffffffff)
-        #endif
-        #ifdef __I386__
-        if (ip == 0xffffffff)
-        #endif
             break;
 		bp = (size_t *)bp[0];
         char *name = get_symbol_from_address(&displacement, ip);
-        #ifdef __X86_64__
-            kprint(type, "%s + %X", name, displacement);
-        #endif
-        #ifdef __I386__
-            kprint(type, "%s + %x", name, displacement);
-        #endif
+        kprint(type, "%s + %X", name, displacement);
 	}
 
     kprint(type, ">>> STACKTRACE END <<<");

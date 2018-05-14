@@ -14,21 +14,11 @@
 
 int smp_cpu_count = 1;
 
-#ifdef __X86_64__
-    typedef struct {
-        uint32_t unused __attribute__((aligned(16)));
-        uint64_t sp;
-        uint32_t entries[23];
-    } __attribute__((packed)) tss_t;
-#endif
-#ifdef __I386__
-    typedef struct {
-        uint32_t unused __attribute__((aligned(16)));
-        uint32_t sp;
-        uint32_t ss;
-        uint32_t entries[23];
-    } __attribute__((packed)) tss_t;
-#endif
+typedef struct {
+    uint32_t unused __attribute__((aligned(16)));
+    uint64_t sp;
+    uint32_t entries[23];
+} __attribute__((packed)) tss_t;
 
 static size_t cpu_stack_top = KERNEL_PHYS_OFFSET + 0xeffff0;
 
@@ -65,13 +55,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     /* prepare TSS */
     tss_t *tss = &cpu_tss[cpu_number];
 
-    #ifdef __X86_64__
-        tss->sp = (uint64_t)cpu_stack_top;
-    #endif
-    #ifdef __I386__
-        tss->sp = (uint32_t)cpu_stack_top;
-        tss->ss = 0x08;
-    #endif
+    tss->sp = (uint64_t)cpu_stack_top;
 
     void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pagemap,
                                 (void *)cpu_stack_top, cpu_local, tss);
@@ -117,13 +101,7 @@ static void init_cpu0(void) {
 
     tss_t *tss = &cpu_tss[0];
 
-    #ifdef __X86_64__
-        tss->sp = (uint64_t)cpu_stack_top;
-    #endif
-    #ifdef __I386__
-        tss->sp = (uint32_t)cpu_stack_top;
-        tss->ss = 0x08;
-    #endif
+    tss->sp = (uint64_t)cpu_stack_top;
 
     smp_init_cpu0_local(cpu_local, tss);
 

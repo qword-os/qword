@@ -27,9 +27,6 @@ static const char *e820_type(uint32_t type) {
 }
 
 void init_e820(void) {
-    #ifdef __I386__
-        int memory_limit_warning = 0;
-    #endif
 
     /* Get e820 memory map. */
     get_e820(e820_map);
@@ -42,21 +39,10 @@ void init_e820(void) {
                                               e820_type(e820_map[i].type));
         if (e820_map[i].type == 1) {
             memory_size += e820_map[i].length;
-            #ifdef __I386__
-                if (e820_map[i].base >= 0x100000000)
-                    memory_limit_warning = 1;
-            #endif
         }
     }
 
     kprint(KPRN_INFO, "e820: Total usable memory: %U MiB", memory_size / 1024 / 1024);
-
-    #ifdef __I386__
-        if (memory_limit_warning) {
-            kprint(KPRN_WARN, "e820: Usable memory located above 4 GiB and using a i386 build.");
-            kprint(KPRN_WARN, "e820: Any usable memory above 4 GiB will NOT be accessible.");
-        }
-    #endif
 
     return;
 }

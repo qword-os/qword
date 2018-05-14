@@ -3,24 +3,6 @@
 
 #include <stdint.h>
 
-#ifdef __I386__
-typedef struct {
-    uint32_t ebp;
-    uint32_t edi;
-    uint32_t esi;
-    uint32_t edx;
-    uint32_t ecx;
-    uint32_t ebx;
-    uint32_t eax;
-    uint32_t eip;
-    uint32_t cs;
-    uint32_t eflags;
-    uint32_t esp;
-    uint32_t ss;
-} ctx_t;
-#endif /* I386 */
-
-#ifdef __X86_64__
 typedef struct {
     uint64_t r15;
     uint64_t r14;
@@ -43,7 +25,6 @@ typedef struct {
     uint64_t rsp;
     uint64_t ss;
 } ctx_t;
-#endif /* X86_64 */
 
 ctx_t *new_ctx(void);
 void ctx_switch(ctx_t *);

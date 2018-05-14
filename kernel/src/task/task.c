@@ -14,14 +14,8 @@ process_t **process_table;
 
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. */
-#ifdef __X86_64__
-    ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
-    ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
-#endif
-#ifdef __I386__
-    ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
-    ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
-#endif
+ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
+ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
 
 void init_sched(void) {
     kprint(KPRN_INFO, "sched: Initialising process table...");
@@ -117,17 +111,10 @@ found_new_tid:
     /* Set registers to defaults */
     new_thread->ctx = default_krnl_ctx;
 
-    #ifdef __X86_64__
-        /* Set instruction pointer to entry point and set stack pointer to a catch-all 
-         * function that will ensure a process is killed properly upon process return */
-        new_thread->ctx.rip = (size_t)(entry);
-        new_thread->ctx.rsp = (size_t)&stack[KRNL_STACK_SIZE - 1];
-    #endif
-    #ifdef __I386__
-        /* Same here */
-        new_thread->ctx.eip = (size_t)(entry);
-        new_thread->ctx.esp = (size_t)&stack[KRNL_STACK_SIZE - 1];
-    #endif
+    /* Set instruction pointer to entry point and set stack pointer to a catch-all 
+     * function that will ensure a process is killed properly upon process return */
+    new_thread->ctx.rip = (size_t)(entry);
+    new_thread->ctx.rsp = (size_t)&stack[KRNL_STACK_SIZE - 1];
 
     stack[KRNL_STACK_SIZE - 1] = (size_t)(void *)(thread_return);
     new_thread->stk = stack;

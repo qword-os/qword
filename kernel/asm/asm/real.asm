@@ -3,7 +3,7 @@ global real_routine
 section .data
 
 %define real_init_size  real_init_end - real_init
-real_init:              incbin "real/real_init_x86_64.bin"
+real_init:              incbin "real/real_init.bin"
 real_init_end:
 
 section .text
