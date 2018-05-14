@@ -13,6 +13,7 @@
 #include <pit.h>
 #include <smp.h>
 #include <task.h>
+#include <cio.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -39,7 +40,7 @@ int kmain(void) {
     init_pic();
     
     /* TODO move this someplace else */
-    /* asm volatile ("sti"); */
+    asm volatile ("sti");
 
     init_pit();
     init_smp();

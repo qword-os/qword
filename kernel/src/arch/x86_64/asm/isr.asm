@@ -1,4 +1,4 @@
-extern kernel_pagemap
+extern kernel_cr3
 
 global int_handler
 
@@ -188,12 +188,13 @@ irq0_handler:
     mov es, ax
     mov rsi, cr3
     ; Context swap to kernel.
-    mov rax, qword [kernel_pagemap]
+    mov rax, kernel_cr3
     mov cr3, rax
-    add rsp, 8
+    mov rdi, rsp
+    add rdi, 8    
     mov ax, 0x10
     mov ss, ax
-    mov rdi, rsp
+
     call pit_handler
     popam
     iretq

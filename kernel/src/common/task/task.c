@@ -48,6 +48,9 @@ void init_sched(void) {
 }
 
 void task_resched(ctx_t *prev, uint64_t *pagemap) {
+    size_t max_load = 100;
+    cpu_local_t *cpu;
+      
     /* Save context */
     size_t prev_pid = fsr(&global_cpu_local->current_process);
     size_t prev_tid = fsr(&global_cpu_local->current_thread);

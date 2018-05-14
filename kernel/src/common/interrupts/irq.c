@@ -24,7 +24,7 @@ void pit_handler(ctx_t *prev, uint64_t *pagemap) {
     pic_send_eoi(0);
 
     /* This function will release the lock after updating the process table */
-    task_resched(prev, pagemap);
+    // task_resched(prev, pagemap);
 
     return;
 }
