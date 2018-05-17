@@ -9,6 +9,7 @@
 
 #define PAGE_TABLE_ENTRIES 512
 #define KERNEL_PHYS_OFFSET ((size_t)0xffffffffc0000000)
+#define MEM_PHYS_OFFSET ((size_t)0xffff800000000000)
 
 typedef uint64_t pt_entry_t;
 

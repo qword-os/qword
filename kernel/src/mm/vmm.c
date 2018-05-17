@@ -21,10 +21,10 @@ void map_page(pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags)
     /* Check present flag */
     if (pml4->pagemap[pml4_entry] & 0x1) {
         /* Reference pdpt */
-        pdpt = (pt_entry_t *)(pml4->pagemap[pml4_entry] & 0xfffffffffffff000);
+        pdpt = (pt_entry_t *)((pml4->pagemap[pml4_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         /* Allocate a page for the pdpt. */
-        pdpt = pmm_alloc(1);
+        pdpt = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
 
         /* Zero page */
         for (size_t i = 0; i < PAGE_TABLE_ENTRIES; i++) {
@@ -33,15 +33,15 @@ void map_page(pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags)
         }
 
         /* Present + writable + user (0b111) */
-        pml4->pagemap[pml4_entry] = (pt_entry_t)pdpt | 0b111;
+        pml4->pagemap[pml4_entry] = (pt_entry_t)((size_t)pdpt - MEM_PHYS_OFFSET) | 0b111;
     }
 
     /* Rinse and repeat */
     if (pdpt[pdpt_entry] & 0x1) {
-        pd = (pt_entry_t *)(pdpt[pdpt_entry] & 0xfffffffffffff000);
+        pd = (pt_entry_t *)((pdpt[pdpt_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         /* Allocate a page for the pd. */
-        pd = pmm_alloc(1);
+        pd = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
 
         /* Zero page */
         for (size_t i = 0; i < PAGE_TABLE_ENTRIES; i++) {
@@ -50,15 +50,15 @@ void map_page(pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags)
         }
 
         /* Present + writable + user (0b111) */
-        pdpt[pdpt_entry] = (pt_entry_t)pd | 0b111;
+        pdpt[pdpt_entry] = (pt_entry_t)((size_t)pd - MEM_PHYS_OFFSET) | 0b111;
     }
 
     /* Once more */
     if (pd[pd_entry] & 0x1) {
-        pt = (pt_entry_t *)(pd[pd_entry] & 0xfffffffffffff000);
+        pt = (pt_entry_t *)((pd[pd_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         /* Allocate a page for the pt. */
-        pt = pmm_alloc(1);
+        pt = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
 
         /* Zero page */
         for (size_t i = 0; i < PAGE_TABLE_ENTRIES; i++) {
@@ -67,7 +67,7 @@ void map_page(pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags)
         }
 
         /* Present + writable + user (0b111) */
-        pd[pd_entry] = (pt_entry_t)pt | 0b111;
+        pd[pd_entry] = (pt_entry_t)((size_t)pt - MEM_PHYS_OFFSET) | 0b111;
     }
 
     /* Set the entry as present and point it to the passed physical address */
@@ -90,19 +90,19 @@ int unmap_page(pagemap_t *pml4, size_t virt_addr) {
     /* Get reference to the various tables in sequence. Return -1 if one of the tables is not present,
      * since we cannot unmap a virtual address if we don't know what it's mapped to in the first place */
     if (pml4->pagemap[pml4_entry] & 0x1) {
-        pdpt = (pt_entry_t *)(pml4->pagemap[pml4_entry] & 0xfffffffffffff000);
+        pdpt = (pt_entry_t *)((pml4->pagemap[pml4_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         return -1;
     }
 
     if (pdpt[pdpt_entry] & 0x1) {
-        pd = (pt_entry_t *)(pdpt[pdpt_entry] & 0xfffffffffffff000);
+        pd = (pt_entry_t *)((pdpt[pdpt_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         return -1;
     }
 
     if (pd[pd_entry] & 0x1) {
-        pt = (pt_entry_t *)(pd[pd_entry] & 0xfffffffffffff000);
+        pt = (pt_entry_t *)((pd[pd_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         return -1;
     }
@@ -130,19 +130,19 @@ int remap_page(pagemap_t *pml4, size_t virt_addr, size_t flags) {
     /* Get reference to the various tables in sequence. Return -1 if one of the tables is not present,
      * since we cannot unmap a virtual address if we don't know what it's mapped to in the first place */
     if (pml4->pagemap[pml4_entry] & 0x1) {
-        pdpt = (pt_entry_t *)(pml4->pagemap[pml4_entry] & 0xfffffffffffff000);
+        pdpt = (pt_entry_t *)((pml4->pagemap[pml4_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         return -1;
     }
 
     if (pdpt[pdpt_entry] & 0x1) {
-        pd = (pt_entry_t *)(pdpt[pdpt_entry] & 0xfffffffffffff000);
+        pd = (pt_entry_t *)((pdpt[pdpt_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         return -1;
     }
 
     if (pd[pd_entry] & 0x1) {
-        pt = (pt_entry_t *)(pd[pd_entry] & 0xfffffffffffff000);
+        pt = (pt_entry_t *)((pd[pd_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         return -1;
     }
@@ -155,30 +155,51 @@ int remap_page(pagemap_t *pml4, size_t virt_addr, size_t flags) {
     return 0;
 }
 
-/* Identity map the first 4GiB of memory, this saves issues with MMIO hardware < 4GiB later on */
+/* Map the first 4GiB of memory, this saves issues with MMIO hardware < 4GiB later on */
 /* Then use the e820 to map all the available memory (saves on allocation time and it's easier) */
-/* The latter only applies to x86_64 */
+/* The physical memory is mapped at the beginning of the higher half (entry 256 of the pml4) onwards */
 void init_vmm(void) {
-    kernel_pagemap.pagemap = (pt_entry_t *)((size_t)&kernel_cr3 - KERNEL_PHYS_OFFSET);
+    kernel_pagemap.pagemap = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
     kernel_pagemap.lock = 1;
 
-    kprint(KPRN_INFO, "vmm: Identity mapping memory as specified by the e820...");
+    for (size_t i = 0; i < PAGE_TABLE_ENTRIES; i++)
+        kernel_pagemap.pagemap[i] = 0;
 
+    kprint(KPRN_INFO, "vmm: Mapping memory as specified by the e820...");
+
+    /* Identity map the first 32 MiB */
+    /* Map 32 MiB for the phys mem area, and 32 MiB for the kernel in the higher half */
+    for (size_t i = 0; i < (0x2000000 / PAGE_SIZE); i++) {
+        size_t addr = i * PAGE_SIZE;
+        map_page(&kernel_pagemap, addr, addr, 0x03);
+        map_page(&kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
+        map_page(&kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03);
+    }
+
+    /* Reload new pagemap */
+    asm volatile (
+        "mov cr3, rax;"
+        :
+        : "a" ((size_t)kernel_pagemap.pagemap - MEM_PHYS_OFFSET)
+    );
+
+    /* Forcefully map the first 4 GiB for I/O into the higher half */
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
 
-        map_page(&kernel_pagemap, addr, addr, 0x03);
+        map_page(&kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
     }
 
+    /* Map the rest according to e820 into the higher half */
     for (size_t i = 0; e820_map[i].type; i++) {
         for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
             size_t addr = e820_map[i].base + j * PAGE_SIZE;
 
-            /* FIXME: assume the first 32 MiB of memory to be free and usable */
-            if (addr < 0x2000000)
+            /* Skip over first 4 GiB */
+            if (addr < 0x100000000)
                 continue;
 
-            map_page(&kernel_pagemap, addr, addr, 0x03);
+            map_page(&kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
         }
     }
 

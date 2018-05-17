@@ -59,7 +59,7 @@ void init_vbe(void) {
     get_vbe_info(&vbe_info_struct);
     /* copy the video mode array somewhere else because it might get overwritten */
     for (size_t i = 0; ; i++) {
-        vid_modes[i] = ((uint16_t *)(size_t)vbe_info_struct.vid_modes)[i];
+        vid_modes[i] = ((uint16_t *)((size_t)vbe_info_struct.vid_modes + MEM_PHYS_OFFSET))[i];
         if (((uint16_t *)(size_t)vbe_info_struct.vid_modes)[i+1] == 0xffff) {
             vid_modes[i+1] = 0xffff;
             break;
@@ -67,10 +67,10 @@ void init_vbe(void) {
     }
 
     kprint(KPRN_INFO, "vbe: Version: %u.%u", vbe_info_struct.version_maj, vbe_info_struct.version_min);
-    kprint(KPRN_INFO, "vbe: OEM: %s", (char *)(size_t)vbe_info_struct.oem);
-    kprint(KPRN_INFO, "vbe: Graphics vendor: %s", (char *)(size_t)vbe_info_struct.vendor);
-    kprint(KPRN_INFO, "vbe: Product name: %s", (char *)(size_t)vbe_info_struct.prod_name);
-    kprint(KPRN_INFO, "vbe: Product revision: %s", (char *)(size_t)vbe_info_struct.prod_rev);
+    kprint(KPRN_INFO, "vbe: OEM: %s", (char *)((size_t)vbe_info_struct.oem + MEM_PHYS_OFFSET));
+    kprint(KPRN_INFO, "vbe: Graphics vendor: %s", (char *)((size_t)vbe_info_struct.vendor + MEM_PHYS_OFFSET));
+    kprint(KPRN_INFO, "vbe: Product name: %s", (char *)((size_t)vbe_info_struct.prod_name + MEM_PHYS_OFFSET));
+    kprint(KPRN_INFO, "vbe: Product revision: %s", (char *)((size_t)vbe_info_struct.prod_rev + MEM_PHYS_OFFSET));
 
     if ((cmdline_val = cmdline_get_value("edid"))) {
         if (!kstrcmp(cmdline_val, "enabled")) {
@@ -117,9 +117,9 @@ modeset:
             && vbe_mode_info.bpp == 32) {
             /* mode found */
             kprint(KPRN_INFO, "vbe: Found matching mode %x, attempting to set.", (uint32_t)get_vbe.mode);
-            vbe_framebuffer = (uint32_t *)(size_t)vbe_mode_info.framebuffer;
+            vbe_framebuffer = (uint32_t *)((size_t)vbe_mode_info.framebuffer + MEM_PHYS_OFFSET);
             vbe_pitch = vbe_mode_info.pitch;
-            kprint(KPRN_INFO, "vbe: Framebuffer address: %x", (uint32_t)vbe_mode_info.framebuffer);
+            kprint(KPRN_INFO, "vbe: Framebuffer address: %X", (size_t)vbe_mode_info.framebuffer + MEM_PHYS_OFFSET);
             set_vbe_mode(get_vbe.mode);
             goto success;
         }

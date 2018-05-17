@@ -4,6 +4,7 @@
 #include <klib.h>
 #include <cpuid.h>
 #include <acpi/madt.h>
+#include <mm.h>
 
 #define APIC_CPUID_BIT (1 << 9)
 
@@ -25,12 +26,12 @@ int apic_supported(void) {
 }
 
 uint32_t lapic_read(uint32_t reg) {
-    size_t lapic_base = (size_t)madt->local_controller_addr;
+    size_t lapic_base = (size_t)madt->local_controller_addr + MEM_PHYS_OFFSET;
     return *((volatile uint32_t *)(lapic_base + reg));
 }
 
 void lapic_write(uint32_t reg, uint32_t data) {
-    size_t lapic_base = (size_t)madt->local_controller_addr;
+    size_t lapic_base = (size_t)madt->local_controller_addr + MEM_PHYS_OFFSET;
     *((volatile uint32_t *)(lapic_base + reg)) = data;
 }
 
@@ -73,14 +74,14 @@ void lapic_send_ipi(uint8_t vector, uint8_t target_id) {
 
 /* Read from the `io_apic_num`'th I/O APIC as described by the MADT */
 uint32_t io_apic_read(size_t io_apic_num, uint32_t reg) {
-    volatile uint32_t *base = (volatile uint32_t *)(size_t)madt_io_apics[io_apic_num]->addr;
+    volatile uint32_t *base = (volatile uint32_t *)((size_t)madt_io_apics[io_apic_num]->addr + MEM_PHYS_OFFSET);
     *base = reg;
     return *(base + 4);
 }
 
 /* Write to the `io_apic_num`'th I/O APIC as described by the MADT */
 void io_apic_write(size_t io_apic_num, uint32_t reg, uint32_t data) {
-    volatile uint32_t *base = (volatile uint32_t *)(size_t)madt_io_apics[io_apic_num]->addr;
+    volatile uint32_t *base = (volatile uint32_t *)((size_t)madt_io_apics[io_apic_num]->addr + MEM_PHYS_OFFSET);
     *base = reg;
     *(base + 4) = data;
     return;

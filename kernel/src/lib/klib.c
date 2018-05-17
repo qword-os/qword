@@ -204,6 +204,8 @@ void *kalloc(size_t size) {
         return (void *)0;
     }
 
+    ptr += MEM_PHYS_OFFSET;
+
     alloc_metadata_t *metadata = (alloc_metadata_t *)ptr;
     ptr += PAGE_SIZE;
 
@@ -221,7 +223,7 @@ void *kalloc(size_t size) {
 void kfree(void *ptr) {
     alloc_metadata_t *metadata = (alloc_metadata_t *)((size_t)ptr - PAGE_SIZE);
 
-    pmm_free((void *)metadata, metadata->pages + 1);
+    pmm_free((void *)((size_t)metadata - MEM_PHYS_OFFSET), metadata->pages + 1);
 }
 
 void *krealloc(void *ptr, size_t new) {

@@ -82,6 +82,13 @@ set_up_page_tables:
     xor eax, eax
     stosd
 
+    mov eax, kernel_cr3.pdpt_low - kernel_phys_offset
+    or eax, 0x03
+    mov edi, kernel_cr3.pml4 - kernel_phys_offset + 256*8
+    stosd
+    xor eax, eax
+    stosd
+
     mov eax, kernel_cr3.pdpt_hi - kernel_phys_offset
     or eax, 0x03
     mov edi, kernel_cr3.pml4 - kernel_phys_offset + 511*8

@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <cio.h>
 #include <vga_textmode.h>
+#include <mm.h>
 
 #define VIDEO_BOTTOM ((VD_ROWS * VD_COLS) - 1)
 #define VD_COLS (80 * 2)
@@ -9,7 +10,7 @@
 
 static void escape_parse(char c);
 
-static char *video_mem = (char *)0xb8000;
+static char *video_mem = (char *)(0xb8000 + MEM_PHYS_OFFSET);
 static size_t cursor_offset = 0;
 static int cursor_status = 1;
 static uint8_t text_palette = 0x07;

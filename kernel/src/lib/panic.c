@@ -29,13 +29,23 @@ void panic(const char *msg, uint64_t err_code, uint64_t debug_info) {
     );
 }
 
+static lock_t kexcept_lock = 1;
+
 void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t debug) {
+    asm volatile ("cli");
+
+    spinlock_acquire(&kexcept_lock);
+
     kprint(KPRN_ERR, "CPU EXCEPTION:");
     kprint(KPRN_ERR, msg);
     kprint(KPRN_ERR, "Error code: %U", error_code);
     kprint(KPRN_ERR, "Instruction pointer: %X", ip);
     kprint(KPRN_ERR, "Value of CS register: %X", cs);
     kprint(KPRN_ERR, "Debug info: %X", debug);
+
+    print_stacktrace(KPRN_ERR);
+
+    kprint(KPRN_ERR, "System halted");
 
     asm volatile(
             "1:"
