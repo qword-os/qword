@@ -3,6 +3,7 @@
 #include <klib.h>
 #include <acpi.h>
 #include <acpi/madt.h>
+#include <mm.h>
 
 int acpi_available = 0;
 
@@ -19,14 +20,14 @@ void init_acpi(void) {
 
     /* look for the "RSD PTR " signature from 0x80000 to 0xa0000 and from
        0xf0000 to 0x100000 */
-    for (size_t i = 0x80000; i < 0x100000; i += 16) {
-        if (i == 0xa0000) {
+    for (size_t i = 0x80000 + MEM_PHYS_OFFSET; i < 0x100000 + MEM_PHYS_OFFSET; i += 16) {
+        if (i == 0xa0000 + MEM_PHYS_OFFSET) {
             /* skip video mem and mapped hardware */
-            i = 0xe0000 - 16;
+            i = 0xe0000 - 16 + MEM_PHYS_OFFSET;
             continue;
         }
         if (!kstrncmp((char *)i, "RSD PTR ", 8)) {
-            kprint(KPRN_INFO, "acpi: Found RSDP at %x", i);
+            kprint(KPRN_INFO, "acpi: Found RSDP at %X", i);
             rsdp = (rsdp_t *)i;
             goto rsdp_found;
         }
@@ -43,11 +44,11 @@ rsdp_found:
 
     if (rsdp->rev >= 2 && rsdp->xsdt_addr) {
         use_xsdt = 1;
-        kprint(KPRN_INFO, "acpi: Found XSDT at %x", (uint32_t)rsdp->xsdt_addr);
-        xsdt = (xsdt_t *)(size_t)rsdp->xsdt_addr;
+        kprint(KPRN_INFO, "acpi: Found XSDT at %X", ((size_t)rsdp->xsdt_addr + MEM_PHYS_OFFSET));
+        xsdt = (xsdt_t *)((size_t)rsdp->xsdt_addr + MEM_PHYS_OFFSET);
     } else {
-        kprint(KPRN_INFO, "acpi: Found RSDT at %x", (uint32_t)rsdp->rsdt_addr);
-        rsdt = (rsdt_t *)(size_t)rsdp->rsdt_addr;
+        kprint(KPRN_INFO, "acpi: Found RSDT at %X", ((size_t)rsdp->rsdt_addr + MEM_PHYS_OFFSET));
+        rsdt = (rsdt_t *)((size_t)rsdp->rsdt_addr + MEM_PHYS_OFFSET);
     }
 
     /* Call table inits */
@@ -62,17 +63,17 @@ void *acpi_find_sdt(const char *signature) {
 
     if (use_xsdt) {
         for (size_t i = 0; i < xsdt->sdt.length; i++) {
-            ptr = (sdt_t *)(size_t)xsdt->sdt_ptr[i];
+            ptr = (sdt_t *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!kstrncmp(ptr->signature, signature, 4)) {
-                kprint(KPRN_INFO, "acpi: Found \"%s\" at %x", signature, (uint32_t)(size_t)ptr);
+                kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
                 return (void *)ptr;
             }
         }
     } else {
         for (size_t i = 0; i < rsdt->sdt.length; i++) {
-            ptr = (sdt_t *)(size_t)rsdt->sdt_ptr[i];
+            ptr = (sdt_t *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!kstrncmp(ptr->signature, signature, 4)) {
-                kprint(KPRN_INFO, "acpi: Found \"%s\" at %x", signature, (uint32_t)(size_t)ptr);
+                kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
                 return (void *)ptr;
             }
         }
