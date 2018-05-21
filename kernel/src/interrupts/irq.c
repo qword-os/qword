@@ -8,6 +8,9 @@
 #include <pit.h>
 #include <cio.h>
 #include <task.h>
+#include <smp.h>
+
+uint64_t pit_ticks = 0;
 
 void dummy_int_handler(void) {
     kprint(KPRN_INFO, "Unhandled interrupt occurred");
@@ -16,15 +19,32 @@ void dummy_int_handler(void) {
 }
 
 /* Interrupts should be OFF */
-void pit_handler(ctx_t *prev, uint64_t *pagemap) {
+void pit_handler(ctx_t *prev, uint64_t *pagemap) {    
     if (!(++uptime_raw % PIT_FREQUENCY)) {
         uptime_sec++;
+    }
+    
+    if (!fsr(&global_cpu_local->should_ts)) {
+        return;
     }
 
     pic_send_eoi(0);
 
-    /* This function will release the lock after updating the process table */
-    // task_resched(prev, pagemap);
+    /* Calculate a new load for each CPU */
+    for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
+        cpu_local_t *check = &cpu_locals[i];
+        if (check->idle) {
+            check->idle_time++;
+            size_t load = ((check->idle_time)/5) * 100;
+            check->load = load;
+            cpu_locals[i] = *check;
+        }
+    }
+    
+    if (pit_ticks++ >= 5) {
+       pit_ticks = 0;
+       task_resched(prev, pagemap);
+    }
 
     return;
 }

@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <ctx.h>
 
+extern uint64_t pit_ticks;
+
 void int_handler(void);
 void irq0_handler(void);
 void pic0_generic(void);

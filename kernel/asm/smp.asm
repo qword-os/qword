@@ -23,6 +23,8 @@ bits 64
 %define TRAMPOLINE_ADDR     0x1000
 %define PAGE_SIZE           4096
 
+; Store trampoline data in low memory and return the page index of the
+; trampoline code.
 smp_prepare_trampoline:
     ; entry point in rdi, page table in rsi
     ; stack pointer in rdx, cpu local in rcx

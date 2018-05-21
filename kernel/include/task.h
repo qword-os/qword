@@ -5,9 +5,9 @@
 #define MAX_THREADS 1024
 #define KRNL_STACK_SIZE 2048
 
-#define PROC_STS_RUNNING 0
-#define PROC_STS_READY 1
-#define PROC_STS_BLOCKED 2
+#define STS_RUNNING 0
+#define STS_READY 1
+#define STS_BLOCKED 2
 
 #include <stdint.h>
 #include <ctx.h>
@@ -16,7 +16,8 @@
 typedef struct {
     ctx_t ctx;
     uint16_t tid;
-    size_t *stk; 
+    size_t *stk;
+    uint8_t sts; 
 } thread_t;
 
 typedef struct {

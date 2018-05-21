@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#define MAX_CPUS 128
+
 #define fsr(offset) ({ \
     size_t value; \
     asm volatile ("mov rax, qword ptr fs:[rbx]" : "=a"(value) : "b"(offset) :); \
@@ -28,8 +30,13 @@ typedef struct {
      * that represents the current thread of execution on
      * a given processor */
     size_t current_thread;
+    size_t should_ts;
+    size_t idle_time;
+    size_t load;
     thread_identifier_t *run_queue;
 } cpu_local_t;
+
+extern cpu_local_t cpu_locals[MAX_CPUS];
 
 /* Hack for using sub-structs with CPU local */
 #define global_cpu_local ((cpu_local_t *)0)

@@ -45,7 +45,7 @@ int kmain(void) {
     init_pit();
     init_smp();
     init_sched();
-    
+
     for (;;)
         asm volatile ("hlt;");
 

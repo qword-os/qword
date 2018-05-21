@@ -210,7 +210,6 @@ void *kalloc(size_t size) {
     metadata->pages = page_count;
     metadata->size = size;
 
-    // Zero pages.
     for (size_t i = 0; i < (page_count * PAGE_SIZE); i++) {
         ptr[i] = 0;
     }
@@ -307,4 +306,38 @@ int kmemcmp(const void *s1, const void *s2, size_t n) {
     }
 
     return 0;
+}
+
+void swap(int *, int *);
+int partition(int [], int, int);
+
+void swap(int *i, int *j) {
+    int temp = *i;
+    *i = *j;
+    *j = temp;
+}
+
+/* Find the partition index */
+int partition(int arr[], int lo, int hi) {
+    int pivot = arr[hi];
+    int i = (lo - 1);
+
+    for (int j = lo; j <= hi - 1; j++) {
+        if (arr[j] <= pivot) {
+            i++;
+            swap(&arr[i], &arr[j]);
+        }
+    }
+
+    swap(&arr[i + 1], &arr[hi]);
+    return (i + 1);
+}
+
+void kqsort(int arr[], int lo, int hi) {
+    if (lo < hi) {
+        int pi = partition(arr, lo, hi);
+        
+        kqsort(arr, lo, pi - 1);
+        kqsort(arr, pi + 1, hi);
+    }
 }

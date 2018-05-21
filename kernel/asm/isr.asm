@@ -185,7 +185,7 @@ irq0_handler:
     pusham
     mov rsi, cr3
     mov rdi, rsp
-
+    
     call pit_handler
     popam
     iretq

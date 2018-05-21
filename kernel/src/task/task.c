@@ -42,9 +42,19 @@ void init_sched(void) {
 }
 
 void task_resched(ctx_t *prev, uint64_t *pagemap) {
+    int loads[smp_cpu_count];
     size_t max_load = 100;
-    cpu_local_t *cpu;
-      
+    cpu_local_t *cpu; 
+    
+    size_t cpu_loads;
+
+    for (int i = 0; i < smp_cpu_count; i++) {
+        cpu_local_t *check = &cpu_locals[i];
+        loads[i] = (int)check->load;
+    }
+
+    kqsort(loads, 0, smp_cpu_count);
+
     /* Save context */
     size_t prev_pid = fsr(&global_cpu_local->current_process);
     size_t prev_tid = fsr(&global_cpu_local->current_thread);
@@ -61,18 +71,36 @@ void task_resched(ctx_t *prev, uint64_t *pagemap) {
             next_proc,
             next_thread 
         };
-
-        /* cpu_local_t *cpu = &cpu_locals[1]; */
-        /* more TODO 
-         * ... 
-         * lapic_send_ipi(IPI_RESCHED, ...);
-         * */
+        
+        /* Since we have sorted the list of CPU 
+         * loads, we can just pick the highest load 
+         * from the top index of this list */
+        int load = loads[smp_cpu_count];
+        cpu_local_t *next;
+        for (size_t i = 0; i < smp_cpu_count; i++) {
+            cpu_local_t *check = &cpu_locals[i];
+            if (check->load == load) {
+                next = check;
+                break;
+            } else {
+                continue;
+            }
+        }
     }
 }
 
 size_t thread_resched(size_t proc) {
-    /* TODO */
-    return 1;
+    process_t *next_proc  = process_table[proc];
+
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        if (next_proc->threads[i]->sts == STS_READY) {
+            return i;
+        } else {
+            continue;
+        }
+    }
+    
+    return 0;
 }
 
 
