@@ -28,6 +28,8 @@ typedef struct {
     uint8_t priority;
 } process_t;
 
+extern int scheduler_ready;
+
 extern process_t **process_table;
 extern lock_t process_table_lock;
 

@@ -1,3 +1,4 @@
+extern pic_send_eoi
 extern kernel_cr3
 
 global int_handler
@@ -187,6 +188,8 @@ irq0_handler:
     mov rdi, rsp
     
     call pit_handler
+
+    call pic_send_eoi
     popam
     iretq
 

@@ -6,6 +6,8 @@
 #include <ctx.h>
 #include <lock.h>
 
+int scheduler_ready = 0;
+
 size_t find_process(void);
 size_t thread_resched(size_t);
 
@@ -35,6 +37,8 @@ void init_sched(void) {
 
     process_table[0]->pagemap = &kernel_pagemap;
     process_table[0]->pid = 0;
+
+    scheduler_ready = 1;
     
     kprint(KPRN_INFO, "sched: Init done.");
 

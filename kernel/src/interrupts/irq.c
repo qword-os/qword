@@ -23,12 +23,10 @@ void pit_handler(ctx_t *prev, uint64_t *pagemap) {
     if (!(++uptime_raw % PIT_FREQUENCY)) {
         uptime_sec++;
     }
-    
-    if (!fsr(&global_cpu_local->should_ts)) {
+
+    if (!scheduler_ready || !fsr(&global_cpu_local->should_ts)) {
         return;
     }
-
-    pic_send_eoi(0);
 
     /* Calculate a new load for each CPU */
     for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
