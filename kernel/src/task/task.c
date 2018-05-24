@@ -5,17 +5,18 @@
 #include <smp.h>
 #include <ctx.h>
 #include <lock.h>
+#include <acpi/madt.h>
 
 int scheduler_ready = 0;
 
 size_t find_process(void);
-size_t thread_resched(size_t);
+size_t find_thread(size_t);
 
 lock_t process_table_lock = 1;
 process_t **process_table;
 
 /* These represent the default new-thread register contexts for kernel space and
- * userspace. */
+ * userspace. See kernel/include/ctx.h for the register order. */
 ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
 ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
 
@@ -45,13 +46,12 @@ void init_sched(void) {
     return;
 }
 
+/* Find a new task to run */
 void task_resched(ctx_t *prev, uint64_t *pagemap) {
     int loads[smp_cpu_count];
-    size_t max_load = 100;
-    cpu_local_t *cpu; 
+    cpu_local_t *cpu;
     
-    size_t cpu_loads;
-
+    /* Store each CPU's respective load */
     for (int i = 0; i < smp_cpu_count; i++) {
         cpu_local_t *check = &cpu_locals[i];
         loads[i] = (int)check->load;
@@ -70,30 +70,34 @@ void task_resched(ctx_t *prev, uint64_t *pagemap) {
         return;
     else {
         /* Now decide upon a thread to run */
-        size_t next_thread = thread_resched(next_proc);
+        size_t next_thread = find_thread(next_proc);
         thread_identifier_t t = {
             next_proc,
             next_thread 
         };
         
         /* Since we have sorted the list of CPU 
-         * loads, we can just pick the highest load 
-         * from the top index of this list */
-        int load = loads[smp_cpu_count];
-        cpu_local_t *next;
+         * loads, we can just pick the lowest load 
+         * from the lowest index of this list */
+        int load = loads[0];
         for (size_t i = 0; i < smp_cpu_count; i++) {
             cpu_local_t *check = &cpu_locals[i];
             if (check->load == load) {
-                next = check;
+                cpu = check;
                 break;
             } else {
                 continue;
             }
         }
+    
+
+        /* TODO Find free thread in CPU's run queue, add
+         * resched IPI */
+        return;
     }
 }
 
-size_t thread_resched(size_t proc) {
+size_t find_thread(size_t proc) {
     process_t *next_proc  = process_table[proc];
 
     for (size_t i = 0; i < MAX_THREADS; i++) {

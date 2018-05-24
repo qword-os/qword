@@ -2,6 +2,7 @@
 #include <klib.h>
 #include <lock.h>
 #include <trace.h>
+#include <smp.h>
 
 static lock_t panic_lock = 1;
 
@@ -42,6 +43,7 @@ void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t de
     kprint(KPRN_ERR, "Instruction pointer: %X", ip);
     kprint(KPRN_ERR, "Value of CS register: %X", cs);
     kprint(KPRN_ERR, "Debug info: %X", debug);
+    kprint(KPRN_ERR, "Exception on CPU #%u", smp_get_cpu_number());
 
     print_stacktrace(KPRN_ERR);
 

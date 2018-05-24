@@ -68,8 +68,9 @@ void lapic_eoi(void) {
 }
 
 void lapic_send_ipi(uint8_t vector, uint8_t target_id) {
-    lapic_write(0x300, ((uint32_t)target_id << 24));
-    lapic_write(0x310, 0x4000 | vector);
+    lapic_write(APICREG_ICR1, ((uint32_t)target_id) << 24);
+    lapic_write(APICREG_ICR0, 0x4000 | vector);
+    return;
 }
 
 /* Read from the `io_apic_num`'th I/O APIC as described by the MADT */

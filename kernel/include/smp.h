@@ -33,6 +33,7 @@ typedef struct {
     size_t should_ts;
     size_t idle_time;
     size_t load;
+    size_t lapic_id;
     thread_identifier_t *run_queue;
 } cpu_local_t;
 

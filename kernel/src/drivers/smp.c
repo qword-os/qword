@@ -30,8 +30,11 @@ static void ap_kernel_entry(void) {
     kprint(KPRN_INFO, "smp: Started up AP #%u", smp_get_cpu_number());
     kprint(KPRN_INFO, "smp: AP #%u kernel stack top: %X", smp_get_cpu_number(), smp_get_cpu_kernel_stack());
     
-    /* halt and catch fire */
-    for (;;) { asm volatile ("cli; hlt"); }
+    /* Enable this AP's local APIC */
+    lapic_enable();
+    
+    for (;;) { asm volatile ("sti; hlt"); }
+    return;
 }
 
 static int start_ap(uint8_t target_apic_id, int cpu_number) {
@@ -51,6 +54,8 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     cpu_local->should_ts = 0;
     cpu_local->idle_time = 0;
     cpu_local->load = 0;
+    /* This is used for IPIs */
+    cpu_local->lapic_id = (size_t)target_apic_id;
     if ((cpu_local->run_queue = kalloc(MAX_THREADS * sizeof(thread_identifier_t))) == 0) {
         panic("smp: Failed to allocate thread array for CPU with number: ", cpu_number, 0);
     }
@@ -111,6 +116,8 @@ static void init_cpu0(void) {
     cpu_local->should_ts = 0;
     cpu_local->idle_time = 0;
     cpu_local->load = 0;
+    /* BSP will always have APIC ID 0 */
+    cpu_local->lapic_id = 0;
     if ((cpu_local->run_queue = kalloc(sizeof(thread_t) * MAX_THREADS)) == 0) {
         panic("smp: Failed to allocate thread array for CPU0", 0, 0);
     }
