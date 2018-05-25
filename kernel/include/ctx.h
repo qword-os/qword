@@ -27,7 +27,6 @@ typedef struct {
 } ctx_t;
 
 ctx_t *new_ctx(void);
-void ctx_switch(ctx_t *);
 void set_ctx_krnl(ctx_t *);
 
 extern ctx_t default_krnl_ctx;

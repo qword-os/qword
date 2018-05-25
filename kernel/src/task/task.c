@@ -48,6 +48,8 @@ void init_sched(void) {
 
 /* Find a new task to run */
 void task_resched(ctx_t *prev, uint64_t *pagemap) {
+    kprint(KPRN_DBG, "Entered the scheduler! Hello, scheduler world!");
+    
     int loads[smp_cpu_count];
     cpu_local_t *cpu;
     
@@ -73,26 +75,42 @@ void task_resched(ctx_t *prev, uint64_t *pagemap) {
         size_t next_thread = find_thread(next_proc);
         thread_identifier_t t = {
             next_proc,
-            next_thread 
+            next_thread,
+            0
         };
         
         /* Since we have sorted the list of CPU 
          * loads, we can just pick the lowest load 
          * from the lowest index of this list */
         int load = loads[0];
-        for (size_t i = 0; i < smp_cpu_count; i++) {
+        for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
             cpu_local_t *check = &cpu_locals[i];
-            if (check->load == load) {
+            if ((int)check->load == load) {
                 cpu = check;
                 break;
             } else {
                 continue;
             }
         }
-    
+     
+        for (size_t i = 0; i < MAX_THREADS; i++) {
+            if (cpu->run_queue[i].is_free) {
+                cpu->run_queue[i] = t;
+                break;
+            } else {
+                continue;
+            }
+        }
+        
+        if (cpu->cpu_number == 0) {
+            thread_t *next = process_table[next_proc]->threads[next_thread];
+            pt_entry_t *pagemap = process_table[next_proc]->pagemap->pagemap;
+            
+            ctx_switch((uint64_t *)&next->ctx, pagemap);
+        } else {
+            // lapic_send_ipi(IPI_RESCHED, cpu->lapic_id);
+        }
 
-        /* TODO Find free thread in CPU's run queue, add
-         * resched IPI */
         return;
     }
 }
@@ -115,7 +133,7 @@ size_t find_thread(size_t proc) {
 /* Return the index into the process table of the next process to be run */
 size_t find_process(void) {
     /* TODO */
-    return 1;
+    return 0;
 }
 
 /* Create kernel task from function pointer 

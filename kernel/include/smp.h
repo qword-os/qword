@@ -18,6 +18,7 @@
 typedef struct {
     size_t process_idx;
     size_t thread_idx;
+    size_t is_free;
 } thread_identifier_t;
 
 typedef struct {

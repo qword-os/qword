@@ -60,24 +60,30 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
         panic("smp: Failed to allocate thread array for CPU with number: ", cpu_number, 0);
     }
 
+    /* Prepare run queue */
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        /* Use sane defaults */
+        thread_identifier_t t = {
+            0,
+            0,
+            1
+        };
+        cpu_local->run_queue[i] = t;
+    }
+
     /* prepare TSS */
-    kprint(KPRN_DBG, "Preparing TSS.");
     tss_t *tss = &cpu_tss[cpu_number];
 
     tss->sp = (uint64_t)cpu_stack_top;
     
-    kprint(KPRN_DBG, "Preparing smp trampoline...");
     void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pagemap,
                                 (void *)cpu_stack_top, cpu_local, tss);
     
-    kprint(KPRN_DBG, "Sending init IPI");
     /* Send the INIT IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
     lapic_write(APICREG_ICR0, 0x4500);
-    kprint(KPRN_DBG, "Waiting 10ms");
     /* wait 10ms */
     ksleep(10);
-    kprint(KPRN_DBG, "Sending startup IPI");
     /* Send the Startup IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
     lapic_write(APICREG_ICR0, 0x4600 | (uint32_t)(size_t)trampoline);
@@ -87,7 +93,6 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     if (smp_check_ap_flag()) {
         goto success;
     } else {
-        kprint(KPRN_DBG, "Sending startup IPI again...");
         /* Send the Startup IPI again */
         lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
         lapic_write(APICREG_ICR0, 0x4600 | (uint32_t)(size_t)trampoline);

@@ -39,7 +39,9 @@ void pit_handler(ctx_t *prev, uint64_t *pagemap) {
         }
     }
     
-    if (pit_ticks++ >= 5) {
+    pit_ticks += 1;
+
+    if (pit_ticks >= 5) {
        pit_ticks = 0;
        task_resched(prev, pagemap);
     }
