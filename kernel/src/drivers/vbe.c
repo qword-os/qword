@@ -121,6 +121,11 @@ modeset:
             vbe_pitch = vbe_mode_info.pitch;
             kprint(KPRN_INFO, "vbe: Framebuffer address: %X", (size_t)vbe_mode_info.framebuffer + MEM_PHYS_OFFSET);
             set_vbe_mode(get_vbe.mode);
+            /* Make the framebuffer write-combining */
+            size_t fb_pages = (vbe_pitch * vbe_height * sizeof(uint32_t)) / PAGE_SIZE;
+            for (size_t i = 0; i < fb_pages; i++) {
+                remap_page(&kernel_pagemap, (size_t)vbe_framebuffer + i * PAGE_SIZE, 0x03 | (1 << 7) | (1 << 3));
+            }
             goto success;
         }
     }

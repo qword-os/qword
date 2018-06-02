@@ -62,6 +62,12 @@ mov rax, cr4
 or ax, 3 << 9
 mov cr4, rax
 
+; set up the PAT properly
+mov rcx, 0x277
+rdmsr
+mov edx, 0x0105     ; write-protect and write-combining
+wrmsr
+
 ; Load FS with the CPU local struct base address
 mov rcx, 0xc0000100
 mov eax, dword [0x560]

@@ -76,6 +76,12 @@ smp_init_cpu0_local:
     or ax, 3 << 9
     mov cr4, rax
 
+    ; set up the PAT properly
+    mov rcx, 0x277
+    rdmsr
+    mov edx, 0x0105     ; write-protect and write-combining
+    wrmsr
+
     mov rdi, rsi
     call load_tss
 
