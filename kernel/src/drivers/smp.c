@@ -157,4 +157,4 @@ void init_smp(void) {
     kprint(KPRN_INFO, "smp: Total CPU count: %u", smp_cpu_count);
 
     return;
-    }
+}

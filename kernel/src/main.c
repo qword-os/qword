@@ -51,18 +51,11 @@ int kmain(void) {
     init_pit();
     init_smp();
     init_sched();
-
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)0));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)1));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)2));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)3));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)4));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)5));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)6));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)7));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)8));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)9));
-
+    
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        kprint(KPRN_DBG, "%u", thread_create(0, kalloc(KRNL_STACK_SIZE), ktask, (void *)i));
+    }
+    
     for (;;)
         asm volatile ("hlt;");
 

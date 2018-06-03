@@ -62,13 +62,13 @@ extern apic_spurious_handler
 ; IPIs
 global ipi_abort
 extern ipi_abort_handler
+global ipi_resched
 
 ; Misc.
 extern dummy_int_handler
 global int_handler
-extern task_scheduler_bsp
-extern task_scheduler
-global scheduler_ipi
+extern task_resched_bsp
+extern task_resched
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -198,7 +198,8 @@ irq0_handler:
 
     mov rdi, rsp
 
-    call task_scheduler_bsp
+    ; Find work for CPU0 and send IPI to all other APs.
+    call task_resched_bsp
 
     call pic_send_eoi
 
@@ -206,7 +207,7 @@ irq0_handler:
     popam
     iretq
 
-scheduler_ipi:
+ipi_resched:
     pusham
 
     xor rax, rax
@@ -217,7 +218,7 @@ scheduler_ipi:
 
     mov rdi, rsp
 
-    call task_scheduler
+    call task_resched
 
     call pic_send_eoi
 

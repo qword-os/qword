@@ -40,7 +40,7 @@ extern lock_t process_table_lock;
 void init_sched(void);
 void ctx_switch(uint64_t *, uint64_t *);
 void thread_return(void);
-void task_resched(ctx_t *, uint64_t *);
+void task_resched(ctx_t *);
 tid_t thread_create(pid_t, void *, void *(*)(void *), void *);
 
 #endif

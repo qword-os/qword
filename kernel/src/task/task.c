@@ -25,6 +25,7 @@ static size_t task_count = 0;
 ctx_t default_krnl_ctx = {0x10,0x10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
 ctx_t default_usr_ctx = {0x23,0x23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
 
+/* Setup up scheduler data structures and enable scheduling */
 void init_sched(void) {
     kprint(KPRN_INFO, "sched: Initialising process table...");
     /* Make room for task table */
@@ -51,99 +52,9 @@ void init_sched(void) {
     return;
 }
 
-/* Find a new task to run */
-void task_resched(ctx_t *prev, uint64_t *pagemap) {
-    
-    int loads[smp_cpu_count];
-    cpu_local_t *cpu;
-    
-    /* Store each CPU's respective load */
-    for (int i = 0; i < smp_cpu_count; i++) {
-        cpu_local_t *check = &cpu_locals[i];
-        loads[i] = (int)check->load;
-    }
-
-    kqsort(loads, 0, smp_cpu_count);
-
-    /* Save context */
-    size_t prev_pid = fsr(&global_cpu_local->current_process);
-    size_t prev_tid = fsr(&global_cpu_local->current_thread);
-    process_table[prev_pid]->threads[prev_tid]->ctx = *(prev);
-    process_table[prev_pid]->pagemap->pagemap = pagemap;
-
-    size_t next_proc = find_process();
-    if (!next_proc)
-        return;
-    else {
-        /* Now decide upon a thread to run */
-        size_t next_thread = find_thread(next_proc);
-        thread_identifier_t t = {
-            next_proc,
-            next_thread,
-            0
-        };
-        
-        /* Since we have sorted the list of CPU 
-         * loads, we can just pick the lowest load 
-         * from the lowest index of this list */
-        int load = loads[0];
-        for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
-            cpu_local_t *check = &cpu_locals[i];
-            if ((int)check->load == load) {
-                cpu = check;
-                break;
-            } else {
-                continue;
-            }
-        }
-     
-        for (size_t i = 0; i < MAX_THREADS; i++) {
-            if (cpu->run_queue[i].is_free) {
-                cpu->run_queue[i] = t;
-                break;
-            } else {
-                continue;
-            }
-        }
-        
-        if (cpu->cpu_number == 0) {
-            thread_t *next = process_table[next_proc]->threads[next_thread];
-            pt_entry_t *pagemap = process_table[next_proc]->pagemap->pagemap;
-            
-            ctx_switch((uint64_t *)&next->ctx, pagemap);
-        } else {
-            // lapic_send_ipi(IPI_RESCHED, cpu->lapic_id);
-        }
-
-        return;
-    }
-}
-
-size_t find_thread(size_t proc) {
-    process_t *next_proc  = process_table[proc];
-
-    for (size_t i = 0; i < MAX_THREADS; i++) {
-        if (next_proc->threads[i]->sts == STS_READY) {
-            return i;
-        } else {
-            continue;
-        }
-    }
-    
-    return 0;
-}
-
-
-/* Return the index into the process table of the next process to be run */
-size_t find_process(void) {
-    /* TODO */
-    return 0;
-}
-
 void task_spinup(void *, void *);
 
-void task_scheduler(ctx_t *ctx) {
-
+void task_resched(ctx_t *ctx) {
     if (task_count <= fsr(&global_cpu_local->cpu_number)) {
         fsw(&global_cpu_local->current_process, -1);
         fsw(&global_cpu_local->current_thread, -1);
@@ -184,7 +95,6 @@ void task_scheduler(ctx_t *ctx) {
                 }
             }
         }
-//kprint(0, "CPU %U base task %U %U", fsr(&global_cpu_local->cpu_number), current_process, current_thread);
         goto next;
     }
 
@@ -211,8 +121,6 @@ void task_scheduler(ctx_t *ctx) {
         }
     }
 next:
-//kprint(0, "CPU %U next task %U %U", fsr(&global_cpu_local->cpu_number), current_process, current_thread);
-
     fsw(&global_cpu_local->current_process, current_process);
     fsw(&global_cpu_local->current_thread, current_thread);
 
@@ -220,31 +128,11 @@ next:
 
     task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
                 (void *)((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET));
-
-    /* Calculate a new load for each CPU */
-    /*for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
-        cpu_local_t *check = &cpu_locals[i];
-        if (check->idle) {
-            check->idle_time++;
-            size_t load = ((check->idle_time)/5) * 100;
-            check->load = load;
-            cpu_locals[i] = *check;
-        }
-    }
-    
-    pit_ticks += 1;
-
-    if (pit_ticks >= 5) {
-       pit_ticks = 0;
-       task_resched(prev, pagemap);
-    }*/
-
 }
 
 static int pit_ticks = 0;
 
-void task_scheduler_bsp(ctx_t *ctx) {
-
+void task_resched_bsp(ctx_t *ctx) {
     if (!scheduler_ready) {
         return;
     }
@@ -255,13 +143,15 @@ void task_scheduler_bsp(ctx_t *ctx) {
         return;
     }
 
-    /* raise scheduler IPI for all APs */
-    lapic_write(APICREG_ICR0, IPI_SCHEDULER | (1 << 18) | (1 << 19));
-
-    task_scheduler(ctx);
+    /* raise scheduler IPI for all APs,
+     * using broadcast-to-all-but-self
+     * feature. */
+    lapic_write(APICREG_ICR0, IPI_RESCHED | (1 << 18) | (1 << 19));
+    
+    /* Call scheduler on BSP */
+    task_resched(ctx);
 
     return;
-
 }
 
 /* Create process */
