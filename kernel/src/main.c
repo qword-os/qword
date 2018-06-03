@@ -15,6 +15,12 @@
 #include <task.h>
 #include <cio.h>
 
+void *ktask(void *arg) {
+    kprint(0,"CPU %U, hello world, arg: %U", fsr(&global_cpu_local->cpu_number), arg);
+
+    for (;;) { asm volatile ("hlt"); }
+}
+
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
     init_idt();
@@ -45,6 +51,17 @@ int kmain(void) {
     init_pit();
     init_smp();
     init_sched();
+
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)0));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)1));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)2));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)3));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)4));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)5));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)6));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)7));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)8));
+    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)9));
 
     for (;;)
         asm volatile ("hlt;");

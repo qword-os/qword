@@ -12,7 +12,7 @@
 })
 
 #define fsw(offset, value) ({ \
-    asm volatile ("mov qword ptr fs:[rbx], rax", : : "a"(value), "b"(offset) :); \
+    asm volatile ("mov qword ptr fs:[rbx], rax" : : "a"(value), "b"(offset) :); \
 })
 
 typedef struct {

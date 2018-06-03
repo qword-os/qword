@@ -49,8 +49,8 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     cpu_local->cpu_number = cpu_number;
     cpu_local->kernel_stack = cpu_stack_top;
     cpu_local->idle = 1;
-    cpu_local->current_process = 0;
-    cpu_local->current_thread = 0;
+    cpu_local->current_process = -1;
+    cpu_local->current_thread = -1;
     cpu_local->should_ts = 0;
     cpu_local->idle_time = 0;
     cpu_local->load = 0;
@@ -116,8 +116,8 @@ static void init_cpu0(void) {
     cpu_local->cpu_number = 0;
     cpu_local->kernel_stack = cpu_stack_top;
     cpu_local->idle = 0;
-    cpu_local->current_process = 0;
-    cpu_local->current_thread = 0;
+    cpu_local->current_process = -1;
+    cpu_local->current_thread = -1;
     cpu_local->should_ts = 0;
     cpu_local->idle_time = 0;
     cpu_local->load = 0;

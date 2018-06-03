@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 typedef struct {
+    uint64_t es;
+    uint64_t ds;
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;

@@ -39,13 +39,14 @@ void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t de
 
     kprint(KPRN_ERR, "CPU EXCEPTION:");
     kprint(KPRN_ERR, msg);
+    kprint(KPRN_ERR, "CPU #%U", fsr(&global_cpu_local->cpu_number));
     kprint(KPRN_ERR, "Error code: %U", error_code);
     kprint(KPRN_ERR, "Instruction pointer: %X", ip);
     kprint(KPRN_ERR, "Value of CS register: %X", cs);
     kprint(KPRN_ERR, "Debug info: %X", debug);
     kprint(KPRN_ERR, "Exception on CPU #%u", smp_get_cpu_number());
 
-    print_stacktrace(KPRN_ERR);
+    //print_stacktrace(KPRN_ERR);
 
     kprint(KPRN_ERR, "System halted");
 

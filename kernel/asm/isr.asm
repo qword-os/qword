@@ -66,6 +66,9 @@ extern ipi_abort_handler
 ; Misc.
 extern dummy_int_handler
 global int_handler
+extern task_scheduler_bsp
+extern task_scheduler
+global scheduler_ipi
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -184,12 +187,41 @@ exc_security_handler:
 ; IRQs
 irq0_handler:
     pusham
-    mov rsi, cr3
-    mov rdi, rsp
-    
+
+    xor rax, rax
+    mov ax, ds
+    push rax
+    mov ax, es
+    push rax
+
     call pit_handler
 
+    mov rdi, rsp
+
+    call task_scheduler_bsp
+
     call pic_send_eoi
+
+    add rsp, 16
+    popam
+    iretq
+
+scheduler_ipi:
+    pusham
+
+    xor rax, rax
+    mov ax, ds
+    push rax
+    mov ax, es
+    push rax
+
+    mov rdi, rsp
+
+    call task_scheduler
+
+    call pic_send_eoi
+
+    add rsp, 16
     popam
     iretq
 

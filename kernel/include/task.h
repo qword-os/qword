@@ -10,12 +10,16 @@
 #define STS_BLOCKED 2
 
 #include <stdint.h>
+#include <stddef.h>
 #include <ctx.h>
 #include <mm.h>
 
+typedef size_t pid_t;
+typedef size_t tid_t;
+
 typedef struct {
     ctx_t ctx;
-    uint16_t tid;
+    tid_t tid;
     size_t *stk;
     uint8_t sts; 
 } thread_t;
@@ -23,7 +27,7 @@ typedef struct {
 typedef struct {
     pagemap_t *pagemap;
     thread_t **threads;
-    uint16_t pid;
+    pid_t pid;
     uint8_t sts;
     uint8_t priority;
 } process_t;
@@ -37,5 +41,6 @@ void init_sched(void);
 void ctx_switch(uint64_t *, uint64_t *);
 void thread_return(void);
 void task_resched(ctx_t *, uint64_t *);
+tid_t thread_create(pid_t, void *, void *(*)(void *), void *);
 
 #endif
