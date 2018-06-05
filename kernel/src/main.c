@@ -14,9 +14,16 @@
 #include <smp.h>
 #include <task.h>
 #include <cio.h>
+#include <lock.h>
 
 void *ktask(void *arg) {
-    kprint(0,"CPU %U, hello world, arg: %U", fsr(&global_cpu_local->cpu_number), arg);
+
+    for (int i = 0; ; i++) {
+        spinlock_acquire(&scheduler_lock);
+        kprint(0, "CPU %U, hello world, tid: %U, iter: %u", fsr(&global_cpu_local->cpu_number), arg, i);
+        spinlock_release(&scheduler_lock);
+        ksleep(1000);
+    }
 
     for (;;) { asm volatile ("hlt"); }
 }
@@ -52,16 +59,10 @@ int kmain(void) {
     init_smp();
     init_sched();
 
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)0));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)1));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)2));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)3));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)4));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)5));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)6));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)7));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)8));
-    kprint(0, "%u", thread_create(0, kalloc(1024), ktask, (void *)9));
+    spinlock_acquire(&scheduler_lock);
+    for (int i = 0; i < 32; i++)
+        thread_create(0, kalloc(1024), ktask, (void *)i);
+    spinlock_release(&scheduler_lock);
 
     for (;;)
         asm volatile ("hlt;");

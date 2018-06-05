@@ -140,105 +140,94 @@ size_t find_process(void) {
     return 0;
 }
 
+static inline void find_next_task(pid_t *process, tid_t *thread, int limit) {
+//kprint(KPRN_DBG, "process: %U thread: %U", *process, *thread);
+
+    /* Find next task to run for the current CPU */
+    if (!limit)
+        return;
+
+    (*thread)++;
+
+    for (size_t i = 0;;) {
+        if (*thread == MAX_THREADS)
+            goto next_process;
+        thread_t *next_thread = process_table[*process]->threads[*thread];
+        if (next_thread && next_thread != -1) {
+            if (++i == limit)
+                break;
+            (*thread)++;
+            continue;
+        }
+        if (!next_thread) {
+next_process:
+            *thread = 0;
+            process_t *next_process = process_table[++(*process)];
+            if (next_process && next_process != -1) {
+                continue;
+            }
+            if (!next_process) {
+                /* end of tasks, find first task and exit */
+                *process = 0;
+                find_next_task(process, thread, fsr(&global_cpu_local->cpu_number));
+                break;
+            } else {
+                goto next_process;
+            }
+        } else {
+            (*thread)++;
+        }
+    }
+
+//kprint(KPRN_DBG, "process: %U thread: %U", *process, *thread);
+
+    return;
+}
+
 void task_spinup(void *, void *);
 
+static lock_t smp_sched_lock = 1;
+
 void task_scheduler(ctx_t *ctx) {
+    spinlock_acquire(&smp_sched_lock);
+
+    if (!spinlock_test_and_acquire(&scheduler_lock)) {
+        goto out_locked;
+    }
 
     if (task_count <= fsr(&global_cpu_local->cpu_number)) {
         fsw(&global_cpu_local->current_process, -1);
         fsw(&global_cpu_local->current_thread, -1);
-        return;
+        goto out;
     }
 
     pid_t current_process = fsr(&global_cpu_local->current_process);
     tid_t current_thread = fsr(&global_cpu_local->current_thread);
 
-    spinlock_acquire(&scheduler_lock);
-
     if (current_process != -1 && current_thread != -1) {
         /* Save current context */
         process_table[current_process]->threads[current_thread]->ctx = *ctx;
-        current_thread++;
+        find_next_task(&current_process, &current_thread, smp_cpu_count);
     } else {
-        /* Find base task per CPU */
         current_process = 0;
         current_thread = 0;
-        for (size_t i = 0;;) {
-            thread_t *next_thread = process_table[current_process]->threads[current_thread];
-            if (next_thread && next_thread != -1) {
-                if (++i == fsr(&global_cpu_local->cpu_number) + 1)
-                    break;
-                current_thread++;
-                continue;
-            }
-            if (!next_thread) {
-                current_thread = 0;
-                process_t *next_process = process_table[++current_process];
-                if (next_process && next_process != -1) {
-                    continue;
-                }
-                if (!next_process) {
-                    current_process = 0;
-                    current_thread = 0;
-                    continue;
-                }
-            }
-        }
-//kprint(0, "CPU %U base task %U %U", fsr(&global_cpu_local->cpu_number), current_process, current_thread);
-        goto next;
+        find_next_task(&current_process, &current_thread, fsr(&global_cpu_local->cpu_number));
     }
-
-    /* Find next task to run for the current CPU */
-    for (size_t i = 0;;) {
-        thread_t *next_thread = process_table[current_process]->threads[current_thread];
-        if (next_thread && next_thread != -1) {
-            if (++i == smp_cpu_count)
-                break;
-            current_thread++;
-            continue;
-        }
-        if (!next_thread) {
-            current_thread = 0;
-            process_t *next_process = process_table[++current_process];
-            if (next_process && next_process != -1) {
-                continue;
-            }
-            if (!next_process) {
-                current_process = 0;
-                current_thread = 0;
-                continue;
-            }
-        }
-    }
-next:
-//kprint(0, "CPU %U next task %U %U", fsr(&global_cpu_local->cpu_number), current_process, current_thread);
 
     fsw(&global_cpu_local->current_process, current_process);
     fsw(&global_cpu_local->current_thread, current_thread);
 
     spinlock_release(&scheduler_lock);
+    spinlock_release(&smp_sched_lock);
 
     task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
                 (void *)((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET));
 
-    /* Calculate a new load for each CPU */
-    /*for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
-        cpu_local_t *check = &cpu_locals[i];
-        if (check->idle) {
-            check->idle_time++;
-            size_t load = ((check->idle_time)/5) * 100;
-            check->load = load;
-            cpu_locals[i] = *check;
-        }
-    }
-    
-    pit_ticks += 1;
-
-    if (pit_ticks >= 5) {
-       pit_ticks = 0;
-       task_resched(prev, pagemap);
-    }*/
-
+out:
+    spinlock_release(&scheduler_lock);
+out_locked:
+    spinlock_release(&smp_sched_lock);
+    return;
 }
 
 static int pit_ticks = 0;
@@ -249,7 +238,7 @@ void task_scheduler_bsp(ctx_t *ctx) {
         return;
     }
 
-    if (pit_ticks++ == 25) {
+    if (pit_ticks++ == 5) {
         pit_ticks = 0;
     } else {
         return;
@@ -267,22 +256,18 @@ void task_scheduler_bsp(ctx_t *ctx) {
 /* Create process */
 /* Returns process ID, -1 on failure */
 pid_t process_create(pagemap_t *pagemap) {
-    spinlock_acquire(&scheduler_lock);
-
     /* Search for free process ID */
     pid_t new_pid;
     for (new_pid = 0; new_pid < MAX_PROCESSES - 1; new_pid++) {
         if (!process_table[new_pid] || process_table[new_pid] == -1)
             goto found_new_pid;
     }
-    spinlock_release(&scheduler_lock);
     return -1;
 
 found_new_pid:
     /* Try to make space for this new task */
     if ((process_table[new_pid] = kalloc(sizeof(process_t))) == 0) {
         process_table[new_pid] = -1;
-        spinlock_release(&scheduler_lock);
         return -1;
     }
 
@@ -291,14 +276,11 @@ found_new_pid:
     if ((new_process->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         kfree(new_process);
         process_table[new_pid] = -1;
-        spinlock_release(&scheduler_lock);
         return -1;
     }
 
     new_process->pagemap = pagemap;
     new_process->pid = new_pid;
-
-    spinlock_release(&scheduler_lock);
 
     return new_pid;
 }
@@ -306,8 +288,6 @@ found_new_pid:
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
 tid_t thread_create(pid_t pid, void *stk, void *(*entry)(void *), void *arg) {
-    spinlock_acquire(&scheduler_lock);
-
     size_t *stack = stk;
 
     /* Search for free thread ID */
@@ -316,14 +296,12 @@ tid_t thread_create(pid_t pid, void *stk, void *(*entry)(void *), void *arg) {
         if (!process_table[pid]->threads[new_tid] || process_table[pid]->threads[new_tid] == -1)
             goto found_new_tid;
     }
-    spinlock_release(&scheduler_lock);
     return -1;
 
 found_new_tid:
     /* Try to make space for this new task */
     if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(thread_t))) == 0) {
         process_table[pid]->threads[new_tid] = -1;
-        spinlock_release(&scheduler_lock);
         return -1;
     }
 
@@ -343,8 +321,6 @@ found_new_tid:
     new_thread->stk = stack;
 
     new_thread->tid = new_tid;
-
-    spinlock_release(&scheduler_lock);
 
     task_count++;
 

@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <ctx.h>
 #include <mm.h>
+#include <lock.h>
 
 typedef size_t pid_t;
 typedef size_t tid_t;
@@ -33,6 +34,7 @@ typedef struct {
 } process_t;
 
 extern int scheduler_ready;
+extern lock_t scheduler_lock;
 
 extern process_t **process_table;
 extern lock_t process_table_lock;
