@@ -12,10 +12,6 @@
 lock_t scheduler_lock = 1;
 int scheduler_ready = 0;
 
-size_t find_process(void);
-size_t find_thread(size_t);
-
-lock_t process_table_lock = 1;
 process_t **process_table;
 
 static size_t task_count = 0;
@@ -51,98 +47,7 @@ void init_sched(void) {
     return;
 }
 
-/* Find a new task to run */
-void task_resched(ctx_t *prev, uint64_t *pagemap) {
-    
-    int loads[smp_cpu_count];
-    cpu_local_t *cpu;
-    
-    /* Store each CPU's respective load */
-    for (int i = 0; i < smp_cpu_count; i++) {
-        cpu_local_t *check = &cpu_locals[i];
-        loads[i] = (int)check->load;
-    }
-
-    kqsort(loads, 0, smp_cpu_count);
-
-    /* Save context */
-    size_t prev_pid = fsr(&global_cpu_local->current_process);
-    size_t prev_tid = fsr(&global_cpu_local->current_thread);
-    process_table[prev_pid]->threads[prev_tid]->ctx = *(prev);
-    process_table[prev_pid]->pagemap->pagemap = pagemap;
-
-    size_t next_proc = find_process();
-    if (!next_proc)
-        return;
-    else {
-        /* Now decide upon a thread to run */
-        size_t next_thread = find_thread(next_proc);
-        thread_identifier_t t = {
-            next_proc,
-            next_thread,
-            0
-        };
-        
-        /* Since we have sorted the list of CPU 
-         * loads, we can just pick the lowest load 
-         * from the lowest index of this list */
-        int load = loads[0];
-        for (size_t i = 0; i < (size_t)smp_cpu_count; i++) {
-            cpu_local_t *check = &cpu_locals[i];
-            if ((int)check->load == load) {
-                cpu = check;
-                break;
-            } else {
-                continue;
-            }
-        }
-     
-        for (size_t i = 0; i < MAX_THREADS; i++) {
-            if (cpu->run_queue[i].is_free) {
-                cpu->run_queue[i] = t;
-                break;
-            } else {
-                continue;
-            }
-        }
-        
-        if (cpu->cpu_number == 0) {
-            thread_t *next = process_table[next_proc]->threads[next_thread];
-            pt_entry_t *pagemap = process_table[next_proc]->pagemap->pagemap;
-            
-            ctx_switch((uint64_t *)&next->ctx, pagemap);
-        } else {
-            // lapic_send_ipi(IPI_RESCHED, cpu->lapic_id);
-        }
-
-        return;
-    }
-}
-
-size_t find_thread(size_t proc) {
-    process_t *next_proc  = process_table[proc];
-
-    for (size_t i = 0; i < MAX_THREADS; i++) {
-        if (next_proc->threads[i]->sts == STS_READY) {
-            return i;
-        } else {
-            continue;
-        }
-    }
-    
-    return 0;
-}
-
-
-/* Return the index into the process table of the next process to be run */
-size_t find_process(void) {
-    /* TODO */
-    return 0;
-}
-
 static inline void find_next_task(pid_t *process, tid_t *thread, int limit) {
-//kprint(KPRN_DBG, "process: %U thread: %U", *process, *thread);
-
     /* Find next task to run for the current CPU */
     if (!limit)
         return;
@@ -179,8 +84,6 @@ next_process:
         }
     }
 
-//kprint(KPRN_DBG, "process: %U thread: %U", *process, *thread);
-
     return;
 }
 
@@ -188,7 +91,7 @@ void task_spinup(void *, void *);
 
 static lock_t smp_sched_lock = 1;
 
-void task_scheduler(ctx_t *ctx) {
+void task_resched(ctx_t *ctx) {
     spinlock_acquire(&smp_sched_lock);
 
     if (!spinlock_test_and_acquire(&scheduler_lock)) {
@@ -232,8 +135,7 @@ out_locked:
 
 static int pit_ticks = 0;
 
-void task_scheduler_bsp(ctx_t *ctx) {
-
+void task_resched_bsp(ctx_t *ctx) {
     if (!scheduler_ready) {
         return;
     }
@@ -245,12 +147,12 @@ void task_scheduler_bsp(ctx_t *ctx) {
     }
 
     /* raise scheduler IPI for all APs */
-    lapic_write(APICREG_ICR0, IPI_SCHEDULER | (1 << 18) | (1 << 19));
-
-    task_scheduler(ctx);
+    lapic_write(APICREG_ICR0, IPI_RESCHED | (1 << 18) | (1 << 19));
+    
+    /* Call task_scheduler on the BSP */
+    task_resched(ctx);
 
     return;
-
 }
 
 /* Create process */
