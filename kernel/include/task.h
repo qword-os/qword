@@ -19,6 +19,7 @@ typedef size_t pid_t;
 typedef size_t tid_t;
 
 typedef struct {
+    int active_on_cpu;
     ctx_t ctx;
     tid_t tid;
     size_t *stk;

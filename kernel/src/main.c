@@ -23,6 +23,11 @@ void *ktask(void *arg) {
         kprint(0, "CPU %U, hello world, tid: %U, iter: %u", fsr(&global_cpu_local->cpu_number), arg, i);
         spinlock_release(&scheduler_lock);
         ksleep(1000);
+        if (!arg) {
+            spinlock_acquire(&scheduler_lock);
+            thread_destroy(0, gettid() + i + 1);
+            spinlock_release(&scheduler_lock);
+        }
     }
 
     for (;;) { asm volatile ("hlt"); }

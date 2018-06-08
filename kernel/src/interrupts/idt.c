@@ -40,6 +40,7 @@ void init_idt(void) {
     /* Inter-processor interrupts */
     register_interrupt_handler(IPI_ABORT, ipi_abort, 0x8f);
     register_interrupt_handler(IPI_RESCHED, ipi_resched, 0x8f);
+    register_interrupt_handler(IPI_ABORTEXEC, ipi_abortexec, 0x8f);
 
     for (size_t i = 0; i < 16; i++) {
         register_interrupt_handler(0x90 + i, apic_nmi, 0x8f);

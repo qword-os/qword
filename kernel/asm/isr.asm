@@ -63,6 +63,7 @@ extern apic_spurious_handler
 global ipi_abort
 extern ipi_abort_handler
 global ipi_resched
+global ipi_abortexec
 
 ; Misc.
 extern dummy_int_handler
@@ -205,6 +206,13 @@ irq0_handler:
     add rsp, 16
     popam
     iretq
+
+ipi_abortexec:
+    mov rsp, qword [fs:0008]
+    sti
+  .wait:
+    hlt
+    jmp .wait
 
 ipi_resched:
     pusham

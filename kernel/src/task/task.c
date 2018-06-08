@@ -99,6 +99,7 @@ void task_resched(ctx_t *ctx) {
     }
 
     if (task_count <= fsr(&global_cpu_local->cpu_number)) {
+        fsw(&global_cpu_local->reset_scheduler, 0);
         fsw(&global_cpu_local->current_process, -1);
         fsw(&global_cpu_local->current_thread, -1);
         goto out;
@@ -109,9 +110,14 @@ void task_resched(ctx_t *ctx) {
 
     if (current_process != -1 && current_thread != -1) {
         /* Save current context */
+        process_table[current_process]->threads[current_thread]->active_on_cpu = -1;
         process_table[current_process]->threads[current_thread]->ctx = *ctx;
         find_next_task(&current_process, &current_thread, smp_cpu_count);
+        if (fsr(&global_cpu_local->reset_scheduler))
+            goto reset_scheduler;
     } else {
+reset_scheduler:
+        fsw(&global_cpu_local->reset_scheduler, 0);
         current_process = 0;
         current_thread = 0;
         find_next_task(&current_process, &current_thread, fsr(&global_cpu_local->cpu_number));
@@ -128,6 +134,8 @@ void task_resched(ctx_t *ctx) {
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[fsr(&global_cpu_local->cpu_number) + 1].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_RESCHED);
     }
+
+    process_table[current_process]->threads[current_thread]->active_on_cpu = fsr(&global_cpu_local->cpu_number);
 
     task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
                 (void *)((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET));
@@ -190,6 +198,60 @@ found_new_pid:
     return new_pid;
 }
 
+tid_t gettid(void) {
+    return fsr(&global_cpu_local->current_thread);
+}
+
+void scheduler_reset(void) {
+    for (int i = 0; i < smp_cpu_count; i++) {
+        cpu_locals[i].reset_scheduler = 1;
+    }
+    return;
+}
+
+int thread_destroy(pid_t pid, tid_t tid) {
+    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == -1) {
+        return -1;
+    }
+
+    int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
+
+    if (active_on_cpu != -1 && active_on_cpu != fsr(&global_cpu_local->cpu_number)) {
+        /* Send abort execution IPI */
+        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[active_on_cpu].lapic_id) << 24);
+        lapic_write(APICREG_ICR0, IPI_ABORTEXEC);
+        ksleep(10);
+    }
+
+    kfree(process_table[pid]->threads[tid]);
+
+    process_table[pid]->threads[tid] = -1;
+
+    task_count--;
+
+    scheduler_reset();
+
+    if (active_on_cpu != -1) {
+        cpu_locals[active_on_cpu].current_process = -1;
+        cpu_locals[active_on_cpu].current_thread = -1;
+        if (active_on_cpu == fsr(&global_cpu_local->cpu_number)) {
+            asm volatile (
+                "mov rsp, %0;"
+                "xor rax, rax;"
+                "inc rax;"
+                "lock xchg qword ptr ds:[scheduler_lock], rax;"
+                "1: "
+                "hlt;"
+                "jmp 1b;"
+                :
+                : "r" (fsr(&global_cpu_local->kernel_stack))
+            );
+        }
+    }
+
+    return 0;
+}
+
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
 tid_t thread_create(pid_t pid, void *stk, void *(*entry)(void *), void *arg) {
@@ -211,6 +273,8 @@ found_new_tid:
     }
 
     thread_t *new_thread = process_table[pid]->threads[new_tid];
+
+    new_thread->active_on_cpu = -1;
     
     /* Set registers to defaults */
     if (pid)

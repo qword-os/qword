@@ -46,7 +46,7 @@ void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t de
     kprint(KPRN_ERR, "Debug info: %X", debug);
     kprint(KPRN_ERR, "Exception on CPU #%u", smp_get_cpu_number());
 
-    //print_stacktrace(KPRN_ERR);
+    print_stacktrace(KPRN_ERR);
 
     kprint(KPRN_ERR, "System halted");
 
