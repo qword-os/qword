@@ -123,6 +123,12 @@ void task_resched(ctx_t *ctx) {
     spinlock_release(&scheduler_lock);
     spinlock_release(&smp_sched_lock);
 
+    /* raise scheduler IPI on the next processor */
+    if (smp_cpu_count - 1 > fsr(&global_cpu_local->cpu_number)) {
+        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[fsr(&global_cpu_local->cpu_number) + 1].lapic_id) << 24);
+        lapic_write(APICREG_ICR0, IPI_RESCHED);
+    }
+
     task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
                 (void *)((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET));
 
@@ -145,9 +151,6 @@ void task_resched_bsp(ctx_t *ctx) {
     } else {
         return;
     }
-
-    /* raise scheduler IPI for all APs */
-    lapic_write(APICREG_ICR0, IPI_RESCHED | (1 << 18) | (1 << 19));
     
     /* Call task_scheduler on the BSP */
     task_resched(ctx);
