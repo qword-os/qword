@@ -3,7 +3,6 @@
 #include <klib.h>
 #include <panic.h>
 #include <smp.h>
-#include <ctx.h>
 #include <lock.h>
 #include <acpi/madt.h>
 #include <apic.h>
@@ -49,8 +48,11 @@ void init_sched(void) {
 
 static inline void find_next_task(pid_t *process, tid_t *thread, int limit) {
     /* Find next task to run for the current CPU */
-    if (!limit)
-        return;
+    if (!limit) {
+        thread_t *next_thread = process_table[*process]->threads[*thread];
+        if (next_thread && next_thread != -1)
+            return;
+    }
 
     (*thread)++;
 
@@ -59,7 +61,7 @@ static inline void find_next_task(pid_t *process, tid_t *thread, int limit) {
             goto next_process;
         thread_t *next_thread = process_table[*process]->threads[*thread];
         if (next_thread && next_thread != -1) {
-            if (++i == limit)
+            if (++i >= limit)
                 break;
             (*thread)++;
             continue;
@@ -126,6 +128,8 @@ reset_scheduler:
     fsw(&global_cpu_local->current_process, current_process);
     fsw(&global_cpu_local->current_thread, current_thread);
 
+    process_table[current_process]->threads[current_thread]->active_on_cpu = fsr(&global_cpu_local->cpu_number);
+
     spinlock_release(&scheduler_lock);
     spinlock_release(&smp_sched_lock);
 
@@ -134,8 +138,6 @@ reset_scheduler:
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[fsr(&global_cpu_local->cpu_number) + 1].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_RESCHED);
     }
-
-    process_table[current_process]->threads[current_thread]->active_on_cpu = fsr(&global_cpu_local->cpu_number);
 
     task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
                 (void *)((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET));
@@ -198,11 +200,7 @@ found_new_pid:
     return new_pid;
 }
 
-tid_t gettid(void) {
-    return fsr(&global_cpu_local->current_thread);
-}
-
-void scheduler_reset(void) {
+static void scheduler_reset(void) {
     for (int i = 0; i < smp_cpu_count; i++) {
         cpu_locals[i].reset_scheduler = 1;
     }
@@ -220,7 +218,6 @@ int thread_destroy(pid_t pid, tid_t tid) {
         /* Send abort execution IPI */
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[active_on_cpu].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_ABORTEXEC);
-        ksleep(10);
     }
 
     kfree(process_table[pid]->threads[tid]);
@@ -254,9 +251,7 @@ int thread_destroy(pid_t pid, tid_t tid) {
 
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
-tid_t thread_create(pid_t pid, void *stk, void *(*entry)(void *), void *arg) {
-    size_t *stack = stk;
-
+tid_t thread_create(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
     /* Search for free thread ID */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
@@ -284,14 +279,13 @@ found_new_tid:
 
     /* Set instruction pointer to entry point, prepare RSP, and set first argument to arg */
     new_thread->ctx.rip = (size_t)entry;
-    new_thread->ctx.rsp = (size_t)&stack[KRNL_STACK_SIZE - 1];
+    new_thread->ctx.rsp = (size_t)stack;
     new_thread->ctx.rdi = (size_t)arg;
-
-    new_thread->stk = stack;
 
     new_thread->tid = new_tid;
 
     task_count++;
+    scheduler_reset();
 
     return new_tid;
 }

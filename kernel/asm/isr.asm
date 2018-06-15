@@ -209,6 +209,7 @@ irq0_handler:
 
 ipi_abortexec:
     mov rsp, qword [fs:0008]
+    call pic_send_eoi
     sti
   .wait:
     hlt

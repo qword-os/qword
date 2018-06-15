@@ -23,9 +23,9 @@ void *ktask(void *arg) {
         kprint(0, "CPU %U, hello world, tid: %U, iter: %u", fsr(&global_cpu_local->cpu_number), arg, i);
         spinlock_release(&scheduler_lock);
         ksleep(1000);
-        if (!arg) {
+        if (i == (int)arg) {
             spinlock_acquire(&scheduler_lock);
-            thread_destroy(0, gettid() + i + 1);
+            //thread_destroy(0, (size_t)arg);     /* die */
             spinlock_release(&scheduler_lock);
         }
     }
@@ -65,8 +65,10 @@ int kmain(void) {
     init_sched();
 
     spinlock_acquire(&scheduler_lock);
-    for (int i = 0; i < 32; i++)
-        thread_create(0, kalloc(1024), ktask, (void *)i);
+    for (int i = 0; i < 32; i++) {
+        size_t *stack = kalloc(1024 * sizeof(size_t));
+        thread_create(0, &stack[1023], ktask, (void *)i);
+    }
     spinlock_release(&scheduler_lock);
 
     for (;;)
