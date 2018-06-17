@@ -64,7 +64,7 @@ extern process_t **process_table;
 
 void init_sched(void);
 
-tid_t thread_create(pid_t, void *, void *(*)(void *), void *);
-pid_t process_create(pagemap_t *);
+tid_t task_tcreate(pid_t, void *, void *(*)(void *), void *);
+pid_t task_pcreate(pagemap_t *);
 
 #endif

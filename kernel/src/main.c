@@ -17,7 +17,6 @@
 #include <lock.h>
 
 void *ktask(void *arg) {
-
     for (int i = 0; ; i++) {
         spinlock_acquire(&scheduler_lock);
         kprint(0, "CPU %U, hello world, tid: %U, iter: %u", fsr(&global_cpu_local->cpu_number), arg, i);
@@ -67,7 +66,7 @@ int kmain(void) {
     spinlock_acquire(&scheduler_lock);
     for (int i = 0; i < 32; i++) {
         size_t *stack = kalloc(1024 * sizeof(size_t));
-        thread_create(0, &stack[1023], ktask, (void *)i);
+        task_tcreate(0, &stack[1023], ktask, (void *)i);
     }
     spinlock_release(&scheduler_lock);
 

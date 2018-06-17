@@ -46,7 +46,8 @@ void init_sched(void) {
     return;
 }
 
-static inline void find_next_task(pid_t *process, tid_t *thread, int limit) {
+/* Recursively search for a new task to run */
+static inline void task_get_next(pid_t *process, tid_t *thread, int limit) {
     /* Find next task to run for the current CPU */
     if (!limit) {
         thread_t *next_thread = process_table[*process]->threads[*thread];
@@ -76,7 +77,7 @@ next_process:
             if (!next_process) {
                 /* end of tasks, find first task and exit */
                 *process = 0;
-                find_next_task(process, thread, fsr(&global_cpu_local->cpu_number));
+                task_get_next(process, thread, fsr(&global_cpu_local->cpu_number));
                 break;
             } else {
                 goto next_process;
@@ -122,7 +123,7 @@ reset_scheduler:
         fsw(&global_cpu_local->reset_scheduler, 0);
         current_process = 0;
         current_thread = 0;
-        find_next_task(&current_process, &current_thread, fsr(&global_cpu_local->cpu_number));
+        task_get_next(&current_process, &current_thread, fsr(&global_cpu_local->cpu_number));
     }
 
     fsw(&global_cpu_local->current_process, current_process);
@@ -170,7 +171,7 @@ void task_resched_bsp(ctx_t *ctx) {
 
 /* Create process */
 /* Returns process ID, -1 on failure */
-pid_t process_create(pagemap_t *pagemap) {
+pid_t task_pcreate(pagemap_t *pagemap) {
     /* Search for free process ID */
     pid_t new_pid;
     for (new_pid = 0; new_pid < MAX_PROCESSES - 1; new_pid++) {
@@ -200,14 +201,16 @@ found_new_pid:
     return new_pid;
 }
 
-static void scheduler_reset(void) {
+static void task_reset_sched(void) {
     for (int i = 0; i < smp_cpu_count; i++) {
         cpu_locals[i].reset_scheduler = 1;
     }
     return;
 }
 
-int thread_destroy(pid_t pid, tid_t tid) {
+/* Kill a thread in a given process */
+/* Return -1 on failure */
+int task_tkill(pid_t pid, tid_t tid) {
     if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == -1) {
         return -1;
     }
@@ -221,12 +224,13 @@ int thread_destroy(pid_t pid, tid_t tid) {
     }
 
     kfree(process_table[pid]->threads[tid]);
+    kfree(process_table[pid]->threads[tid]->stk);
 
     process_table[pid]->threads[tid] = -1;
 
     task_count--;
 
-    scheduler_reset();
+    task_reset_sched();
 
     if (active_on_cpu != -1) {
         cpu_locals[active_on_cpu].current_process = -1;
@@ -251,7 +255,7 @@ int thread_destroy(pid_t pid, tid_t tid) {
 
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
-tid_t thread_create(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
+tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
     /* Search for free thread ID */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
@@ -285,7 +289,7 @@ found_new_tid:
     new_thread->tid = new_tid;
 
     task_count++;
-    scheduler_reset();
+    task_reset_sched();
 
     return new_tid;
 }

@@ -24,7 +24,6 @@ typedef struct {
 typedef struct {
     size_t cpu_number;
     size_t kernel_stack;
-    size_t idle;
     /* The index into the task table */
     size_t current_process;
     /* The index into the current processes thread array
@@ -32,11 +31,8 @@ typedef struct {
      * a given processor */
     size_t current_thread;
     size_t should_ts;
-    size_t idle_time;
-    size_t load;
     size_t lapic_id;
     size_t reset_scheduler;
-    thread_identifier_t *run_queue;
 } cpu_local_t;
 
 extern cpu_local_t cpu_locals[MAX_CPUS];
