@@ -9,9 +9,9 @@
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
 
-#define STS_RUNNING 0
-#define STS_READY 1
-#define STS_BLOCKED 2
+#define TASK_STS_RUNNING 0
+#define TASK_STS_READY 1
+#define TASK_STS_BLOCKED 2
 
 typedef struct {
     uint64_t es;
@@ -43,11 +43,10 @@ typedef size_t tid_t;
 
 typedef struct {
     tid_t tid;
+    int status;
     int priority;
-    int sts;
     int active_on_cpu;
     ctx_t ctx;
-    size_t *stk;
 } thread_t;
 
 typedef struct {

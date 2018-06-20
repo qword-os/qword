@@ -15,14 +15,15 @@
 #include <task.h>
 #include <cio.h>
 #include <lock.h>
+#include <time.h>
 
 void *ktask(void *arg) {
     for (int i = 0; ; i++) {
         spinlock_acquire(&scheduler_lock);
-        kprint(0, "CPU %U, hello world, tid: %U, iter: %u", fsr(&global_cpu_local->cpu_number), arg, i);
+        kprint(0, "CPU %U, hello world, tid: %U, iter: %u", current_cpu, arg, i);
         spinlock_release(&scheduler_lock);
         ksleep(1000);
-        if (i == (int)arg) {
+        if (i == (int)(size_t)arg) {
             spinlock_acquire(&scheduler_lock);
             //thread_destroy(0, (size_t)arg);     /* die */
             spinlock_release(&scheduler_lock);
@@ -66,7 +67,7 @@ int kmain(void) {
     spinlock_acquire(&scheduler_lock);
     for (int i = 0; i < 32; i++) {
         size_t *stack = kalloc(1024 * sizeof(size_t));
-        task_tcreate(0, &stack[1023], ktask, (void *)i);
+        task_tcreate(0, &stack[1023], ktask, (void *)(size_t)i);
     }
     spinlock_release(&scheduler_lock);
 

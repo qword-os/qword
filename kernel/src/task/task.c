@@ -8,6 +8,8 @@
 #include <apic.h>
 #include <ipi.h>
 
+#define SMP_TIMESLICE_MS 5
+
 lock_t scheduler_lock = 1;
 int scheduler_ready = 0;
 
@@ -77,7 +79,7 @@ next_process:
             if (!next_process) {
                 /* end of tasks, find first task and exit */
                 *process = 0;
-                task_get_next(process, thread, fsr(&global_cpu_local->cpu_number));
+                task_get_next(process, thread, current_cpu);
                 break;
             } else {
                 goto next_process;
@@ -101,42 +103,42 @@ void task_resched(ctx_t *ctx) {
         goto out_locked;
     }
 
-    if (task_count <= fsr(&global_cpu_local->cpu_number)) {
-        fsw(&global_cpu_local->reset_scheduler, 0);
-        fsw(&global_cpu_local->current_process, -1);
-        fsw(&global_cpu_local->current_thread, -1);
+    if (task_count <= current_cpu) {
+        cpu_locals[current_cpu].reset_scheduler = 0;
+        cpu_locals[current_cpu].current_process = -1;
+        cpu_locals[current_cpu].current_thread = -1;
         goto out;
     }
 
-    pid_t current_process = fsr(&global_cpu_local->current_process);
-    tid_t current_thread = fsr(&global_cpu_local->current_thread);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    tid_t current_thread = cpu_locals[current_cpu].current_thread;
 
     if (current_process != -1 && current_thread != -1) {
         /* Save current context */
         process_table[current_process]->threads[current_thread]->active_on_cpu = -1;
         process_table[current_process]->threads[current_thread]->ctx = *ctx;
-        find_next_task(&current_process, &current_thread, smp_cpu_count);
-        if (fsr(&global_cpu_local->reset_scheduler))
+        task_get_next(&current_process, &current_thread, smp_cpu_count);
+        if (cpu_locals[current_cpu].reset_scheduler)
             goto reset_scheduler;
     } else {
 reset_scheduler:
-        fsw(&global_cpu_local->reset_scheduler, 0);
+        cpu_locals[current_cpu].reset_scheduler = 0;
         current_process = 0;
         current_thread = 0;
-        task_get_next(&current_process, &current_thread, fsr(&global_cpu_local->cpu_number));
+        task_get_next(&current_process, &current_thread, current_cpu);
     }
 
-    fsw(&global_cpu_local->current_process, current_process);
-    fsw(&global_cpu_local->current_thread, current_thread);
+    cpu_locals[current_cpu].current_process = current_process;
+    cpu_locals[current_cpu].current_thread = current_thread;
 
-    process_table[current_process]->threads[current_thread]->active_on_cpu = fsr(&global_cpu_local->cpu_number);
+    process_table[current_process]->threads[current_thread]->active_on_cpu = current_cpu;
 
     spinlock_release(&scheduler_lock);
     spinlock_release(&smp_sched_lock);
 
     /* raise scheduler IPI on the next processor */
-    if (smp_cpu_count - 1 > fsr(&global_cpu_local->cpu_number)) {
-        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[fsr(&global_cpu_local->cpu_number) + 1].lapic_id) << 24);
+    if (smp_cpu_count - 1 > current_cpu) {
+        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[current_cpu + 1].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_RESCHED);
     }
 
@@ -157,7 +159,7 @@ void task_resched_bsp(ctx_t *ctx) {
         return;
     }
 
-    if (pit_ticks++ == 5) {
+    if (pit_ticks++ == SMP_TIMESLICE_MS) {
         pit_ticks = 0;
     } else {
         return;
@@ -217,14 +219,13 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
 
-    if (active_on_cpu != -1 && active_on_cpu != fsr(&global_cpu_local->cpu_number)) {
+    if (active_on_cpu != -1 && active_on_cpu != current_cpu) {
         /* Send abort execution IPI */
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[active_on_cpu].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_ABORTEXEC);
     }
 
     kfree(process_table[pid]->threads[tid]);
-    kfree(process_table[pid]->threads[tid]->stk);
 
     process_table[pid]->threads[tid] = -1;
 
@@ -235,7 +236,7 @@ int task_tkill(pid_t pid, tid_t tid) {
     if (active_on_cpu != -1) {
         cpu_locals[active_on_cpu].current_process = -1;
         cpu_locals[active_on_cpu].current_thread = -1;
-        if (active_on_cpu == fsr(&global_cpu_local->cpu_number)) {
+        if (active_on_cpu == current_cpu) {
             asm volatile (
                 "mov rsp, %0;"
                 "xor rax, rax;"
@@ -245,7 +246,7 @@ int task_tkill(pid_t pid, tid_t tid) {
                 "hlt;"
                 "jmp 1b;"
                 :
-                : "r" (fsr(&global_cpu_local->kernel_stack))
+                : "r" (cpu_locals[current_cpu].kernel_stack)
             );
         }
     }
