@@ -49,11 +49,11 @@ void init_sched(void) {
 }
 
 /* Recursively search for a new task to run */
-static inline void task_get_next(pid_t *process, tid_t *thread, int limit) {
+static inline void task_get_next(pid_t *process, tid_t *thread, size_t limit) {
     /* Find next task to run for the current CPU */
     if (!limit) {
         thread_t *next_thread = process_table[*process]->threads[*thread];
-        if (next_thread && next_thread != -1)
+        if (next_thread && (int)(size_t)next_thread != -1)
             return;
     }
 
@@ -63,7 +63,7 @@ static inline void task_get_next(pid_t *process, tid_t *thread, int limit) {
         if (*thread == MAX_THREADS)
             goto next_process;
         thread_t *next_thread = process_table[*process]->threads[*thread];
-        if (next_thread && next_thread != -1) {
+        if (next_thread && (int)(size_t)next_thread != -1) {
             if (++i >= limit)
                 break;
             (*thread)++;
@@ -73,7 +73,7 @@ static inline void task_get_next(pid_t *process, tid_t *thread, int limit) {
 next_process:
             *thread = 0;
             process_t *next_process = process_table[++(*process)];
-            if (next_process && next_process != -1) {
+            if (next_process && (int)(size_t)next_process != -1) {
                 continue;
             }
             if (!next_process) {
@@ -113,7 +113,7 @@ void task_resched(ctx_t *ctx) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
     tid_t current_thread = cpu_locals[current_cpu].current_thread;
 
-    if (current_process != -1 && current_thread != -1) {
+    if ((int)(size_t)current_process != -1 && (int)(size_t)current_thread != -1) {
         /* Save current context */
         process_table[current_process]->threads[current_thread]->active_on_cpu = -1;
         process_table[current_process]->threads[current_thread]->ctx = *ctx;
@@ -177,7 +177,7 @@ pid_t task_pcreate(pagemap_t *pagemap) {
     /* Search for free process ID */
     pid_t new_pid;
     for (new_pid = 0; new_pid < MAX_PROCESSES - 1; new_pid++) {
-        if (!process_table[new_pid] || process_table[new_pid] == -1)
+        if (!process_table[new_pid] || (int)(size_t)process_table[new_pid] == -1)
             goto found_new_pid;
     }
     return -1;
@@ -185,7 +185,7 @@ pid_t task_pcreate(pagemap_t *pagemap) {
 found_new_pid:
     /* Try to make space for this new task */
     if ((process_table[new_pid] = kalloc(sizeof(process_t))) == 0) {
-        process_table[new_pid] = -1;
+        process_table[new_pid] = (void *)(size_t)(-1);
         return -1;
     }
 
@@ -193,7 +193,7 @@ found_new_pid:
 
     if ((new_process->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         kfree(new_process);
-        process_table[new_pid] = -1;
+        process_table[new_pid] = (void *)(size_t)(-1);
         return -1;
     }
 
@@ -204,7 +204,7 @@ found_new_pid:
 }
 
 static void task_reset_sched(void) {
-    for (int i = 0; i < smp_cpu_count; i++) {
+    for (size_t i = 0; i < smp_cpu_count; i++) {
         cpu_locals[i].reset_scheduler = 1;
     }
     return;
@@ -213,13 +213,13 @@ static void task_reset_sched(void) {
 /* Kill a thread in a given process */
 /* Return -1 on failure */
 int task_tkill(pid_t pid, tid_t tid) {
-    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == -1) {
+    if (!process_table[pid]->threads[tid] || (int)(size_t)process_table[pid]->threads[tid] == -1) {
         return -1;
     }
 
-    int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
+    size_t active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
 
-    if (active_on_cpu != -1 && active_on_cpu != current_cpu) {
+    if (active_on_cpu != (size_t)(-1) && active_on_cpu != current_cpu) {
         /* Send abort execution IPI */
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[active_on_cpu].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_ABORTEXEC);
@@ -227,13 +227,13 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     kfree(process_table[pid]->threads[tid]);
 
-    process_table[pid]->threads[tid] = -1;
+    process_table[pid]->threads[tid] = (void *)(size_t)(-1);
 
     task_count--;
 
     task_reset_sched();
 
-    if (active_on_cpu != -1) {
+    if (active_on_cpu != (size_t)(-1)) {
         cpu_locals[active_on_cpu].current_process = -1;
         cpu_locals[active_on_cpu].current_thread = -1;
         if (active_on_cpu == current_cpu) {
@@ -260,7 +260,7 @@ tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
     /* Search for free thread ID */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
-        if (!process_table[pid]->threads[new_tid] || process_table[pid]->threads[new_tid] == -1)
+        if (!process_table[pid]->threads[new_tid] || (int)(size_t)process_table[pid]->threads[new_tid] == -1)
             goto found_new_tid;
     }
     return -1;
@@ -268,7 +268,7 @@ tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
 found_new_tid:
     /* Try to make space for this new task */
     if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(thread_t))) == 0) {
-        process_table[pid]->threads[new_tid] = -1;
+        process_table[pid]->threads[new_tid] = (void *)(size_t)(-1);
         return -1;
     }
 

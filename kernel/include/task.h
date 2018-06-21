@@ -45,7 +45,7 @@ typedef struct {
     tid_t tid;
     int status;
     int priority;
-    int active_on_cpu;
+    size_t active_on_cpu;
     ctx_t ctx;
 } thread_t;
 

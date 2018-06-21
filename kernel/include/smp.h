@@ -32,6 +32,6 @@ void smp_init_cpu0_local(void *, void *);
 void *smp_prepare_trampoline(void *, void *, void *, void *, void *);
 int smp_check_ap_flag(void);
 
-extern int smp_cpu_count;
+extern size_t smp_cpu_count;
 
 #endif

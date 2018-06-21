@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #include <klib.h>
 #include <apic.h>
 #include <acpi.h>
@@ -11,7 +12,7 @@
 
 #define CPU_STACK_SIZE 16384
 
-int smp_cpu_count = 1;
+size_t smp_cpu_count = 1;
 
 typedef struct {
     uint32_t unused __attribute__((aligned(16)));
