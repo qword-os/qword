@@ -53,17 +53,21 @@ static inline void task_get_next(pid_t *process, tid_t *thread, size_t limit) {
     /* Find next task to run for the current CPU */
     if (!limit) {
         thread_t *next_thread = process_table[*process]->threads[*thread];
-        if (next_thread && (int)(size_t)next_thread != -1)
+        /* Confirm that thread is inactive and valid */
+        if (next_thread && (int)(size_t)next_thread != -1 && (next_thread->active_on_cpu == (size_t)-1))
             return;
     }
 
     (*thread)++;
 
     for (size_t i = 0;;) {
+        /* Now check if this thread is the last thread in the process. If it is, 
+         * skip to the next process in the process table */
         if (*thread == MAX_THREADS)
             goto next_process;
         thread_t *next_thread = process_table[*process]->threads[*thread];
-        if (next_thread && (int)(size_t)next_thread != -1) {
+        /* Same as above, check if inactive and valid */
+        if (next_thread && (int)(size_t)next_thread != -1 && (next_thread->active_on_cpu == (size_t)-1)) {
             if (++i >= limit)
                 break;
             (*thread)++;
@@ -73,15 +77,18 @@ static inline void task_get_next(pid_t *process, tid_t *thread, size_t limit) {
 next_process:
             *thread = 0;
             process_t *next_process = process_table[++(*process)];
+            /* If the selected process is valid, continue searching for
+             * threads in this new process */
             if (next_process && (int)(size_t)next_process != -1) {
                 continue;
             }
             if (!next_process) {
-                /* end of tasks, find first task and exit */
+                /* We reached the end of tasks, start from the beginning and exit */
                 *process = 0;
                 task_get_next(process, thread, current_cpu);
                 break;
             } else {
+                /* If we reached this point, we still need to find a new process. Do that thing */
                 goto next_process;
             }
         } else {
@@ -185,7 +192,7 @@ pid_t task_pcreate(pagemap_t *pagemap) {
 found_new_pid:
     /* Try to make space for this new task */
     if ((process_table[new_pid] = kalloc(sizeof(process_t))) == 0) {
-        process_table[new_pid] = (void *)(size_t)(-1);
+        process_table[new_pid] = EMPTY_TASK;
         return -1;
     }
 
@@ -193,7 +200,7 @@ found_new_pid:
 
     if ((new_process->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         kfree(new_process);
-        process_table[new_pid] = (void *)(size_t)(-1);
+        process_table[new_pid] = EMPTY_TASK;
         return -1;
     }
 
@@ -227,7 +234,7 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     kfree(process_table[pid]->threads[tid]);
 
-    process_table[pid]->threads[tid] = (void *)(size_t)(-1);
+    process_table[pid]->threads[tid] = EMPTY_TASK;
 
     task_count--;
 
@@ -268,7 +275,7 @@ tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
 found_new_tid:
     /* Try to make space for this new task */
     if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(thread_t))) == 0) {
-        process_table[pid]->threads[new_tid] = (void *)(size_t)(-1);
+        process_table[pid]->threads[new_tid] = EMPTY_TASK;
         return -1;
     }
 

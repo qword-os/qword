@@ -13,6 +13,8 @@
 #define TASK_STS_READY 1
 #define TASK_STS_BLOCKED 2
 
+#define EMPTY_TASK (void *)(size_t)(-1)
+
 typedef struct {
     uint64_t es;
     uint64_t ds;
@@ -65,5 +67,6 @@ void init_sched(void);
 
 tid_t task_tcreate(pid_t, void *, void *(*)(void *), void *);
 pid_t task_pcreate(pagemap_t *);
+int task_tkill(pid_t, tid_t);
 
 #endif

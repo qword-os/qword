@@ -25,7 +25,8 @@ void *ktask(void *arg) {
         ksleep(1000);
         if (i == (int)(size_t)arg) {
             spinlock_acquire(&scheduler_lock);
-            //thread_destroy(0, (size_t)arg);     /* die */
+            /* Kill self */
+            task_tkill(0, (size_t)arg);
             spinlock_release(&scheduler_lock);
         }
     }
