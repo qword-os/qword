@@ -62,10 +62,14 @@ extern apic_spurious_handler
 ; IPIs
 global ipi_abort
 extern ipi_abort_handler
+global ipi_resched
+global ipi_abortexec
 
 ; Misc.
 extern dummy_int_handler
 global int_handler
+extern task_resched_bsp
+extern task_resched
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -184,12 +188,49 @@ exc_security_handler:
 ; IRQs
 irq0_handler:
     pusham
-    mov rsi, cr3
-    mov rdi, rsp
-    
+
+    xor rax, rax
+    mov ax, ds
+    push rax
+    mov ax, es
+    push rax
+
     call pit_handler
 
+    mov rdi, rsp
+
+    call task_resched_bsp
+
     call pic_send_eoi
+
+    add rsp, 16
+    popam
+    iretq
+
+ipi_abortexec:
+    mov rsp, qword [fs:0008]
+    call pic_send_eoi
+    sti
+  .wait:
+    hlt
+    jmp .wait
+
+ipi_resched:
+    pusham
+
+    xor rax, rax
+    mov ax, ds
+    push rax
+    mov ax, es
+    push rax
+
+    mov rdi, rsp
+
+    call task_resched
+
+    call pic_send_eoi
+
+    add rsp, 16
     popam
     iretq
 

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #include <klib.h>
 #include <apic.h>
 #include <acpi.h>
@@ -9,9 +10,9 @@
 #include <mm.h>
 #include <task.h>
 
-#define CPU_STACK_SIZE (8192+8192)
+#define CPU_STACK_SIZE 16384
 
-int smp_cpu_count = 1;
+size_t smp_cpu_count = 1;
 
 typedef struct {
     uint32_t unused __attribute__((aligned(16)));
@@ -27,8 +28,8 @@ static tss_t cpu_tss[MAX_CPUS] __attribute__((aligned(16)));
 static void ap_kernel_entry(void) {
     /* APs jump here after initialisation */
 
-    kprint(KPRN_INFO, "smp: Started up AP #%u", smp_get_cpu_number());
-    kprint(KPRN_INFO, "smp: AP #%u kernel stack top: %X", smp_get_cpu_number(), smp_get_cpu_kernel_stack());
+    kprint(KPRN_INFO, "smp: Started up AP #%u", current_cpu);
+    kprint(KPRN_INFO, "smp: Kernel stack top: %X", cpu_locals[current_cpu].kernel_stack);
     
     /* Enable this AP's local APIC */
     lapic_enable();
@@ -37,48 +38,34 @@ static void ap_kernel_entry(void) {
     return;
 }
 
+static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
+    /* Prepare CPU local */
+    cpu_locals[cpu_number].cpu_number = cpu_number;
+    cpu_locals[cpu_number].kernel_stack = cpu_stack_top;
+    cpu_locals[cpu_number].current_process = -1;
+    cpu_locals[cpu_number].current_thread = -1;
+    cpu_locals[cpu_number].lapic_id = lapic_id;
+    cpu_locals[cpu_number].reset_scheduler = 0;
+
+    /* Prepare TSS */
+    cpu_tss[cpu_number].sp = (uint64_t)cpu_stack_top;
+
+    return;
+}
+
 static int start_ap(uint8_t target_apic_id, int cpu_number) {
     if (cpu_number == MAX_CPUS) {
         panic("smp: CPU limit exceeded", smp_cpu_count, 0);
     }
 
-    /* create CPU local struct */
+    setup_cpu_local(cpu_number, target_apic_id);
+
     cpu_local_t *cpu_local = &cpu_locals[cpu_number];
-
-    kprint(KPRN_DBG, "Setting up CPU local struct.");
-    cpu_local->cpu_number = cpu_number;
-    cpu_local->kernel_stack = cpu_stack_top;
-    cpu_local->idle = 1;
-    cpu_local->current_process = 0;
-    cpu_local->current_thread = 0;
-    cpu_local->should_ts = 0;
-    cpu_local->idle_time = 0;
-    cpu_local->load = 0;
-    /* This is used for IPIs */
-    cpu_local->lapic_id = (size_t)target_apic_id;
-    if ((cpu_local->run_queue = kalloc(MAX_THREADS * sizeof(thread_identifier_t))) == 0) {
-        panic("smp: Failed to allocate thread array for CPU with number: ", cpu_number, 0);
-    }
-
-    /* Prepare run queue */
-    for (size_t i = 0; i < MAX_THREADS; i++) {
-        /* Use sane defaults */
-        thread_identifier_t t = {
-            0,
-            0,
-            1
-        };
-        cpu_local->run_queue[i] = t;
-    }
-
-    /* prepare TSS */
     tss_t *tss = &cpu_tss[cpu_number];
 
-    tss->sp = (uint64_t)cpu_stack_top;
-    
     void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pagemap,
                                 (void *)cpu_stack_top, cpu_local, tss);
-    
+
     /* Send the INIT IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
     lapic_write(APICREG_ICR0, 0x4500);
@@ -110,26 +97,10 @@ success:
 }
 
 static void init_cpu0(void) {
-    /* create CPU 0 local struct */
+    setup_cpu_local(0, 0);
+
     cpu_local_t *cpu_local = &cpu_locals[0];
-
-    cpu_local->cpu_number = 0;
-    cpu_local->kernel_stack = cpu_stack_top;
-    cpu_local->idle = 0;
-    cpu_local->current_process = 0;
-    cpu_local->current_thread = 0;
-    cpu_local->should_ts = 0;
-    cpu_local->idle_time = 0;
-    cpu_local->load = 0;
-    /* BSP will always have APIC ID 0 */
-    cpu_local->lapic_id = 0;
-    if ((cpu_local->run_queue = kalloc(sizeof(thread_t) * MAX_THREADS)) == 0) {
-        panic("smp: Failed to allocate thread array for CPU0", 0, 0);
-    }
-
     tss_t *tss = &cpu_tss[0];
-
-    tss->sp = (uint64_t)cpu_stack_top;
 
     smp_init_cpu0_local(cpu_local, tss);
 
@@ -157,4 +128,4 @@ void init_smp(void) {
     kprint(KPRN_INFO, "smp: Total CPU count: %u", smp_cpu_count);
 
     return;
-    }
+}

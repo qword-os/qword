@@ -14,6 +14,25 @@
 #include <smp.h>
 #include <task.h>
 #include <cio.h>
+#include <lock.h>
+#include <time.h>
+
+void *ktask(void *arg) {
+    for (int i = 0; ; i++) {
+        spinlock_acquire(&scheduler_lock);
+        kprint(0, "CPU %U, hello world, tid: %U, iter: %u", current_cpu, arg, i);
+        spinlock_release(&scheduler_lock);
+        ksleep(1000);
+        if (i == (int)(size_t)arg) {
+            spinlock_acquire(&scheduler_lock);
+            /* Kill self */
+            task_tkill(0, (size_t)arg);
+            spinlock_release(&scheduler_lock);
+        }
+    }
+
+    for (;;) { asm volatile ("hlt"); }
+}
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -45,6 +64,13 @@ int kmain(void) {
     init_pit();
     init_smp();
     init_sched();
+
+    spinlock_acquire(&scheduler_lock);
+    for (int i = 0; i < 32; i++) {
+        size_t *stack = kalloc(1024 * sizeof(size_t));
+        task_tcreate(0, &stack[1023], ktask, (void *)(size_t)i);
+    }
+    spinlock_release(&scheduler_lock);
 
     for (;;)
         asm volatile ("hlt;");
