@@ -7,6 +7,7 @@
 #include <acpi/madt.h>
 #include <apic.h>
 #include <ipi.h>
+#include <fs.h>
 
 #define SMP_TIMESLICE_MS 5
 
@@ -36,6 +37,14 @@ void init_sched(void) {
     }
     if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0);
+    }
+    if ((process_table[0]->file_handles = kalloc(256 * sizeof(fd_t))) == 0) {
+        panic("sched: Unable to allocate space for kernel file handles.", 0, 0);
+    }
+
+    process_table[0]->fd_count = 256;
+    for (size_t i = 0; i < 256; i++) {
+        process_table[0]->file_handles[i] = *((fd_t *)-1);
     }
 
     process_table[0]->pagemap = &kernel_pagemap;
@@ -202,6 +211,19 @@ found_new_pid:
         kfree(new_process);
         process_table[new_pid] = EMPTY_TASK;
         return -1;
+    }
+    
+    if ((new_process->file_handles = kalloc(256 * sizeof(fd_t))) == 0) {
+        kfree(new_process);
+        process_table[new_pid] = EMPTY_TASK;
+        return -1;
+    }
+   
+    process_table[new_pid]->fd_count = 256;
+ 
+    /* Initially, mark all file handles as unused */
+    for (size_t i = 0; i < 256; i++) {
+        process_table[new_pid]->file_handles[i] = *((fd_t *)-1);
     }
 
     new_process->pagemap = pagemap;

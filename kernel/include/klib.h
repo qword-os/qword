@@ -16,6 +16,7 @@ int kstrncmp(const char *, const char *, size_t);
 void kprint(int type, const char *fmt, ...);
 void *kalloc(size_t);
 void kfree(void *);
+void *krealloc(void *, size_t);
 
 void *kmemset(void *, int, size_t);
 void *kmemcpy(void *, const void*, size_t);

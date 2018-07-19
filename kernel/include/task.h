@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <mm.h>
 #include <lock.h>
+#include <fs.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -52,6 +53,8 @@ typedef struct {
 } thread_t;
 
 typedef struct {
+    size_t fd_count;
+    fd_t *file_handles;
     pid_t pid;
     int priority;
     pagemap_t *pagemap;
