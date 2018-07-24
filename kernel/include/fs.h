@@ -9,6 +9,8 @@
 #define FTYPE_DIR 1
 #define FTYPE_DEV 2
 
+typedef size_t pid_t;
+
 typedef struct {
     int used;
     int perms;
@@ -20,7 +22,8 @@ typedef struct {
 typedef struct {
     int fs_id;
     int intern_fd;
-} fd_t;
+    int mountpoint;
+} file_handle_t;
 
 typedef struct {
     char filename[2048];
@@ -38,7 +41,6 @@ typedef struct {
  * it */
 typedef struct {
     char name[128];
-    /* Read `count` bytes from the file specified by `fd` into `buf` */
     int (*read)(int fd, void *buf, size_t count);
     int (*write)(int fd, const void *buf, size_t count);
     int (*remove)(char *path);
@@ -51,5 +53,12 @@ typedef struct {
     int (*fork)(int fd);
     int (*seek)(int fd, int offset, int ftype);
 } fs_t;
+
+int vfs_translate_mnt(char *, char **);
+int vfs_translate_fs(int);
+int vfs_create_fd(pid_t pid, file_handle_t *fd);
+int vfs_open(char *, int flags, int mode);
+int vfs_read(int, void *, size_t);
+int vfs_write(int, void *, size_t);
 
 #endif
