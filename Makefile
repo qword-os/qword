@@ -1,16 +1,21 @@
 MAKE = make
-ARCH = x86_64
 
-.PHONY: iso clean run
+PREFIX = $(shell pwd)/root
 
-iso:
-	$(MAKE) -C kernel
-	cp kernel/kernel.bin iso/boot/kernel.bin
-	grub-mkrescue -o os.iso iso
+.PHONY: all iso clean run run-kvm
+
+all:
+	$(MAKE) PREFIX=$(PREFIX) -C root/src
+
+iso: all
+	grub-mkrescue -o qword.iso root
+
 run:
-	qemu-system-$(ARCH) -cdrom os.iso -smp sockets=1,cores=4,threads=1 -net none
+	qemu-system-x86_64 -cdrom qword.iso -smp sockets=1,cores=4,threads=1 -net none
+
 run-kvm:
-	qemu-system-$(ARCH) -cdrom os.iso -smp sockets=1,cores=4,threads=1 -enable-kvm -net none
+	qemu-system-x86_64 -cdrom qword.iso -smp sockets=1,cores=4,threads=1 -enable-kvm -net none
+
 clean:
-	$(MAKE) clean -C kernel
-	rm -f os.iso
+	$(MAKE) clean -C root/src
+	rm -f qword.iso
