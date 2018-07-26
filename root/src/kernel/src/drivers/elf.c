@@ -4,30 +4,26 @@
 #include <fs.h>
 #include <panic.h>
 
-int open(char *, int);
-void read(int, uint8_t *, size_t);
-void fstat(int, stat_t *);
-void close(int);
-
 /* Execute an ELF file given the file path */
 int elf_exec(char *path) {
     char *elf_magic = "\177ELF";
     stat_t *statbuf;
 
-    int handle = open(path, 0);
+    int handle = vfs_open(path, 0, 0);
     if (handle == -1) return -1;
 
     /* Get data on the size and etc. of the file */
     if ((statbuf = kalloc(sizeof(stat_t))) == 0) return -1;
-    fstat(handle, statbuf);
+    vfs_fstat(handle, statbuf);
 
     /* Allocate space for the file as described by the stat_t,
      * and then read the file into
      * the buffer we just allocated */
     uint8_t *file;
+
     if ((file = kalloc(statbuf->sz)) == 0) return -1;
-    read(handle, file, statbuf->sz);
-    /* Free the stat structure */
+
+    int sts = vfs_read(handle, file, statbuf->sz);
     kfree(statbuf);
 
     /* Now do actual elf stuff */
@@ -94,8 +90,3 @@ int elf_exec(char *path) {
 
     return 0;
 }
-
-int open(char *path, int blah) { return 0; }
-void read(int fd, uint8_t *buf, size_t count) {}
-void close(int fd) {}
-void fstat(int fd, stat_t *buf) {}

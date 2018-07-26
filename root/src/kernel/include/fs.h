@@ -52,6 +52,7 @@ typedef struct {
     int (*close)(int fd);
     int (*fork)(int fd);
     int (*seek)(int fd, int offset, int ftype);
+    int (*fstat)(int fd, void *buf);
 } fs_t;
 
 int vfs_translate_mnt(char *, char **);

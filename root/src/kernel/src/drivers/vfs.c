@@ -134,7 +134,13 @@ term:
     }
 }
 
-/* TODO: Lock all this crap */
+int vfs_fstat(int fd, void *buf) {
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    
+    int intern_fd = process_table[current_cpu]->file_handles[fd]->intern_fd;
+    int fs_id = vfs_translate_fs(process_table[current_process]->file_handles[fd]->mountpoint);
+    return (*filesystems[fs_id].fstat)(intern_fd, buf);
+}
 
 /* Open a file and return a file descriptor */
 int vfs_open(char *path, int flags, int mode) {
@@ -157,7 +163,8 @@ int vfs_open(char *path, int flags, int mode) {
 
     int fs_id = vfs_translate_fs(mountpoint);
     if (mountpoint == -1) return -1;
-
+    
+    spinlock_acquire(&scheduler_lock);
     int internal_handle = (*filesystems[fs_id].open)(loc_path, flags, mode);
     if (internal_handle == -1) return -1;
 
@@ -167,7 +174,10 @@ int vfs_open(char *path, int flags, int mode) {
 
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
-    return vfs_create_fd(current_process, &handle);
+    int ret = vfs_create_fd(current_process, &handle);
+    spinlock_release(&scheduler_lock);
+
+    return ret;
 }
 
 /* Read `len` bytes from the file given by `fd` into the given buffer */
