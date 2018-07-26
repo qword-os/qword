@@ -4,6 +4,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/* Flags */
+#define O_RDONLY        0b0001
+#define O_WRONLY        0b0010
+#define O_RDWR          0b0100
+
+/* Mode */
+#define O_APPEND        0b001000
+#define O_CREAT         0b010000
+#define O_TRUNC         0b100000
+
 /* Possible types of file on a filesystem */
 #define FTYPE_FILE 0
 #define FTYPE_DIR 1
