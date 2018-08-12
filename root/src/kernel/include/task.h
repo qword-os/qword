@@ -5,10 +5,10 @@
 #include <stddef.h>
 #include <mm.h>
 #include <lock.h>
-#include <fs.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
+#define MAX_FILE_HANDLES 256
 
 #define TASK_STS_RUNNING 0
 #define TASK_STS_READY 1
@@ -43,6 +43,8 @@ typedef struct {
 
 typedef size_t pid_t;
 typedef size_t tid_t;
+typedef size_t uid_t;
+typedef size_t gid_t;
 
 typedef struct {
     tid_t tid;
@@ -53,13 +55,12 @@ typedef struct {
 } thread_t;
 
 typedef struct {
-    size_t fd_count;
-    file_handle_t **file_handles;
     pid_t pid;
     int priority;
     pagemap_t *pagemap;
     thread_t **threads;
     char *cwd;
+    int *file_handles;
 } process_t;
 
 extern int scheduler_ready;

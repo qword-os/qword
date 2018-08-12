@@ -38,14 +38,7 @@ void init_sched(void) {
     if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0);
     }
-    if ((process_table[0]->file_handles = kalloc(256 * sizeof(file_handle_t))) == 0) {
-        panic("sched: Unable to allocate space for kernel file handles.", 0, 0);
-    }
-
-    process_table[0]->fd_count = 256;
-    for (size_t i = 0; i < 256; i++) {
-        process_table[0]->file_handles[i] = (void *)(size_t)(-1);
-    }
+    /* No need to allocate kernel file handles here, they are allocated elsewhere */
 
     process_table[0]->pagemap = &kernel_pagemap;
     process_table[0]->pid = 0;
@@ -213,18 +206,15 @@ found_new_pid:
         return -1;
     }
     
-    if ((new_process->file_handles = kalloc(256 * sizeof(file_handle_t))) == 0) {
+    if ((new_process->file_handles = kalloc(MAX_FILE_HANDLES * sizeof(int))) == 0) {
         kfree(new_process);
         process_table[new_pid] = EMPTY_TASK;
         return -1;
     }
-   
-    process_table[new_pid]->fd_count = 256;
  
     /* Initially, mark all file handles as unused */
-    for (size_t i = 0; i < 256; i++) {
-        /* TODO hard define this type conversion */
-        process_table[new_pid]->file_handles[i] = (void *)(size_t)(-1);
+    for (size_t i = 0; i < MAX_FILE_HANDLES; i++) {
+        process_table[new_pid]->file_handles[i] = -1;
     }
 
     new_process->pagemap = pagemap;
