@@ -14,8 +14,6 @@
 #define TASK_STS_READY 1
 #define TASK_STS_BLOCKED 2
 
-#define EMPTY_TASK (void *)(size_t)(-1)
-
 typedef struct {
     uint64_t es;
     uint64_t ds;

@@ -9,6 +9,8 @@
 #define KPRN_ERR    2
 #define KPRN_DBG    3
 
+#define EMPTY (void *)(size_t)(-1)
+
 char *kstrcpy(char *, const char *);
 size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);

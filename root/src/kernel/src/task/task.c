@@ -38,8 +38,6 @@ void init_sched(void) {
     if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0);
     }
-    /* No need to allocate kernel file handles here, they are allocated elsewhere */
-
     process_table[0]->pagemap = &kernel_pagemap;
     process_table[0]->pid = 0;
 
@@ -194,7 +192,7 @@ pid_t task_pcreate(pagemap_t *pagemap) {
 found_new_pid:
     /* Try to make space for this new task */
     if ((process_table[new_pid] = kalloc(sizeof(process_t))) == 0) {
-        process_table[new_pid] = EMPTY_TASK;
+        process_table[new_pid] = EMPTY;
         return -1;
     }
 
@@ -202,13 +200,13 @@ found_new_pid:
 
     if ((new_process->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
         kfree(new_process);
-        process_table[new_pid] = EMPTY_TASK;
+        process_table[new_pid] = EMPTY;
         return -1;
     }
     
     if ((new_process->file_handles = kalloc(MAX_FILE_HANDLES * sizeof(int))) == 0) {
         kfree(new_process);
-        process_table[new_pid] = EMPTY_TASK;
+        process_table[new_pid] = EMPTY;
         return -1;
     }
  
@@ -247,7 +245,7 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     kfree(process_table[pid]->threads[tid]);
 
-    process_table[pid]->threads[tid] = EMPTY_TASK;
+    process_table[pid]->threads[tid] = EMPTY;
 
     task_count--;
 
@@ -288,7 +286,7 @@ tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
 found_new_tid:
     /* Try to make space for this new task */
     if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(thread_t))) == 0) {
-        process_table[pid]->threads[new_tid] = EMPTY_TASK;
+        process_table[pid]->threads[new_tid] = EMPTY;
         return -1;
     }
 

@@ -7,9 +7,11 @@
 
 fs_t *filesystems;
 mnt_t *mountpoints;
+vfs_fd_t **file_descriptors;
 
 static int mountpoints_i = 0;
-/*static int filesystems_i = 0;*/
+static int filesystems_i = 0;
+static size_t fd_count = 0;
 
 /* Return index into mountpoints array corresponding to the mountpoint
    inside which this file/path is located.
@@ -37,6 +39,16 @@ int vfs_get_mountpoint(const char *path, char **local_path) {
         (*local_path)++;
 
     return (int)guess;
+}
+
+int vfs_get_fs(int mountpoint) {
+    for (int i = 0; i < filesystems_i; i++) {
+        if (!kstrcmp(filesystems[i].name, mountpoints[i].fs)) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 /* Convert a relative path into an absolute path.
@@ -107,5 +119,80 @@ term:
     }
 }
 
-/* Anything that was below this point was completely broken so I removed it */
-/* To redo */
+/* Find free file handle and setup said handle */
+int open(char *path, int mode, int perms) {
+    char *loc_path;
+    char absolute_path[2048];
+
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    char *cwd = process_table[current_process]->cwd;
+
+    vfs_fd_t handle = {0};
+
+    /* TODO make it so that ::// handles the raw device */
+    if (!kstrncmp(path, ":://", 4)) {
+        loc_path = path + 4;
+        kstrcpy(absolute_path, "/dev/");
+        kstrcpy(absolute_path + 5, loc_path);
+    } else {
+        vfs_get_absolute_path(absolute_path, path, cwd);
+    }
+
+    size_t i;
+
+    for (i = 0; i < fd_count; i++) {
+        if (file_descriptors[i] == EMPTY) {
+            int mountpoint = vfs_get_mountpoint(absolute_path, &loc_path);
+            if (mountpoint == -1) return -1;
+            
+            mnt_t mnt = mountpoints[mountpoint];
+            int magic = mnt.magic;
+
+            int fs = vfs_get_fs(mountpoint);
+            if (fs == -1) return -1;
+            
+            int intern_fd = (*filesystems[fs].open)(path, mode, perms, magic);
+            if (intern_fd == -1) return -1;
+
+            handle.fs = fs;
+            handle.intern_fd = intern_fd;
+
+            /* Register kernel descriptor */
+            file_descriptors[i] = &handle;
+
+            return i;
+        } else
+            continue;
+    }
+
+    /* use next index */
+    size_t j = i++;
+    /* Make more space */
+    file_descriptors = krealloc(file_descriptors, (fd_count + 1) * sizeof(vfs_fd_t));
+
+    int mountpoint = vfs_get_mountpoint(absolute_path, &loc_path);
+    if (mountpoint == -1) return -1;
+    
+    mnt_t mnt = mountpoints[mountpoint];
+    int magic = mnt.magic;
+
+    int fs = vfs_get_fs(mountpoint);
+    if (fs == -1) return -1;
+
+    int intern_fd = (*filesystems[fs].open)(loc_path, mode, perms, magic);
+    if (intern_fd == -1) return -1;
+
+    handle.fs = fs;
+    handle.intern_fd = intern_fd;
+
+    file_descriptors[j] = &handle;
+
+    return j;
+}
+
+void init_vfs(void) {
+    file_descriptors = kalloc(256 * sizeof(vfs_fd_t));
+    fd_count = 256;
+
+    return;
+}

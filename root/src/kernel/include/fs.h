@@ -27,17 +27,18 @@ typedef uint64_t blksize_t;
 typedef uint64_t blkcnt_t;
 
 typedef struct {
-    int fs_id;
+    int fs;
     int intern_fd;
-    int mountpoint;
-} vfs_handle_t;
+} vfs_fd_t;
 
 typedef struct {
     char mntpt[2048];
     char dev[2048];
     char fs[2048];
+    int magic;
 } mnt_t;
 
+/* stat is like this for compatibility reasons */
 struct stat {
     dev_t st_dev;
     ino_t st_ino;
@@ -57,7 +58,7 @@ typedef struct {
     int (*mount)(const char *, const char *, const char *,
                     unsigned long, const void *);
     int (*umount)(const char *);
-    int (*open)(char *, int, int);
+    int (*open)(char *, int, int, int);
     int (*close)(int);
     int (*fstat)(int, struct stat *);
     int (*read)(int, void *, size_t);
@@ -76,6 +77,8 @@ int write(int, void *, size_t);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
+int vfs_get_fs(int);
 void vfs_get_absolute_path(char *, const char *, const char *);
+void vfs_init(void);
 
 #endif
