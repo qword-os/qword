@@ -17,6 +17,7 @@
 #include <smp.h>
 #include <task.h>
 #include <ata.h>
+#include <dev.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -53,6 +54,18 @@ int kmain(void) {
 
     /* Initialise scheduler */
     init_sched();
+
+    /* Try reading 128 bytes from hda */
+    dev_t hda = device_find("hda");
+    kprint(KPRN_DBG, "\"hda\"'s device ID is %u", hda);
+    uint8_t data[128];
+    device_read(hda, data, 0x180, 128);
+
+    for (size_t i = 0; i < 128; i+=16) {
+        kprint(KPRN_DBG, "%x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x",
+            data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7],
+            data[i+8], data[i+9], data[i+10], data[i+11], data[i+12], data[i+13], data[i+14], data[i+15]);
+    }
 
     for (;;)
         asm volatile ("hlt;");
