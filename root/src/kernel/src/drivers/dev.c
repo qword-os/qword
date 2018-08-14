@@ -11,7 +11,8 @@ typedef struct {
     int magic;
     uint64_t size;
     int (*read)(int, void *, uint64_t, size_t);
-    int (*write)(int, void *, uint64_t, size_t);
+    int (*write)(int, const void *, uint64_t, size_t);
+    int (*flush)(int);
 } device_t;
 
 static device_t devices[MAX_DEVICES];
@@ -22,10 +23,16 @@ int device_read(int device, void *buf, uint64_t loc, size_t count) {
     return devices[device].read(magic, buf, loc, count);
 }
 
-int device_write(int device, void *buf, uint64_t loc, size_t count) {
+int device_write(int device, const void *buf, uint64_t loc, size_t count) {
     int magic = devices[device].magic;
 
     return devices[device].write(magic, buf, loc, count);
+}
+
+int device_flush(int device) {
+    int magic = devices[device].magic;
+
+    return devices[device].flush(magic);
 }
 
 /* Returns a device ID by name, (dev_t)(-1) if not found. */
@@ -46,7 +53,8 @@ dev_t device_find(const char *name) {
 /* (dev_t)(-1) on error. */
 dev_t device_add(const char *name, int magic, uint64_t size,
         int (*read)(int, void *, uint64_t, size_t),
-        int (*write)(int, void *, uint64_t, size_t)) {
+        int (*write)(int, const void *, uint64_t, size_t),
+        int (*flush)(int)) {
 
     dev_t device;
 
@@ -58,6 +66,7 @@ dev_t device_add(const char *name, int magic, uint64_t size,
             devices[device].size = size;
             devices[device].read = read;
             devices[device].write = write;
+            devices[device].flush = flush;
             return device;
         }
     }

@@ -6,12 +6,14 @@
 
 typedef size_t dev_t;
 
-dev_t device_find(const char *name);
-dev_t device_add(const char *name, int magic, uint64_t size,
-        int (*read)(int drive, void *buf, uint64_t loc, size_t count),
-        int (*write)(int drive, void *buf, uint64_t loc, size_t count));
+dev_t device_find(const char *);
+dev_t device_add(const char *, int, uint64_t,
+        int (*read)(int, void *, uint64_t, size_t),
+        int (*write)(int, const void *, uint64_t, size_t),
+        int (*flush)(int));
 
-int device_read(int device, void *buf, uint64_t loc, size_t count);
-int device_write(int device, void *buf, uint64_t loc, size_t count);
+int device_read(int, void *, uint64_t, size_t);
+int device_write(int, const void *, uint64_t, size_t);
+int device_flush(int);
 
 #endif
