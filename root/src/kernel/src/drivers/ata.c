@@ -59,7 +59,7 @@ static const uint16_t ata_ports[] = { 0x1f0, 0x1f0, 0x170, 0x170 };
 static const int max_ports = 4;
 
 static int ata_read(int drive, void *buf, uint64_t loc, size_t count);
-static int ata_write(int drive, void *buf, uint64_t loc, size_t count);
+static int ata_write(int drive, const void *buf, uint64_t loc, size_t count);
 static ata_device init_ata_device(uint16_t port_base, int master);
 static void ata_identify(ata_device* dev);
 static int ata_read28(int disk, uint32_t sector, uint8_t *buffer);
@@ -150,17 +150,20 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
         if (slot == -1)
             return -1;
 
-        if (i == sect_count - 1) {
+        if (i == 0) {
+            /* first sector */
+            if (i == sect_count - 1) {
+                /* if it's also the last sector */
+                kmemcpy(buf, &devices[drive].cache[slot].cache[initial_offset], count);
+                break;
+            }
+            kmemcpy(buf, &devices[drive].cache[slot].cache[initial_offset], BYTES_PER_SECT - initial_offset);
+            buf += BYTES_PER_SECT - initial_offset;
+        } else if (i == sect_count - 1) {
             /* last sector */
             kmemcpy(buf, devices[drive].cache[slot].cache, final_offset);
             /* no need to do anything, just leave */
             break;
-        }
-
-        if (i == 0) {
-            /* first sector */
-            kmemcpy(buf, &devices[drive].cache[slot].cache[initial_offset], BYTES_PER_SECT - initial_offset);
-            buf += BYTES_PER_SECT - initial_offset;
         } else {
             kmemcpy(buf, devices[drive].cache[slot].cache, BYTES_PER_SECT);
             buf += BYTES_PER_SECT;
@@ -172,7 +175,7 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
     return 0;
 }
 
-static int ata_write(int drive, void *buf, uint64_t loc, size_t count) {
+static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
     uint64_t sect_count = count / BYTES_PER_SECT;
     if (count % BYTES_PER_SECT) sect_count++;
 
@@ -193,19 +196,23 @@ static int ata_write(int drive, void *buf, uint64_t loc, size_t count) {
         if (slot == -1)
             return -1;
 
-        if (i == sect_count - 1) {
+        if (i == 0) {
+            /* first sector */
+            if (i == sect_count - 1) {
+                /* if it's also the last sector */
+                kmemcpy(&devices[drive].cache[slot].cache[initial_offset], buf, count);
+                devices[drive].cache[slot].status = CACHE_DIRTY;
+                break;
+            }
+            kmemcpy(&devices[drive].cache[slot].cache[initial_offset], buf, BYTES_PER_SECT - initial_offset);
+            devices[drive].cache[slot].status = CACHE_DIRTY;
+            buf += BYTES_PER_SECT - initial_offset;
+        } else if (i == sect_count - 1) {
             /* last sector */
             kmemcpy(devices[drive].cache[slot].cache, buf, final_offset);
             devices[drive].cache[slot].status = CACHE_DIRTY;
             /* no need to do anything, just leave */
             break;
-        }
-
-        if (i == 0) {
-            /* first sector */
-            kmemcpy(&devices[drive].cache[slot].cache[initial_offset], buf, BYTES_PER_SECT - initial_offset);
-            devices[drive].cache[slot].status = CACHE_DIRTY;
-            buf += BYTES_PER_SECT - initial_offset;
         } else {
             kmemcpy(devices[drive].cache[slot].cache, buf, BYTES_PER_SECT);
             devices[drive].cache[slot].status = CACHE_DIRTY;
@@ -213,6 +220,25 @@ static int ata_write(int drive, void *buf, uint64_t loc, size_t count) {
         }
 
         cur_sect++;
+    }
+
+    return 0;
+}
+
+static int ata_flush1(int device) {
+    for (size_t i = 0; i < MAX_CACHED_SECTORS; i++) {
+        if (devices[device].cache[i].status == CACHE_DIRTY) {
+            int ret;
+
+            if (devices[device].cache[i].sector <= 0x0fffffff)
+                ret = ata_write28(device, (uint32_t)devices[device].cache[i].sector, devices[device].cache[i].cache);
+            else
+                ret = ata_write48(device, devices[device].cache[i].sector, devices[device].cache[i].cache);
+
+            if (ret == -1) return -1;
+
+            devices[device].cache[i].status = CACHE_READY;
+        }
     }
 
     return 0;
@@ -235,7 +261,7 @@ void init_ata(void) {
         if (j % 2) master = 0;
         else master = 1;
         device_add(ata_names[i], i, devices[i].sector_count * 512,
-                          &ata_read, &ata_write);
+                          &ata_read, &ata_write, &ata_flush1);
         kprint(KPRN_INFO, "ata: Initialised %s", ata_names[i]);
     }
 
