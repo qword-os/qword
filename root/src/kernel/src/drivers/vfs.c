@@ -191,21 +191,15 @@ int open(char *path, int mode, int perms) {
 }
 
 int read(int fd, void *buf, size_t len) {
-    pid_t current_process = cpu_locals[current_cpu].current_process;
-    int kern_fd = process_table[current_process]->file_handles[fd];
-
-    int fs = file_descriptors[kern_fd]->fs;
-    int intern_fd = file_descriptors[kern_fd]->intern_fd;
+    int fs = file_descriptors[fd]->fs;
+    int intern_fd = file_descriptors[fd]->intern_fd;
 
     return (*filesystems[fs].read)(intern_fd, buf, len);
 }
 
 int write(int fd, void *buf, size_t len) {
-    pid_t current_process = cpu_locals[current_cpu].current_process;
-    int kern_fd = process_table[current_process]->file_handles[fd];
-
-    int fs = file_descriptors[kern_fd]->fs;
-    int intern_fd = file_descriptors[kern_fd]->intern_fd;
+    int fs = file_descriptors[fd]->fs;
+    int intern_fd = file_descriptors[fd]->intern_fd;
 
     spinlock_acquire(&scheduler_lock);
     int res = (*filesystems[fs].write)(intern_fd, buf, len);
@@ -215,18 +209,15 @@ int write(int fd, void *buf, size_t len) {
 }
 
 int close(int fd) {
-    if (handle < 0) return -1;
-
-    pid_t current_process = cpu_local[current_cpu].current_process;
-    int kern_fd = process_table[current_process]->file_handles[fd];
-
-    int fs = file_descriptors[kern_fd]->fs;
-    int intern_fd = file_descriptors[kern_fd]->intern_fd;
+    if (fd < 0) return -1;
+    
+    int fs = file_descriptors[fd]->fs;
+    int intern_fd = file_descriptors[fd]->intern_fd;
 
     spinlock_acquire(&scheduler_lock);
     int res = (*filesystems[fs].close)(intern_fd);
     if (res == -1) return -1;
-    file_descriptors[kern_fd] = EMPTY;
+    file_descriptors[fd] = EMPTY;
     spinlock_release(&scheduler_lock);
 
     return res;
