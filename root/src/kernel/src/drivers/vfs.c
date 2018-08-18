@@ -144,13 +144,13 @@ int open(char *path, int mode, int perms) {
         if (file_descriptors[i] == EMPTY) {
             int mountpoint = vfs_get_mountpoint(absolute_path, &loc_path);
             if (mountpoint == -1) return -1;
-            
+
             mnt_t mnt = mountpoints[mountpoint];
             int magic = mnt.magic;
 
             int fs = vfs_get_fs(mountpoint);
             if (fs == -1) return -1;
-            
+
             int intern_fd = (*filesystems[fs].open)(path, mode, perms, magic);
             if (intern_fd == -1) return -1;
 
@@ -172,7 +172,7 @@ int open(char *path, int mode, int perms) {
 
     int mountpoint = vfs_get_mountpoint(absolute_path, &loc_path);
     if (mountpoint == -1) return -1;
-    
+
     mnt_t mnt = mountpoints[mountpoint];
     int magic = mnt.magic;
 
@@ -188,6 +188,48 @@ int open(char *path, int mode, int perms) {
     file_descriptors[j] = &handle;
 
     return j;
+}
+
+int read(int fd, void *buf, size_t len) {
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    int kern_fd = process_table[current_process]->file_handles[fd];
+
+    int fs = file_descriptors[kern_fd]->fs;
+    int intern_fd = file_descriptors[kern_fd]->intern_fd;
+
+    return (*filesystems[fs].read)(intern_fd, buf, len);
+}
+
+int write(int fd, void *buf, size_t len) {
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    int kern_fd = process_table[current_process]->file_handles[fd];
+
+    int fs = file_descriptors[kern_fd]->fs;
+    int intern_fd = file_descriptors[kern_fd]->intern_fd;
+
+    spinlock_acquire(&scheduler_lock);
+    int res = (*filesystems[fs].write)(intern_fd, buf, len);
+    spinlock_release(&scheduler_lock);
+
+    return res;
+}
+
+int close(int fd) {
+    if (handle < 0) return -1;
+
+    pid_t current_process = cpu_local[current_cpu].current_process;
+    int kern_fd = process_table[current_process]->file_handles[fd];
+
+    int fs = file_descriptors[kern_fd]->fs;
+    int intern_fd = file_descriptors[kern_fd]->intern_fd;
+
+    spinlock_acquire(&scheduler_lock);
+    int res = (*filesystems[fs].close)(intern_fd);
+    if (res == -1) return -1;
+    file_descriptors[kern_fd] = EMPTY;
+    spinlock_release(&scheduler_lock);
+
+    return res;
 }
 
 void init_vfs(void) {
