@@ -54,8 +54,8 @@ struct stat {
 
 /* A filesystem, defined by the function pointers that allow us to access it */
 typedef struct {
-    char name[128];
-    int (*mount)(const char *, const char *, const char *,
+    char *type;
+    int (*mount)(const char *, const char *,
                     unsigned long, const void *);
     int (*umount)(const char *);
     int (*open)(char *, int, int, int);

@@ -10,7 +10,7 @@ mnt_t *mountpoints;
 vfs_fd_t *file_descriptors;
 
 static int mountpoints_i = 0;
-/*static int filesystems_i = 0;*/
+static int filesystems_i = 0;
 static size_t fd_count = 0;
 
 /* Return index into mountpoints array corresponding to the mountpoint
@@ -167,7 +167,7 @@ int write(int fd, void *buf, size_t len) {
 
 int close(int fd) {
     if (fd < 0) return -1;
-    
+
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
@@ -178,6 +178,30 @@ int close(int fd) {
     spinlock_release(&scheduler_lock);
 
     return res;
+}
+
+int mount(const char *source, const char *target,
+          const char *fs_type, unsigned long m_flags,
+          const void *data) {
+    size_t i;
+    /* Search for fs with the correct type, since we know nothing
+     * about the fs from the path given */
+    for (i = 0; i < filesystems_i; i++) {
+        if (!kstrcmp(filesystems[i].type, fs_type)) break;
+    }
+
+    int res = (*filesystems[i].mount)(source, target, m_flags, data);
+    if (res == -1) return -1;
+
+    mountpoints = krealloc(mountpoints, (mountpoints_i + 1) * sizeof(mnt_t));
+
+    kstrcpy(mountpoints[mountpoints_i].mntpt, target);
+    mountpoints[mountpoints_i].fs = i;
+    mountpoints[mountpoints_i].magic = res;
+
+    mountpoints_i++;
+
+    return 0;
 }
 
 void init_vfs(void) {
