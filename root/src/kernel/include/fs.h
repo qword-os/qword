@@ -27,14 +27,14 @@ typedef uint64_t blksize_t;
 typedef uint64_t blkcnt_t;
 
 typedef struct {
+    int used;
     int fs;
     int intern_fd;
 } vfs_fd_t;
 
 typedef struct {
     char mntpt[2048];
-    char dev[2048];
-    char fs[2048];
+    int fs;
     int magic;
 } mnt_t;
 
