@@ -172,7 +172,7 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
         cur_sect++;
     }
 
-    return 0;
+    return (int)count;
 }
 
 static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
@@ -222,7 +222,7 @@ static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
         cur_sect++;
     }
 
-    return 0;
+    return (int)count;
 }
 
 static int ata_flush1(int device) {

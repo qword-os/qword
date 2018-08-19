@@ -9,8 +9,8 @@ fs_t *filesystems;
 mnt_t *mountpoints;
 vfs_fd_t *file_descriptors;
 
-static int mountpoints_i = 0;
-static int filesystems_i = 0;
+static size_t mountpoints_i = 0;
+static size_t filesystems_i = 0;
 static size_t fd_count = 0;
 
 /* Return index into mountpoints array corresponding to the mountpoint
@@ -21,7 +21,7 @@ int vfs_get_mountpoint(const char *path, char **local_path) {
     size_t guess = -1;
     size_t guess_size = 0;
 
-    for (int i = 0; i < mountpoints_i; i++) {
+    for (size_t i = 0; i < mountpoints_i; i++) {
         size_t len = kstrlen(mountpoints[i].mntpt);
 
         if (!kstrncmp(path, mountpoints[i].mntpt, len)) {
@@ -110,7 +110,7 @@ term:
 }
 
 /* Find free file handle and setup said handle */
-int open(char *path, int mode, int perms) {
+int open(const char *path, int mode, int perms) {
     char *loc_path;
 
     vfs_fd_t handle = {0};
@@ -126,7 +126,7 @@ retry:
             int magic = mountpoints[mountpoint].magic;
             int fs = mountpoints[mountpoint].fs;
 
-            int intern_fd = (*filesystems[fs].open)(path, mode, perms, magic);
+            int intern_fd = filesystems[fs].open(loc_path, mode, perms, magic);
             if (intern_fd == -1) return -1;
 
             handle.fs = fs;
@@ -151,15 +151,15 @@ int read(int fd, void *buf, size_t len) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
-    return (*filesystems[fs].read)(intern_fd, buf, len);
+    return filesystems[fs].read(intern_fd, buf, len);
 }
 
-int write(int fd, void *buf, size_t len) {
+int write(int fd, const void *buf, size_t len) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
     spinlock_acquire(&scheduler_lock);
-    int res = (*filesystems[fs].write)(intern_fd, buf, len);
+    int res = filesystems[fs].write(intern_fd, buf, len);
     spinlock_release(&scheduler_lock);
 
     return res;
@@ -172,7 +172,7 @@ int close(int fd) {
     int intern_fd = file_descriptors[fd].intern_fd;
 
     spinlock_acquire(&scheduler_lock);
-    int res = (*filesystems[fs].close)(intern_fd);
+    int res = filesystems[fs].close(intern_fd);
     if (res == -1) return -1;
     file_descriptors[fd].used = 0;
     spinlock_release(&scheduler_lock);
@@ -190,7 +190,7 @@ int mount(const char *source, const char *target,
         if (!kstrcmp(filesystems[i].type, fs_type)) break;
     }
 
-    int res = (*filesystems[i].mount)(source, target, m_flags, data);
+    int res = filesystems[i].mount(source, m_flags, data);
     if (res == -1) return -1;
 
     mountpoints = krealloc(mountpoints, (mountpoints_i + 1) * sizeof(mnt_t));
@@ -200,6 +200,16 @@ int mount(const char *source, const char *target,
     mountpoints[mountpoints_i].magic = res;
 
     mountpoints_i++;
+
+    kprint(KPRN_INFO, "vfs: Mounted `%s` on `%s`.", source, target);
+
+    return 0;
+}
+
+int vfs_install_fs(fs_t filesystem) {
+    filesystems = krealloc(filesystems, (filesystems_i + 1) * sizeof(fs_t));
+
+    filesystems[filesystems_i++] = filesystem;
 
     return 0;
 }

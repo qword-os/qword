@@ -17,6 +17,10 @@ typedef struct {
 
 static device_t devices[MAX_DEVICES];
 
+uint64_t device_size(int device) {
+    return devices[device].size;
+}
+
 int device_read(int device, void *buf, uint64_t loc, size_t count) {
     int magic = devices[device].magic;
 

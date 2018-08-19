@@ -12,6 +12,8 @@ dev_t device_add(const char *, int, uint64_t,
         int (*write)(int, const void *, uint64_t, size_t),
         int (*flush)(int));
 
+uint64_t device_size(int);
+
 int device_read(int, void *, uint64_t, size_t);
 int device_write(int, const void *, uint64_t, size_t);
 int device_flush(int);

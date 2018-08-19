@@ -54,31 +54,31 @@ struct stat {
 
 /* A filesystem, defined by the function pointers that allow us to access it */
 typedef struct {
-    char *type;
-    int (*mount)(const char *, const char *,
-                    unsigned long, const void *);
+    char type[256];
+    int (*mount)(const char *, unsigned long, const void *);
     int (*umount)(const char *);
-    int (*open)(char *, int, int, int);
+    int (*open)(const char *, int, int, int);
     int (*close)(int);
     int (*fstat)(int, struct stat *);
     int (*read)(int, void *, size_t);
-    int (*write)(int, void *, size_t);
+    int (*write)(int, const void *, size_t);
 } fs_t;
 
 /* VFS calls */
-int mount(const char *, const char *, const char *,
-            unsigned long, const void *);
+int mount(const char *, const char *, const char *, unsigned long, const void *);
 int umount(const char *);
-int open(char *, int, int);
+int open(const char *, int, int);
 int close(int);
 int fstat(int, struct stat *);
 int read(int, void *, size_t);
-int write(int, void *, size_t);
+int write(int, const void *, size_t);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
-int vfs_get_fs(int);
 void vfs_get_absolute_path(char *, const char *, const char *);
-void vfs_init(void);
+int vfs_install_fs(fs_t);
+void init_vfs(void);
+
+void init_devfs(void);
 
 #endif
