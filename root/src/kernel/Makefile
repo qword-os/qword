@@ -69,6 +69,7 @@ kernel.bin: $(BINS) $(OBJ) $(H_FILES)
 install:
 	mkdir -p $(PREFIX)/boot
 	cp kernel.bin $(PREFIX)/boot
+	cp kernel.bin $(PREFIX)/
 
 clean:
 	rm -f $(OBJ) $(BINS) kernel.bin

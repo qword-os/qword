@@ -9,7 +9,22 @@ section .multiboot
 
 bits 32
 legacy_skip_header:
-    jmp _start - kernel_phys_offset
+    ; when booted as "legacy" (aka not multiboot), the command line is passed
+    ; in ebx, as a pointer to a zero terminated string
+
+    ; move ebx to [ebx+16]
+    mov dword [(.fake_multiboot_struct - kernel_phys_offset) + 16], ebx
+    mov ebx, .fake_multiboot_struct - kernel_phys_offset
+
+    jmp [multiboot_header.entry_addr - kernel_phys_offset]
+
+align 16
+  .fake_multiboot_struct:
+    dd 0
+    dd 0
+    dd 0
+    dd 0
+    dd 0
 
 align 4
 
