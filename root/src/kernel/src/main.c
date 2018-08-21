@@ -91,6 +91,9 @@ int kmain(void) {
     /* Mount /dev/hda on / */
     mount("/dev/hda", "/", "echfs", 0, 0);
 
+    int makefile;
+    kprint(KPRN_DBG, "echfs open handle: %u", (makefile = open("/src/kernel/Makefile", O_RDONLY, 0)));
+
     for (;;)
         asm volatile ("hlt;");
 

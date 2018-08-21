@@ -51,9 +51,6 @@ typedef struct {
     uint64_t *alloc_map;
 } cached_file_t;
 
-static cached_file_t *cached_files;
-static int cached_files_ptr = 0;
-
 typedef struct {
     char name[128];
     int device;
@@ -64,6 +61,8 @@ typedef struct {
     uint64_t dirsize;
     uint64_t dirstart;
     uint64_t datastart;
+    cached_file_t *cached_files;
+    int cached_files_ptr;
 } mount_t;
 
 static mount_t *mounts;
@@ -81,7 +80,7 @@ typedef struct {
     cached_file_t *cached_file;
 } echfs_handle_t;
 
-static echfs_handle_t* echfs_handles = (echfs_handle_t*)0;
+static echfs_handle_t *echfs_handles;
 static int echfs_handles_ptr = 0;
 
 static int echfs_create_handle(echfs_handle_t handle) {
@@ -266,6 +265,67 @@ next:
     goto next;
 }
 
+static int echfs_open(const char *path, int flags, int mode, int mnt) {
+    path_result_t path_result = path_resolver(&mounts[mnt], path, FILE_TYPE);
+    if (path_result.failure || path_result.not_found)
+        return -1;
+
+    echfs_handle_t new_handle = {0};
+    kstrcpy(new_handle.path, path);
+    new_handle.flags = flags;
+    new_handle.mode = mode;
+    new_handle.end = path_result.target.size;
+
+    if (flags & O_APPEND) {
+        new_handle.ptr = new_handle.end;
+        new_handle.begin = new_handle.end;
+    } else {
+        new_handle.ptr = 0;
+        new_handle.begin = 0;
+    }
+
+    new_handle.mnt = mnt;
+    
+    int cached_file;
+
+    if (!mounts[mnt].cached_files_ptr) goto skip_search;
+
+    for (cached_file = 0; kstrcmp(mounts[mnt].cached_files[cached_file].path, path); cached_file++)
+        if (cached_file == (mounts[mnt].cached_files_ptr - 1)) goto skip_search;
+        
+    goto search_out;
+
+skip_search:
+
+    mounts[mnt].cached_files = krealloc(mounts[mnt].cached_files, sizeof(cached_file_t) * (mounts[mnt].cached_files_ptr + 1));
+    cached_file = mounts[mnt].cached_files_ptr;
+
+    kstrcpy(mounts[mnt].cached_files[cached_file].path, path);
+    mounts[mnt].cached_files[cached_file].path_result = path_result;
+
+    mounts[mnt].cached_files[cached_file].cache = kalloc(mounts[mnt].bytesperblock);
+    
+    // cache the allocation map
+    mounts[mnt].cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
+    mounts[mnt].cached_files[cached_file].alloc_map[0] = mounts[mnt].cached_files[cached_file].path_result.target.payload;
+    for (uint64_t i = 1; mounts[mnt].cached_files[cached_file].alloc_map[i-1] != END_OF_CHAIN; i++) {
+        mounts[mnt].cached_files[cached_file].alloc_map = krealloc(mounts[mnt].cached_files[cached_file].alloc_map, sizeof(uint64_t) * (i + 1));
+        mounts[mnt].cached_files[cached_file].alloc_map[i] = rd_qword(mounts[mnt].device,
+                (mounts[mnt].fatstart * mounts[mnt].bytesperblock) + (mounts[mnt].cached_files[cached_file].alloc_map[i-1] * sizeof(uint64_t)));
+    }
+
+    mounts[mnt].cached_files[cached_file].cache_status = CACHE_NOTREADY;
+    
+    mounts[mnt].cached_files_ptr++;
+
+search_out:
+
+    new_handle.cached_file = &mounts[mnt].cached_files[cached_file];
+
+    return echfs_create_handle(new_handle);
+}
+
+
 static int echfs_mount(const char *source) {
     /* open device */
     int device = open(source, O_RDWR, 0);
@@ -293,6 +353,9 @@ static int echfs_mount(const char *source) {
     mounts[mounts_ptr].dirstart = mounts[mounts_ptr].fatstart + mounts[mounts_ptr].fatsize;
     mounts[mounts_ptr].datastart = RESERVED_BLOCKS + mounts[mounts_ptr].fatsize + mounts[mounts_ptr].dirsize;
 
+    mounts[mounts_ptr].cached_files = 0;
+    mounts[mounts_ptr].cached_files_ptr = 0;
+
     kprint(KPRN_DBG, "echfs mounted with:");
     kprint(KPRN_DBG, "blocks:        %U", mounts[mounts_ptr].blocks);
     kprint(KPRN_DBG, "bytesperblock: %U", mounts[mounts_ptr].bytesperblock);
@@ -310,6 +373,7 @@ void init_echfs(void) {
 
     kstrcpy(echfs.type, "echfs");
     echfs.mount = (void *)echfs_mount;
+    echfs.open = echfs_open;
 
     vfs_install_fs(echfs);
 }
