@@ -58,6 +58,7 @@ int kmain(void) {
 
     /* Initialise filesystem drivers */
     init_devfs();
+    init_echfs();
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
@@ -84,11 +85,12 @@ int kmain(void) {
             data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7],
             data[i+8], data[i+9], data[i+10], data[i+11], data[i+12], data[i+13], data[i+14], data[i+15]);
     }
-/*
-    const char *hello = "hello world";
-    device_write(hda, hello, 0x1d0, 11);
-    device_flush(hda);
-*/
+
+    close(hda);
+
+    /* Mount /dev/hda on / */
+    mount("/dev/hda", "/", "echfs", 0, 0);
+
     for (;;)
         asm volatile ("hlt;");
 

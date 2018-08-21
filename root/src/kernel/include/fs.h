@@ -6,6 +6,10 @@
 #include <dev.h>
 #include <task.h>
 
+#define SEEK_SET        0
+#define SEEK_CUR        1
+#define SEEK_END        2
+
 /* Flags */
 #define O_RDONLY        0b0001
 #define O_WRONLY        0b0010
@@ -62,6 +66,7 @@ typedef struct {
     int (*fstat)(int, struct stat *);
     int (*read)(int, void *, size_t);
     int (*write)(int, const void *, size_t);
+    int (*lseek)(int, off_t, int);
 } fs_t;
 
 /* VFS calls */
@@ -72,6 +77,7 @@ int close(int);
 int fstat(int, struct stat *);
 int read(int, void *, size_t);
 int write(int, const void *, size_t);
+int lseek(int, off_t, int);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
@@ -80,5 +86,6 @@ int vfs_install_fs(fs_t);
 void init_vfs(void);
 
 void init_devfs(void);
+void init_echfs(void);
 
 #endif

@@ -180,6 +180,13 @@ int close(int fd) {
     return res;
 }
 
+int lseek(int fd, off_t offset, int type) {
+    int fs = file_descriptors[fd].fs;
+    int intern_fd = file_descriptors[fd].intern_fd;
+
+    return filesystems[fs].lseek(intern_fd, offset, type);
+}
+
 int mount(const char *source, const char *target,
           const char *fs_type, unsigned long m_flags,
           const void *data) {
