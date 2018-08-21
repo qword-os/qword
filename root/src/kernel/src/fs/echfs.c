@@ -5,7 +5,10 @@
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff
-#define ENTRIES_PER_BLOCK       2
+#define BYTES_PER_SECT          512
+#define SECTORS_PER_BLOCK       (mnt->bytesperblock / BYTES_PER_SECT)
+#define ENTRIES_PER_SECT        2
+#define ENTRIES_PER_BLOCK       (SECTORS_PER_BLOCK * ENTRIES_PER_SECT)
 #define FILENAME_LEN            218
 #define RESERVED_BLOCKS         16
 #define FILE_TYPE               0
