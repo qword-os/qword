@@ -14,9 +14,6 @@
 #define RESERVED_BLOCK          0xfffffffffffffff0
 #define END_OF_CHAIN            0xffffffffffffffff
 
-/* TODO ***de-hardcode this*** */
-#define BYTES_PER_BLOCK         32768
-
 #define CACHE_NOTREADY 0
 #define CACHE_READY 1
 #define CACHE_DIRTY 2
@@ -46,7 +43,7 @@ typedef struct {
     char path[2048];
     path_result_t path_result;
     uint64_t cached_block;
-    uint8_t cache[BYTES_PER_BLOCK];
+    uint8_t *cache;
     int cache_status;
     uint64_t *alloc_map;
 } cached_file_t;
@@ -56,13 +53,14 @@ static int cached_files_ptr = 0;
 
 typedef struct {
     char name[128];
+    int device;
     uint64_t blocks;
+    uint64_t bytesperblock;
     uint64_t fatsize;
     uint64_t fatstart;
     uint64_t dirsize;
     uint64_t dirstart;
     uint64_t datastart;
-    int device;
 } mount_t;
 
 static mount_t *mounts;
@@ -157,7 +155,7 @@ static inline void wr_qword(int handle, uint64_t loc, uint64_t val) {
 
 static inline entry_t rd_entry(mount_t *mnt, uint64_t entry) {
     entry_t res;
-    uint64_t loc = (mnt->dirstart * BYTES_PER_BLOCK) + (entry * sizeof(entry_t));
+    uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(entry_t));
     lseek(mnt->device, loc, SEEK_SET);
     read(mnt->device, (void *)&res, sizeof(entry_t));
     
@@ -165,7 +163,7 @@ static inline entry_t rd_entry(mount_t *mnt, uint64_t entry) {
 }
 
 static inline void wr_entry(mount_t *mnt, uint64_t entry, entry_t entry_src) {
-    uint64_t loc = (mnt->dirstart * BYTES_PER_BLOCK) + (entry * sizeof(entry_t));
+    uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(entry_t));
     lseek(mnt->device, loc, SEEK_SET);
     write(mnt->device, (void *)&entry_src, sizeof(entry_t));
     
@@ -284,8 +282,9 @@ static int echfs_mount(const char *source) {
     mounts[mounts_ptr].device = device;
     kstrcpy(mounts[mounts_ptr].name, source);
     mounts[mounts_ptr].blocks = rd_qword(device, 12);
-    mounts[mounts_ptr].fatsize = (mounts[mounts_ptr].blocks * sizeof(uint64_t)) / BYTES_PER_BLOCK;
-    if ((mounts[mounts_ptr].blocks * sizeof(uint64_t)) % BYTES_PER_BLOCK) mounts[mounts_ptr].fatsize++;
+    mounts[mounts_ptr].bytesperblock = rd_qword(device, 28);
+    mounts[mounts_ptr].fatsize = (mounts[mounts_ptr].blocks * sizeof(uint64_t)) / mounts[mounts_ptr].bytesperblock;
+    if ((mounts[mounts_ptr].blocks * sizeof(uint64_t)) % mounts[mounts_ptr].bytesperblock) mounts[mounts_ptr].fatsize++;
     mounts[mounts_ptr].fatstart = RESERVED_BLOCKS;
     mounts[mounts_ptr].dirsize = rd_qword(device, 20);
     mounts[mounts_ptr].dirstart = mounts[mounts_ptr].fatstart + mounts[mounts_ptr].fatsize;
@@ -293,6 +292,7 @@ static int echfs_mount(const char *source) {
 
     kprint(KPRN_DBG, "echfs mounted with:");
     kprint(KPRN_DBG, "blocks:        %U", mounts[mounts_ptr].blocks);
+    kprint(KPRN_DBG, "bytesperblock: %U", mounts[mounts_ptr].bytesperblock);
     kprint(KPRN_DBG, "fatsize:       %U", mounts[mounts_ptr].fatsize);
     kprint(KPRN_DBG, "fatstart:      %U", mounts[mounts_ptr].fatstart);
     kprint(KPRN_DBG, "dirsize:       %U", mounts[mounts_ptr].dirsize);
