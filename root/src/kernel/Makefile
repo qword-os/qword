@@ -2,7 +2,7 @@ PREFIX =
 
 DEBUG = vga
 
-CC = x86_64-elf-gcc
+CC = gcc
 AS = nasm
 
 CFLAGS = -O2 -pipe -Wall -Wextra
@@ -10,6 +10,7 @@ CFLAGS = -O2 -pipe -Wall -Wextra
 BUILD_TIME := $(shell date)
 
 CHARDFLAGS := -std=gnu99 -masm=intel \
+    -fno-pic \
     -mno-sse \
     -mno-sse2 \
     -mno-red-zone \
@@ -29,7 +30,7 @@ $(error variable DEBUG invalid)
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
-CLINKFLAGS := -nostdlib
+CLINKFLAGS := -nostdlib -no-pie
 
 REAL_FILES := $(shell find ./real -type f -name '*.real')
 BINS := $(REAL_FILES:.real=.bin)
