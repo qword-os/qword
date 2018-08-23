@@ -7,6 +7,7 @@
 #define ROOT_ID                 0xffffffffffffffff
 #define BYTES_PER_SECT          512
 #define SECTORS_PER_BLOCK       (mnt->bytesperblock / BYTES_PER_SECT)
+#define BYTES_PER_BLOCK         (SECTORS_PER_BLOCK * BYTES_PER_SECT)
 #define ENTRIES_PER_SECT        2
 #define ENTRIES_PER_BLOCK       (SECTORS_PER_BLOCK * ENTRIES_PER_SECT)
 #define FILENAME_LEN            218
@@ -82,6 +83,79 @@ typedef struct {
 
 static echfs_handle_t *echfs_handles;
 static int echfs_handles_ptr = 0;
+
+static int cache_block(int handle, uint64_t block) {
+    /* TODO add logic to flush the cache if dirty and stuff (for write support) */
+
+    mount_t *mnt = &mounts[echfs_handles[handle].mnt];
+
+    if (echfs_handles[handle].cached_file->cached_block == block
+      && echfs_handles[handle].cached_file->cache_status == CACHE_READY)
+        return 0;
+
+    lseek(mnt->device,
+          echfs_handles[handle].cached_file->alloc_map[block] * BYTES_PER_BLOCK,
+          SEEK_SET);
+    read(mnt->device,
+         echfs_handles[handle].cached_file->cache,
+         BYTES_PER_BLOCK);
+
+    echfs_handles[handle].cached_file->cached_block = block;
+    echfs_handles[handle].cached_file->cache_status = CACHE_READY;
+
+    return 0;
+}
+
+static int echfs_read(int handle, void *buf, size_t count) {
+    mount_t *mnt = &mounts[echfs_handles[handle].mnt];
+
+    if ((size_t)echfs_handles[handle].ptr + count
+      >= (size_t)echfs_handles[handle].end) {
+        count -= ((size_t)echfs_handles[handle].ptr + count) - (size_t)echfs_handles[handle].end;
+    }
+
+    uint64_t block_count = count / BYTES_PER_BLOCK;
+    if (count % BYTES_PER_BLOCK) block_count++;
+
+    uint64_t cur_block = echfs_handles[handle].ptr / BYTES_PER_BLOCK;
+    uint16_t initial_offset = echfs_handles[handle].ptr % BYTES_PER_BLOCK;
+    uint16_t final_offset = (count % BYTES_PER_BLOCK) + initial_offset;
+
+    if (final_offset >= BYTES_PER_BLOCK) {
+        block_count++;
+        final_offset -= BYTES_PER_BLOCK;
+    }
+
+    for (uint64_t i = 0; ; i++) {
+        /* cache the block */
+        cache_block(handle, cur_block);
+
+        if (i == 0) {
+            /* first block */
+            if (i == block_count - 1) {
+                /* if it's also the last block */
+                kmemcpy(buf, &echfs_handles[handle].cached_file->cache[initial_offset], count);
+                break;
+            }
+            kmemcpy(buf, &echfs_handles[handle].cached_file->cache[initial_offset], BYTES_PER_BLOCK - initial_offset);
+            buf += BYTES_PER_BLOCK - initial_offset;
+        } else if (i == block_count - 1) {
+            /* last block */
+            kmemcpy(buf, echfs_handles[handle].cached_file->cache, final_offset);
+            /* no need to do anything, just leave */
+            break;
+        } else {
+            kmemcpy(buf, echfs_handles[handle].cached_file->cache, BYTES_PER_BLOCK);
+            buf += BYTES_PER_BLOCK;
+        }
+
+        cur_block++;
+    }
+
+    echfs_handles[handle].ptr += count;
+
+    return (int)count;
+}
 
 static int echfs_create_handle(echfs_handle_t handle) {
     int handle_n;
@@ -374,6 +448,7 @@ void init_echfs(void) {
     kstrcpy(echfs.type, "echfs");
     echfs.mount = (void *)echfs_mount;
     echfs.open = echfs_open;
+    echfs.read = echfs_read;
 
     vfs_install_fs(echfs);
 }

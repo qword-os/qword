@@ -93,6 +93,12 @@ int kmain(void) {
 
     int makefile;
     kprint(KPRN_DBG, "echfs open handle: %u", (makefile = open("/src/kernel/Makefile", O_RDONLY, 0)));
+    read(makefile, data, 128);
+    data[127] = 0;
+    kprint(KPRN_DBG, "\n%s", data);
+    read(makefile, data, 128);
+    data[127] = 0;
+    kprint(KPRN_DBG, "\n%s", data);
 
     for (;;)
         asm volatile ("hlt;");
