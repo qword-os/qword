@@ -17,6 +17,7 @@ CHARDFLAGS := -std=gnu99 -masm=intel \
     -mcmodel=kernel \
     -ffreestanding \
     -fno-omit-frame-pointer \
+	-fno-stack-protector \
     -I./include/
 
 ifeq ($(DEBUG), vga)
