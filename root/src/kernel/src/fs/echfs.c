@@ -399,6 +399,43 @@ search_out:
     return echfs_create_handle(new_handle);
 }
 
+static int echfs_lseek(int handle, off_t offset, int type) {
+    if (handle < 0)
+        return -1;
+
+    if (handle >= echfs_handles_ptr)
+        return -1;
+    
+    if (echfs_handles[handle].free)
+        return -1;
+        
+    switch (type) {
+        case SEEK_SET:
+            if ((echfs_handles[handle].begin + offset) > echfs_handles[handle].end ||
+                (echfs_handles[handle].begin + offset) < echfs_handles[handle].begin) return -1;
+            echfs_handles[handle].ptr = echfs_handles[handle].begin + offset;
+            return echfs_handles[handle].ptr;
+        case SEEK_END:
+            if ((echfs_handles[handle].end + offset) > echfs_handles[handle].end ||
+                (echfs_handles[handle].end + offset) < echfs_handles[handle].begin) return -1;
+            echfs_handles[handle].ptr = echfs_handles[handle].end + offset;
+            return echfs_handles[handle].ptr;
+        case SEEK_CUR:
+            if ((echfs_handles[handle].ptr + offset) > echfs_handles[handle].end ||
+                (echfs_handles[handle].ptr + offset) < echfs_handles[handle].begin) return -1;
+            echfs_handles[handle].ptr += offset;
+            return echfs_handles[handle].ptr;
+        default:
+            return -1;
+    }
+}
+
+/* TODO fix this, it's just a stub for size now */
+static int echfs_fstat(int handle, struct stat *st) {
+    st->st_size = echfs_handles[handle].end;
+
+    return 0;
+}
 
 static int echfs_mount(const char *source) {
     /* open device */
@@ -449,6 +486,8 @@ void init_echfs(void) {
     echfs.mount = (void *)echfs_mount;
     echfs.open = echfs_open;
     echfs.read = echfs_read;
+    echfs.lseek = echfs_lseek;
+    echfs.fstat = echfs_fstat;
 
     vfs_install_fs(echfs);
 }
