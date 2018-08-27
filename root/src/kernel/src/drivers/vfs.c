@@ -213,6 +213,13 @@ int mount(const char *source, const char *target,
     return 0;
 }
 
+int fstat(int fd, struct stat *buffer) {
+    int fs = file_descriptors[fd].fs;
+    int intern_fd = file_descriptors[fd].intern_fd;
+
+    return filesystems[fs].fstat(intern_fd, buffer);
+}
+
 int vfs_install_fs(fs_t filesystem) {
     filesystems = krealloc(filesystems, (filesystems_i + 1) * sizeof(fs_t));
 

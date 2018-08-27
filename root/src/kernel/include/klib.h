@@ -25,6 +25,6 @@ void *kmemcpy(void *, const void*, size_t);
 int kmemcmp(const void *, const void *, size_t);
 void *memmove(void *, const void *, size_t);
 
-void kqsort(int [], int, int);
+#define MIN(a,b) (((a)<(b))?(a):(b))
 
 #endif

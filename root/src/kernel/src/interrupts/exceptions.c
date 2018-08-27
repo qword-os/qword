@@ -3,7 +3,7 @@
 #include <panic.h>
 
 void div0_handler(size_t cs, size_t ip) {
-    kexcept("Page fault!", cs, ip, 0, 0);
+    kexcept("Divide by 0!", cs, ip, 0, 0);
 }
 
 void debug_handler(size_t cs, size_t ip) {

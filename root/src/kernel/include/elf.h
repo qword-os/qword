@@ -2,11 +2,13 @@
 #define __ELF_H__
 
 #include <stdint.h>
+#include <stddef.h>
+#include <mm.h>
 
 #define PT_LOAD     0x00000001
 
 #define ABI_SYSV 0x00
-#define ARCH_x86_64 0x3e
+#define ARCH_X86_64 0x3e
 #define BITS_LE 0x01
 
 /* Indices into identification array */
@@ -55,5 +57,7 @@ typedef struct {
     uint64_t sh_addr_align;
     uint64_t sh_entsize;
 } elf_shdr_t;
+
+int elf_load(int, pagemap_t *, uint64_t *);
 
 #endif

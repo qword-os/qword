@@ -108,12 +108,12 @@ static int cache_block(int handle, uint64_t block) {
 
 static int echfs_read(int handle, void *buf, size_t count) {
     mount_t *mnt = &mounts[echfs_handles[handle].mnt];
-
+    
     if ((size_t)echfs_handles[handle].ptr + count
       >= (size_t)echfs_handles[handle].end) {
         count -= ((size_t)echfs_handles[handle].ptr + count) - (size_t)echfs_handles[handle].end;
     }
-
+    
     uint64_t block_count = count / BYTES_PER_BLOCK;
     if (count % BYTES_PER_BLOCK) block_count++;
 
@@ -151,7 +151,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
 
         cur_block++;
     }
-
+    
     echfs_handles[handle].ptr += count;
 
     return (int)count;
@@ -160,7 +160,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
 static int echfs_create_handle(echfs_handle_t handle) {
     int handle_n;
 
-    // check for a free handle first
+    /* Check for a free handle */     
     for (int i = 0; i < echfs_handles_ptr; i++) {
         if (echfs_handles[i].free) {
             handle_n = i;
