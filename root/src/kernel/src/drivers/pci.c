@@ -3,6 +3,9 @@
 #include <pci.h>
 #include <klib.h>
 
+pci_device_t *pci_devices;
+size_t device_count;
+
 uint32_t pci_read_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     uint32_t address = 0x80000000 | ((uint32_t)bus) << 16 | ((uint32_t)slot) << 11
        | ((uint32_t)func) << 8 | (uint32_t)(offset & 0xfc);
@@ -59,7 +62,7 @@ void pci_write_device(pci_device_t *device, uint32_t offset, uint32_t value) {
 
 void pci_set_device_flag(pci_device_t *device, uint32_t offset, uint32_t flag, int toggle) {
     uint32_t value = pci_read_device(device, offset);
-    
+
     if (toggle)
         value |= flag;
     else
@@ -86,4 +89,45 @@ uint32_t pci_get_bar(pci_device_t *device, size_t index) {
     return device->bars[index];
 }
 
-/* TODO bus enumeration */
+int pci_get_device(pci_device_t *device, uint8_t class, uint8_t subclass) {
+    for (size_t i = 0; i < device_count; i++) {
+        if ((pci_devices[i].device_class == class) && (pci_devices[i].subclass == subclass)) {
+            *device = pci_devices[i];
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+void pci_init_device(uint8_t bus, uint8_t dev) {
+    for (size_t func = 0; func < MAX_FUNCTION; func++) {
+        pci_device_t *device = kalloc(sizeof(pci_device_t));
+        pci_probe(device, bus, dev, func);
+        if (device != EMPTY) {
+            pci_load_bars(device);
+            pci_devices[device_count++] = *device;
+        }
+    }
+
+    return;
+}
+
+void pci_init_bus(uint8_t bus) {
+    for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
+        pci_init_device(bus, dev);
+    }
+
+    return;
+}
+
+void init_pci(void) {
+    pci_devices = kalloc(256 * sizeof(pci_device_t));
+    device_count = 256;
+
+    for (uint8_t bus = 0; bus < MAX_BUS; bus++) {
+        pci_init_bus(bus);
+    }
+
+    return;
+}
