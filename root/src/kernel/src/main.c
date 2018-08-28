@@ -101,13 +101,6 @@ int kmain(void) {
     data[127] = 0;
     kprint(KPRN_DBG, "\n%s", data);
     
-    int hello = open("/hello", 0, 0);
-    pt_entry_t *pml4 = pmm_alloc(0x1000);
-    pagemap_t new_pagemap = {pml4, 1};
-    uint64_t entry;
-    int ret = elf_load(hello, &new_pagemap, &entry);
-    if (ret == -1) kprint(KPRN_DBG, "elf: Load of binary file /hello failed."); 
-
     for (;;)
         asm volatile ("hlt;");
 
