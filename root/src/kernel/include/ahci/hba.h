@@ -3,24 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-typedef volatile struct {
-    // 0x00 - 0x2B, Generic Host Control
-    uint32_t cap;		// 0x00, Host capability
-    uint32_t ghc;		// 0x04, Global host control
-    uint32_t is;		// 0x08, Interrupt status
-    uint32_t pi;		// 0x0C, Port implemented
-    uint32_t vs;		// 0x10, Version
-    uint32_t ccc_ctl;	// 0x14, Command completion coalescing control
-    uint32_t ccc_pts;	// 0x18, Command completion coalescing ports
-    uint32_t em_loc;		// 0x1C, Enclosure management location
-    uint32_t em_ctl;		// 0x20, Enclosure management control
-    uint32_t cap2;		// 0x24, Host capabilities extended
-    uint32_t bohc;		// 0x28, BIOS/OS handoff control and status
-    uint8_t  rsv[0xA0-0x2C];
-    uint8_t  vendor[0x100-0xA0];
-    hba_port_t ports[1];
-} hba_mem_t;
+#include <ahci/fis.h>
 
 typedef volatile struct {
     uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
@@ -45,16 +28,22 @@ typedef volatile struct {
 } hba_port_t;
 
 typedef volatile struct {
-    fis_dma_setup_t dsfis;
-    uint8_t pad0[4];
-    fis_setup_t	psfis;
-    uint8_t pad1[12];
-    fis_reg_d2h_t rfis;
-    uint8_t pad2[4];
-    FIS_DEV_BITS sdbfis;
-    uint8_t ufis[64];
-    uint8_t rsv[0x100-0xA0];
-} hba_fis_t;
+    // 0x00 - 0x2B, Generic Host Control
+    uint32_t cap;		// 0x00, Host capability
+    uint32_t ghc;		// 0x04, Global host control
+    uint32_t is;		// 0x08, Interrupt status
+    uint32_t pi;		// 0x0C, Port implemented
+    uint32_t vs;		// 0x10, Version
+    uint32_t ccc_ctl;	// 0x14, Command completion coalescing control
+    uint32_t ccc_pts;	// 0x18, Command completion coalescing ports
+    uint32_t em_loc;		// 0x1C, Enclosure management location
+    uint32_t em_ctl;		// 0x20, Enclosure management control
+    uint32_t cap2;		// 0x24, Host capabilities extended
+    uint32_t bohc;		// 0x28, BIOS/OS handoff control and status
+    uint8_t  rsv[0xA0-0x2C];
+    uint8_t  vendor[0x100-0xA0];
+    hba_port_t ports[1];
+} hba_mem_t;
 
 typedef volatile struct {
     // DW0
@@ -83,13 +72,6 @@ typedef volatile struct {
 } hba_cmd_hdr_t;
 
 typedef struct {
-    uint8_t  cfis[64];
-    uint8_t  acmd[16];
-    uint8_t  rsv[48];
-    hba_prdt_t	prdt_entry[1];
-} hba_cmd_tbl_t;
-
-typedef struct {
     uint32_t dba;
     uint32_t dbau;
     uint32_t rsv0;
@@ -97,5 +79,13 @@ typedef struct {
     uint32_t rsv1 : 9;
     uint32_t i : 1;
 } hba_prdt_t;
+
+typedef struct {
+    uint8_t  cfis[64];
+    uint8_t  acmd[16];
+    uint8_t  rsv[48];
+    hba_prdt_t	prdt_entry[1];
+} hba_cmd_tbl_t;
+
 
 #endif
