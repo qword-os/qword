@@ -20,6 +20,7 @@
 #include <dev.h>
 #include <fs.h>
 #include <elf.h>
+#include <pci.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -51,8 +52,10 @@ int kmain(void) {
     init_pit();
     init_smp();
 
-    /* /dev drivers init */
+    /* device drivers init */
     init_ata();
+    init_pci();
+  /*init_ahci();*/
 
     /* Initialise vfs */
     init_vfs();

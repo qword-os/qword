@@ -19,7 +19,8 @@ typedef struct {
     uint8_t device_class;
     int multifunction;
     uint32_t bars[6];
-}pci_device_t;
+    int available;
+} pci_device_t;
 
 void pci_probe(pci_device_t *, uint8_t, uint8_t, uint8_t);
 uint32_t pci_read_config(uint8_t, uint8_t, uint8_t, uint8_t);
