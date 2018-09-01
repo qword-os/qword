@@ -10,5 +10,5 @@ void init_ahci(void) {
     uint8_t class_mass_storage = 0x01;
     uint8_t subclass_serial_ata = 0x06;
     int ret = pci_get_device(device, class_mass_storage, subclass_serial_ata);
-    if (ret == -1) kprint(KPRN_DBG, "Failed to find AHCI controller.");
+    if (!ret) kprint(KPRN_INFO, "ahci: Found AHCI controller");
 }

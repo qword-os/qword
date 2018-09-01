@@ -5,6 +5,7 @@
 
 pci_device_t *pci_devices;
 size_t device_count;
+size_t available_count;
 
 uint32_t pci_read_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     uint32_t address = 0x80000000 | ((uint32_t)bus) << 16 | ((uint32_t)slot) << 11
@@ -42,8 +43,9 @@ void pci_probe(pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t func) {
     for (size_t i = 0; i < 6; i++) {
         device->bars[i] = 0;
     }
-    
+
     device->available = 1;
+    available_count++;
 
     return;
 }
@@ -76,7 +78,7 @@ void pci_set_device_flag(pci_device_t *device, uint32_t offset, uint32_t flag, i
     else
         value &= (0xffffffff - flag);
     pci_write_device(device, offset, value);
-    
+
     return;
 }
 
@@ -89,9 +91,10 @@ void pci_load_bars(pci_device_t *device) {
             pci_write_device(device, i * 4 + 0x10, 0xffffffff);
             uint32_t size = (0xffffffff - (pci_read_device(device, i * 4 + 0x10) & 0xfffffff0)) + 1;
             pci_write_device(device, i * 4 + 0x10, bar);
-            if (size > 0)
+            if (size > 0) {
                 device->bars[i] = size;
-                return;
+                continue;
+            }
         }
     }
 }
@@ -112,32 +115,38 @@ int pci_get_device(pci_device_t *device, uint8_t class, uint8_t subclass) {
 }
 
 void pci_init_device(uint8_t bus, uint8_t dev) {
-    for (uint8_t func = 0; func < MAX_FUNCTION; func++) {
-search:
-       for (size_t i = 0; i < device_count; i++) {
-            if (pci_devices[i].available) {
-                pci_device_t device = {0};
-                pci_probe(&device, bus, dev, func);
-                if (device.available) {
-                    pci_load_bars(&device);
-                    pci_devices[i] = device;
-                    return;
-                }
-            }
-       }
+    for (size_t func = 0; func < MAX_FUNCTION; func++) {
+        pci_find_function(bus, dev, func);
+    }
 
-       device_count++;
-       pci_devices = krealloc(pci_devices, (device_count) * sizeof(pci_device_t));
-       goto search;
+    return;
+}
+
+void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
+    pci_device_t device = {0};
+    pci_probe(&device, bus, dev, func);
+    if (device.available) {
+        for (size_t i = 0; i < device_count; i++) {
+            if (pci_devices[i].available) {
+                pci_load_bars(&device);
+                pci_devices[i] = device;
+                return;
+            }
+        }
+
+        pci_devices = krealloc(pci_devices, (device_count + 1) * sizeof(pci_device_t));
+        pci_devices[device_count] = device;
+        pci_devices++;
+
+        return;
     }
 
     return;
 }
 
 void pci_init_bus(uint8_t bus) {
-    for (uint8_t dev = 0; dev < MAX_DEVICE; dev++) {
+    for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
         pci_init_device(bus, dev);
-        return;
     }
 
     return;
@@ -146,14 +155,20 @@ void pci_init_bus(uint8_t bus) {
 void init_pci(void) {
     pci_devices = kalloc(8192 * sizeof(pci_device_t));
     device_count = 8192;
+    available_count = 0;
 
     for (size_t i = 0; i < device_count; i++) {
         pci_devices[i].available = 1;
     }
 
-    for (uint8_t bus = 0; bus < MAX_BUS; bus++) {
+    for (size_t bus = 0; bus < MAX_BUS; bus++) {
         pci_init_bus(bus);
-        return;
+    }
+
+    kprint(KPRN_INFO, "pci: Full recursive device scan done, %u devices found", available_count);
+
+    for (size_t i = 0; i < available_count; i++) {
+        
     }
 
     return;

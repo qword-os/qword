@@ -31,6 +31,7 @@ void pci_set_device_flag(pci_device_t *, uint32_t, uint32_t, int);
 void pci_load_bars(pci_device_t *device);
 uint32_t pci_get_bar(pci_device_t *, size_t);
 int pci_get_device(pci_device_t *, uint8_t, uint8_t);
+void pci_find_function(uint8_t, uint8_t, uint8_t);
 void pci_init_device(uint8_t, uint8_t);
 void pci_init_bus(uint8_t);
 void init_pci(void);

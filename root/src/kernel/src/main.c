@@ -21,6 +21,7 @@
 #include <fs.h>
 #include <elf.h>
 #include <pci.h>
+#include <ahci.h>
 
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
@@ -45,7 +46,7 @@ int kmain(void) {
     init_vbe_tty();
     init_acpi();
     init_pic();
-    
+
     /* TODO move this someplace else */
     asm volatile ("sti");
 
@@ -55,7 +56,7 @@ int kmain(void) {
     /* device drivers init */
     init_ata();
     init_pci();
-  /*init_ahci();*/
+    init_ahci();
 
     /* Initialise vfs */
     init_vfs();
@@ -71,7 +72,7 @@ int kmain(void) {
     init_sched();
 
     /* Try reading 128 bytes from /dev/hda */
-    int hda = open("/dev/hda", O_RDWR, 0);
+    /* int hda = open("/dev/hda", O_RDWR, 0);
     kprint(KPRN_DBG, "\"/dev/hda\"'s handle is %u", hda);
     uint8_t data[128];
     read(hda, data, 128);
@@ -90,11 +91,11 @@ int kmain(void) {
             data[i+8], data[i+9], data[i+10], data[i+11], data[i+12], data[i+13], data[i+14], data[i+15]);
     }
 
-    close(hda);
+    close(hda); */
 
     /* Mount /dev/hda on / */
     mount("/dev/hda", "/", "echfs", 0, 0);
-
+/*
     int makefile;
     kprint(KPRN_DBG, "echfs open handle: %u", (makefile = open("/src/kernel/Makefile", O_RDONLY, 0)));
     read(makefile, data, 128);
@@ -103,7 +104,7 @@ int kmain(void) {
     read(makefile, data, 128);
     data[127] = 0;
     kprint(KPRN_DBG, "\n%s", data);
-    
+  */
     for (;;)
         asm volatile ("hlt;");
 
