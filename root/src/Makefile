@@ -12,6 +12,10 @@ all:
 	@# Build qloader bootloader
 	$(MAKE) -C qloader
 
+	@# Build test userland program
+	$(MAKE) -C test
+	$(MAKE) PREFIX=$(PREFIX) install -C test
+
 	@# Future targets are going to be added here
 
 clean:
@@ -20,5 +24,8 @@ clean:
 
 	@# Cleanup qloader bootloader
 	$(MAKE) clean -C qloader
+
+	@# Cleanup test program
+	$(MAKE) clean -C test
 
 	@# Future targets are going to be added here
