@@ -215,6 +215,11 @@ found_new_pid:
         process_table[new_pid]->file_handles[i] = -1;
     }
 
+    /* Map the higher half into the process */
+    for (size_t i = 256; i < 512; i++) {
+        pagemap->pagemap[i] = process_table[0]->pagemap->pagemap[i];
+    }
+
     new_process->pagemap = pagemap;
     new_process->pid = new_pid;
 

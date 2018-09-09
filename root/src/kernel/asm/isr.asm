@@ -70,6 +70,7 @@ extern dummy_int_handler
 global int_handler
 extern task_resched_bsp
 extern task_resched
+global syscall_entry
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -137,6 +138,25 @@ extern task_resched
     pop rcx
     pop rbx
     pop rax
+%endmacro
+
+; this doesn't pop rax which is the return register for syscalls
+%macro popams 0
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    add rsp, 8
 %endmacro
 
 section .text
@@ -233,6 +253,42 @@ ipi_resched:
     add rsp, 16
     popam
     iretq
+
+invalid_syscall:
+    mov rax, -1
+    ret
+
+syscall_count equ ((syscall_table.end - syscall_table) / 8)
+syscall_table:
+    extern test_syscall
+    dq test_syscall
+    dq invalid_syscall
+  .end:
+
+syscall_entry:
+    pusham
+
+    xor rbx, rbx
+    mov bx, ds
+    push rbx
+    mov bx, es
+    push rbx
+
+    mov rdi, rsp
+
+    cmp rax, syscall_count   ; is syscall_number too big?
+    jae .err
+
+    call [syscall_table + rax * 8]
+
+  .out:
+    add rsp, 16
+    popams
+    iretq
+
+  .err:
+    mov rax, -1
+    jmp .out
 
 pic0_generic:
     common_handler pic0_generic_handler

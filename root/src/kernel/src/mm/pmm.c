@@ -127,6 +127,11 @@ found:
 
     spinlock_release(&pmm_lock);
 
+    uint64_t *pages = (uint64_t *)(start * PAGE_SIZE);
+
+    for (size_t i = 0; i < (pg_count * PAGE_SIZE) / sizeof(uint64_t); i++)
+        pages[i] = 0;
+
     /* Return the physical address that represents the start of this physical page(s). */
     return (void *)(start * PAGE_SIZE);
 }
