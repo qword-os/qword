@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <ahci/fis.h>
 
-typedef volatile struct {
+struct hba_port {
     uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
     uint32_t clbu;		// 0x04, command list base address upper 32 bits
     uint32_t fb;		// 0x08, FIS base address, 256-byte aligned
@@ -25,9 +25,9 @@ typedef volatile struct {
     uint32_t fbs;		// 0x40, FIS-based switch control
     uint32_t rsv1[11];	// 0x44 ~ 0x6F, Reserved
     uint32_t vendor[4];	// 0x70 ~ 0x7F, vendor specific
-} hba_port_t;
+};
 
-typedef volatile struct {
+struct hba_mem {
     // 0x00 - 0x2B, Generic Host Control
     uint32_t cap;		// 0x00, Host capability
     uint32_t ghc;		// 0x04, Global host control
@@ -42,10 +42,10 @@ typedef volatile struct {
     uint32_t bohc;		// 0x28, BIOS/OS handoff control and status
     uint8_t  rsv[0xA0-0x2C];
     uint8_t  vendor[0x100-0xA0];
-    hba_port_t ports[1];
-} hba_mem_t;
+    struct hba_port ports[1];
+};
 
-typedef volatile struct {
+struct hba_cmd_hdr {
     uint8_t cfl:5;		    
     uint8_t a:1;		
     uint8_t w:1;		
@@ -60,23 +60,23 @@ typedef volatile struct {
     uint32_t ctba;
     uint32_t ctbau;
     uint32_t rsv1[4];
-} hba_cmd_hdr_t;
+};
 
-typedef struct {
+struct hba_prdtl {
     uint32_t dba;
     uint32_t dbau;
     uint32_t rsv0;
     uint32_t dbc : 22;
     uint32_t rsv1 : 9;
     uint32_t i : 1;
-} hba_prdt_t;
+};
 
-typedef struct {
+struct hba_cmd_tbl {
     uint8_t  cfis[64];
     uint8_t  acmd[16];
     uint8_t  rsv[48];
-    hba_prdt_t	prdt_entry[1];
-} hba_cmd_tbl_t;
+    struct hba_prdtl prdt_entry[1];
+};
 
 
 #endif

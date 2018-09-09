@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-typedef struct {
+struct vbe_info_struct {
     uint8_t version_min;
     uint8_t version_maj;
     uint32_t oem;   // is a 32 bit pointer to char
@@ -14,9 +14,9 @@ typedef struct {
     uint32_t vendor;   // is a 32 bit pointer to char
     uint32_t prod_name;   // is a 32 bit pointer to char
     uint32_t prod_rev;   // is a 32 bit pointer to char
-} __attribute__((packed)) vbe_info_struct_t;
+} __attribute__((packed));
 
-typedef struct {
+struct edid_info_struct {
     uint8_t padding[8];
     uint16_t manufacturer_id_be;
     uint16_t edid_id_code;
@@ -41,9 +41,9 @@ typedef struct {
     uint8_t det_timing_desc4[18];
     uint8_t unused;
     uint8_t checksum;
-} __attribute__((packed)) edid_info_struct_t;
+} __attribute__((packed));
 
-typedef struct {
+struct vbe_mode_info {
     uint8_t pad0[16];
     uint16_t pitch;
     uint16_t res_x;
@@ -53,12 +53,12 @@ typedef struct {
     uint8_t pad2[14];
     uint32_t framebuffer;
     uint8_t pad3[212];
-} __attribute__((packed)) vbe_mode_info_t;
+} __attribute__((packed));
 
-typedef struct {
+struct get_vbe {
     uint32_t vbe_mode_info;      // is a 32 bit pointer to vbe_mode_info_t
     uint16_t mode;
-} get_vbe_t;
+};
 
 extern uint32_t *vbe_framebuffer;
 extern int vbe_width;
@@ -67,9 +67,9 @@ extern int vbe_pitch;
 
 extern int vbe_available;
 
-void get_vbe_info(vbe_info_struct_t *);
-void get_edid_info(edid_info_struct_t *);
-void get_vbe_mode_info(get_vbe_t *);
+void get_vbe_info(struct vbe_info_struct *);
+void get_edid_info(struct edid_info_struct *);
+void get_vbe_mode_info(struct get_vbe *);
 void set_vbe_mode(uint16_t);
 
 void init_vbe(void);

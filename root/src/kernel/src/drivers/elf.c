@@ -6,15 +6,15 @@
 #include <panic.h>
 
 /* Execute an ELF file given some file data */
-int elf_load(int fd, pagemap_t *pagemap, uint64_t *entry) {
+int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
     int ret = lseek(fd, 0, SEEK_SET);
     if (ret == -1) return -1;
-    
-    char *magic = "\177ELF";
-    
-    elf_hdr_t hdr;
 
-    ret = read(fd, &hdr, sizeof(elf_hdr_t));
+    char *magic = "\177ELF";
+
+    struct elf_hdr hdr;
+
+    ret = read(fd, &hdr, sizeof(struct elf_hdr));
     if (ret == -1) return -1;
 
     for (size_t i = 0; i < 4; i++) {
@@ -38,21 +38,20 @@ int elf_load(int fd, pagemap_t *pagemap, uint64_t *entry) {
         return -1;
     }
 
-    elf_phdr_t *phdr = kalloc(hdr.ph_num * sizeof(elf_phdr_t));
-    ret = read(fd, phdr, hdr.ph_num * sizeof(elf_phdr_t));
+    struct elf_phdr *phdr = kalloc(hdr.ph_num * sizeof(struct elf_phdr));
+    ret = read(fd, phdr, hdr.ph_num * sizeof(struct elf_phdr));
     if (ret == -1) {
         kprint(KPRN_DBG, "Failed to read program header table into memory");
         return -1;
     }
 
-
     for (size_t i = 0; i < hdr.ph_num; i++) {
         if (phdr[i].p_type != PT_LOAD)
-            continue; 
+            continue;
 
         size_t page_count = phdr[i].p_memsz / 0x1000;
         if (page_count % 0x1000) page_count++;
-        
+
         /* Allocate space */
         void *addr = pmm_alloc(page_count);
 
@@ -62,15 +61,15 @@ int elf_load(int fd, pagemap_t *pagemap, uint64_t *entry) {
             map_page(pagemap, phys, virt, 0x07);
         }
 
-        void *buf = (size_t)addr + MEM_PHYS_OFFSET;
-        
+        void *buf = (void *)((size_t)addr + MEM_PHYS_OFFSET);
+
         ret = lseek(fd, phdr[i].p_offset, SEEK_SET);
         if (ret == -1) return -1;
 
         ret = read(fd, buf, phdr[i].p_filesz);
         if (ret == -1) return -1;
     }
-    
+
     kprint(KPRN_DBG, "ELF load successful!");
 
     *entry = hdr.entry;

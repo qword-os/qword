@@ -17,7 +17,7 @@
 #define	EI_VERSION	6
 #define	EI_OSABI	7
 
-typedef struct {
+struct elf_hdr {
     uint8_t ident[16];
     uint16_t type;
     uint16_t machine;
@@ -32,9 +32,9 @@ typedef struct {
     uint16_t shdr_size;
     uint16_t sh_num;
     uint16_t shstrndx;
-} elf_hdr_t;
+};
 
-typedef struct {
+struct elf_phdr {
     uint32_t p_type;
     uint32_t p_flags;
     uint64_t p_offset;
@@ -43,9 +43,9 @@ typedef struct {
     uint64_t p_filesz;
     uint64_t p_memsz;
     uint64_t p_align;
-} elf_phdr_t;
+};
 
-typedef struct {
+struct elf_shdr {
     uint32_t sh_name;
     uint32_t sh_type;
     uint64_t sh_flags;
@@ -56,8 +56,8 @@ typedef struct {
     uint32_t sh_info;
     uint64_t sh_addr_align;
     uint64_t sh_entsize;
-} elf_shdr_t;
+};
 
-int elf_load(int, pagemap_t *, uint64_t *);
+int elf_load(int, struct pagemap *, uint64_t *);
 
 #endif

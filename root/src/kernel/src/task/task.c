@@ -14,28 +14,28 @@
 lock_t scheduler_lock = 1;
 int scheduler_ready = 0;
 
-process_t **process_table;
+struct process **process_table;
 
 static size_t task_count = 0;
 
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. See kernel/include/ctx.h for the register order. */
-ctx_t default_krnl_ctx = {0x10,0x10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
-ctx_t default_usr_ctx = {0x23,0x23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
+struct ctx default_krnl_ctx = {0x10,0x10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
+struct ctx default_usr_ctx = {0x23,0x23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
 
 void init_sched(void) {
     kprint(KPRN_INFO, "sched: Initialising process table...");
     /* Make room for task table */
-    if ((process_table = kalloc(MAX_PROCESSES * sizeof(process_t *))) == 0) {
+    if ((process_table = kalloc(MAX_PROCESSES * sizeof(struct process *))) == 0) {
         panic("sched: Unable to allocate process table.", 0, 0);
     }
 
     /* Now make space for PID 0 */
     kprint(KPRN_INFO, "sched: Creating PID 0");
-    if ((process_table[0] = kalloc(sizeof(process_t))) == 0) {
+    if ((process_table[0] = kalloc(sizeof(struct process))) == 0) {
         panic("sched: Unable to allocate space for kernel task", 0, 0);
     }
-    if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
+    if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(struct thread *))) == 0) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0);
     }
     process_table[0]->pagemap = &kernel_pagemap;
@@ -49,10 +49,10 @@ void init_sched(void) {
 }
 
 /* Recursively search for a new task to run */
-static inline void task_get_next(pid_t *process, tid_t *thread, size_t limit) {
+static inline void task_get_next(pid_t *process, pid_t *thread, size_t limit) {
     /* Find next task to run for the current CPU */
     if (!limit) {
-        thread_t *next_thread = process_table[*process]->threads[*thread];
+        struct thread *next_thread = process_table[*process]->threads[*thread];
         /* Confirm that thread is inactive and valid */
         if (next_thread && (int)(size_t)next_thread != -1 && (next_thread->active_on_cpu == (size_t)-1))
             return;
@@ -65,7 +65,7 @@ static inline void task_get_next(pid_t *process, tid_t *thread, size_t limit) {
          * skip to the next process in the process table */
         if (*thread == MAX_THREADS)
             goto next_process;
-        thread_t *next_thread = process_table[*process]->threads[*thread];
+        struct thread *next_thread = process_table[*process]->threads[*thread];
         /* Same as above, check if inactive and valid */
         if (next_thread && (int)(size_t)next_thread != -1 && (next_thread->active_on_cpu == (size_t)-1)) {
             if (++i >= limit)
@@ -76,7 +76,7 @@ static inline void task_get_next(pid_t *process, tid_t *thread, size_t limit) {
         if (!next_thread) {
 next_process:
             *thread = 0;
-            process_t *next_process = process_table[++(*process)];
+            struct process *next_process = process_table[++(*process)];
             /* If the selected process is valid, continue searching for
              * threads in this new process */
             if (next_process && (int)(size_t)next_process != -1) {
@@ -103,7 +103,7 @@ void task_spinup(void *, void *);
 
 static lock_t smp_sched_lock = 1;
 
-void task_resched(ctx_t *ctx) {
+void task_resched(struct ctx *ctx) {
     spinlock_acquire(&smp_sched_lock);
 
     if (!spinlock_test_and_acquire(&scheduler_lock)) {
@@ -161,7 +161,7 @@ out_locked:
 
 static int pit_ticks = 0;
 
-void task_resched_bsp(ctx_t *ctx) {
+void task_resched_bsp(struct ctx *ctx) {
     if (!scheduler_ready) {
         return;
     }
@@ -180,7 +180,7 @@ void task_resched_bsp(ctx_t *ctx) {
 
 /* Create process */
 /* Returns process ID, -1 on failure */
-pid_t task_pcreate(pagemap_t *pagemap) {
+pid_t task_pcreate(struct pagemap *pagemap) {
     /* Search for free process ID */
     pid_t new_pid;
     for (new_pid = 0; new_pid < MAX_PROCESSES - 1; new_pid++) {
@@ -191,14 +191,14 @@ pid_t task_pcreate(pagemap_t *pagemap) {
 
 found_new_pid:
     /* Try to make space for this new task */
-    if ((process_table[new_pid] = kalloc(sizeof(process_t))) == 0) {
+    if ((process_table[new_pid] = kalloc(sizeof(struct process))) == 0) {
         process_table[new_pid] = EMPTY;
         return -1;
     }
 
-    process_t *new_process = process_table[new_pid];
+    struct process *new_process = process_table[new_pid];
 
-    if ((new_process->threads = kalloc(MAX_THREADS * sizeof(thread_t *))) == 0) {
+    if ((new_process->threads = kalloc(MAX_THREADS * sizeof(struct thread *))) == 0) {
         kfree(new_process);
         process_table[new_pid] = EMPTY;
         return -1;
@@ -285,12 +285,12 @@ tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
 
 found_new_tid:
     /* Try to make space for this new task */
-    if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(thread_t))) == 0) {
+    if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(struct thread))) == 0) {
         process_table[pid]->threads[new_tid] = EMPTY;
         return -1;
     }
 
-    thread_t *new_thread = process_table[pid]->threads[new_tid];
+    struct thread *new_thread = process_table[pid]->threads[new_tid];
 
     new_thread->active_on_cpu = -1;
     

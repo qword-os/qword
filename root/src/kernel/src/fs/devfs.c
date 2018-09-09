@@ -4,7 +4,7 @@
 #include <fs.h>
 #include <dev.h>
 
-typedef struct {
+struct devfs_handle {
     int free;
     char path[1024];
     int flags;
@@ -14,24 +14,23 @@ typedef struct {
     long end;
     int isblock;
     int device;
-} devfs_handle_t;
+};
 
-static devfs_handle_t* devfs_handles = (devfs_handle_t*)0;
-static int devfs_handles_ptr = 0;
+static struct devfs_handle *devfs_handles = (struct devfs_handle *)0;
+static int devfs_handles_i = 0;
 
-static int devfs_create_handle(devfs_handle_t handle) {
+static int devfs_create_handle(struct devfs_handle handle) {
     int handle_n;
 
-    // check for a free handle first
-    for (int i = 0; i < devfs_handles_ptr; i++) {
+    for (int i = 0; i < devfs_handles_i; i++) {
         if (devfs_handles[i].free) {
             handle_n = i;
             goto load_handle;
         }
     }
 
-    devfs_handles = krealloc(devfs_handles, (devfs_handles_ptr + 1) * sizeof(devfs_handle_t));
-    handle_n = devfs_handles_ptr++;
+    devfs_handles = krealloc(devfs_handles, (devfs_handles_i + 1) * sizeof(struct devfs_handle));
+    handle_n = devfs_handles_i++;
     
 load_handle:
     devfs_handles[handle_n] = handle;
@@ -73,7 +72,7 @@ static int devfs_open(char *path, int flags, int mode) {
     if (flags & O_CREAT)
         return -1;
 
-    devfs_handle_t new_handle = {0};
+    struct devfs_handle new_handle = {0};
     new_handle.free = 0;
     kstrcpy(new_handle.path, path);
     new_handle.flags = flags;
@@ -92,7 +91,7 @@ static int devfs_close(int handle) {
     if (handle < 0)
         return -1;
 
-    if (handle >= devfs_handles_ptr)
+    if (handle >= devfs_handles_i)
         return -1;
 
     if (devfs_handles[handle].free)
@@ -107,7 +106,7 @@ static int devfs_lseek(int handle, off_t offset, int type) {
     if (handle < 0)
         return -1;
 
-    if (handle >= devfs_handles_ptr)
+    if (handle >= devfs_handles_i)
         return -1;
 
     if (devfs_handles[handle].free)
@@ -138,7 +137,7 @@ static int devfs_lseek(int handle, off_t offset, int type) {
 }
 
 void init_devfs(void) {
-    fs_t devfs = {0};
+    struct fs devfs = {0};
 
     kstrcpy(devfs.type, "devfs");
     devfs.read = devfs_read;

@@ -6,7 +6,7 @@
 
 #define ACPI_TABLES_MAX 256
 
-typedef struct {
+struct rsdp {
     char signature[8];
     uint8_t checksum;
     char oem_id[6];
@@ -17,9 +17,9 @@ typedef struct {
     uint64_t xsdt_addr;
     uint8_t ext_checksum;
     uint8_t reserved[3];
-} __attribute__((packed)) rsdp_t;
+} __attribute__((packed));
 
-typedef struct {
+struct sdt {
     char signature[4];
     uint32_t length;
     uint8_t rev;
@@ -29,23 +29,23 @@ typedef struct {
     uint32_t oem_rev;
     uint32_t creator_id;
     uint32_t creator_rev;
-} __attribute__((packed)) sdt_t;
+} __attribute__((packed));
 
-typedef struct {
-    sdt_t sdt;
+struct rsdt {
+    struct sdt sdt;
     uint32_t sdt_ptr[];
-} __attribute__((packed)) rsdt_t;
+} __attribute__((packed));
 
-typedef struct {
-    sdt_t sdt;
+struct xsdt {
+    struct sdt sdt;
     uint64_t sdt_ptr[];
-} __attribute__((packed)) xsdt_t;
+} __attribute__((packed));
 
 extern int acpi_available;
 
-extern rsdp_t *rsdp;
-extern rsdt_t *rsdt;
-extern xsdt_t *xsdt;
+extern struct rsdp *rsdp;
+extern struct rsdt *rsdt;
+extern struct xsdt *xsdt;
 
 void init_acpi(void);
 void *acpi_find_sdt(const char *);

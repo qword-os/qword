@@ -54,7 +54,7 @@ void lapic_set_nmi(uint8_t vec, uint16_t flags, uint8_t lint) {
 }
 
 void lapic_install_nmis(void) {
-    for (size_t i = 0; i < madt_nmi_ptr; i++)
+    for (size_t i = 0; i < madt_nmi_i; i++)
         /* Reserve vectors 0x90 .. lengthof(madt_nmi_ptr) for NMIs. */
         lapic_set_nmi(0x90 + i, madt_nmis[i]->flags, madt_nmis[i]->lint);
 }
@@ -90,7 +90,7 @@ void io_apic_write(size_t io_apic_num, uint32_t reg, uint32_t data) {
 
 /* Return the index of the I/O APIC that handles this redirect */
 size_t io_apic_from_redirect(uint32_t gsi) {
-    for (size_t i = 0; i < madt_io_apic_ptr; i++) {
+    for (size_t i = 0; i < madt_io_apic_i; i++) {
         if (madt_io_apics[i]->gsib <= gsi && madt_io_apics[i]->gsib + io_apic_get_max_redirect(i) > gsi)
             return i;
     }
@@ -129,7 +129,7 @@ void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t api
 void io_apic_set_mask(int irq, int status) {
     if (status) {
         /* install IRQ ISO */
-        for (size_t i = 0; i < madt_iso_ptr; i++) {
+        for (size_t i = 0; i < madt_iso_i; i++) {
             if (madt_isos[i]->irq_source == irq) {
                 io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
                                 madt_isos[i]->flags, madt_local_apics[0]->apic_id);

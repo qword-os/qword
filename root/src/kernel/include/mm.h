@@ -13,21 +13,21 @@
 
 typedef uint64_t pt_entry_t;
 
-typedef struct {
+struct pagemap {
     pt_entry_t *pagemap;
     lock_t lock;
-} pagemap_t;
+};
 
-extern pagemap_t kernel_pagemap;
+extern struct pagemap kernel_pagemap;
 extern pt_entry_t kernel_cr3;
 
 void *pmm_alloc(size_t);
 void pmm_free(void *, size_t);
 void init_pmm(void);
 
-void map_page(pagemap_t *, size_t, size_t, size_t);
-int unmap_page(pagemap_t *, size_t);
-int remap_page(pagemap_t *, size_t, size_t);
+void map_page(struct pagemap *, size_t, size_t, size_t);
+int unmap_page(struct pagemap *, size_t);
+int remap_page(struct pagemap *, size_t, size_t);
 void init_vmm(void);
 
 #endif

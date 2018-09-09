@@ -5,10 +5,10 @@
 #include <cmdline.h>
 #include <mm.h>
 
-static vbe_info_struct_t vbe_info_struct;
-static edid_info_struct_t edid_info_struct;
-static vbe_mode_info_t vbe_mode_info;
-static get_vbe_t get_vbe;
+static struct vbe_info_struct vbe_info_struct;
+static struct edid_info_struct edid_info_struct;
+static struct vbe_mode_info vbe_mode_info;
+static struct get_vbe get_vbe;
 static uint16_t vid_modes[1024];
 
 uint32_t *vbe_framebuffer;
@@ -130,7 +130,7 @@ modeset:
         }
     }
 
-    /* modeset failed panic */
+    /* modeset failed, panic */
     for (;;);
 
 success:

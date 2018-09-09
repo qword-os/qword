@@ -4,10 +4,10 @@
 #include <klib.h>
 #include <e820.h>
 
-pagemap_t kernel_pagemap;
+struct pagemap kernel_pagemap;
 
 /* map physaddr -> virtaddr using pml4 pointer */
-void map_page(pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags) {
+void map_page(struct pagemap *pml4, size_t phys_addr, size_t virt_addr, size_t flags) {
     spinlock_acquire(&pml4->lock);
     
     /* Calculate the indices in the various tables using the virtual address */
@@ -77,7 +77,7 @@ void map_page(pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags)
     return;
 }
 
-int unmap_page(pagemap_t *pml4, size_t virt_addr) {
+int unmap_page(struct pagemap *pml4, size_t virt_addr) {
     spinlock_acquire(&pml4->lock);
     /* Calculate the indices in the various tables using the virtual address */
     size_t pml4_entry = (virt_addr & ((size_t)0x1ff << 39)) >> 39;
@@ -116,7 +116,7 @@ int unmap_page(pagemap_t *pml4, size_t virt_addr) {
 }
 
 /* Update flags for a mapping */
-int remap_page(pagemap_t *pml4, size_t virt_addr, size_t flags) {
+int remap_page(struct pagemap *pml4, size_t virt_addr, size_t flags) {
     spinlock_acquire(&pml4->lock);
 
     /* Calculate the indices in the various tables using the virtual address */

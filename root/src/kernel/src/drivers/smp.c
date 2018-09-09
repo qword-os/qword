@@ -114,7 +114,7 @@ void init_smp(void) {
     init_cpu0();
 
     /* start up the APs and jump them into the kernel */
-    for (size_t i = 1; i < madt_local_apic_ptr; i++) {
+    for (size_t i = 1; i < madt_local_apic_i; i++) {
         kprint(KPRN_INFO, "smp: Starting up AP #%u", i);
         if (start_ap(madt_local_apics[i]->apic_id, smp_cpu_count)) {
             kprint(KPRN_ERR, "smp: Failed to start AP #%u", i);

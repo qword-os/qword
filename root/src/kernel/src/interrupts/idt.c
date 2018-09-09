@@ -5,7 +5,7 @@
 #include <irq.h>
 #include <ipi.h>
 
-static idt_entry_t idt[256];
+static struct idt_entry idt[256];
 
 void init_idt(void) {
     for (size_t vec = 0; vec < 256; vec++) {
@@ -58,7 +58,7 @@ void init_idt(void) {
 
     register_interrupt_handler(0xff, apic_spurious, 0x8f);
 
-    idt_ptr_t idt_ptr = {
+    struct idt_ptr idt_ptr = {
         sizeof(idt) - 1,
         (uint64_t)idt
     };
