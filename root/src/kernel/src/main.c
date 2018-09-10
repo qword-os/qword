@@ -23,6 +23,15 @@
 #include <pci.h>
 #include <ahci.h>
 
+void kmain_thread(void) {
+    /* Execute a test process */
+    kexec("/bin/test", 0, 0);
+
+    kprint(KPRN_INFO, "kmain: End of init.");
+
+    for (;;) asm volatile ("hlt;");
+}
+
 /* Main kernel entry point, all the things should be initialised */
 int kmain(void) {
     init_idt();
@@ -74,8 +83,7 @@ int kmain(void) {
     /* Initialise scheduler */
     init_sched();
 
-    /* Execute a test process */
-    kexec("/bin/test", 0, 0);
+    task_tcreate(0, kalloc(4096) + 4096, (void *)kmain_thread, 0);
 
     for (;;)
         asm volatile ("hlt;");

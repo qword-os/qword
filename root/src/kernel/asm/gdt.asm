@@ -50,19 +50,19 @@ align 16
     db 0x00             ; Base (high 8 bits)
 
 ; 64 bit mode user code
-.user_code_64:
-    dw 0x0000           ; Limit
-    dw 0x0000           ; Base (low 16 bits)
-    db 0x00             ; Base (mid 8 bits)
-    db 11111010b        ; Access
-    db 00100000b        ; Granularity
-    db 0x00             ; Base (high 8 bits)
 .user_data_64:
     dw 0x0000           ; Limit
     dw 0x0000           ; Base (low 16 bits)
     db 0x00             ; Base (mid 8 bits)
     db 11110010b        ; Access
     db 00000000b        ; Granularity
+    db 0x00             ; Base (high 8 bits)
+.user_code_64:
+    dw 0x0000           ; Limit
+    dw 0x0000           ; Base (low 16 bits)
+    db 0x00             ; Base (mid 8 bits)
+    db 11111010b        ; Access
+    db 00100000b        ; Granularity
     db 0x00             ; Base (high 8 bits)
 
 ; Unreal mode

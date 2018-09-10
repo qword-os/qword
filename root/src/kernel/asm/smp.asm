@@ -8,6 +8,8 @@ global smp_get_cpu_current_thread
 global smp_set_cpu_current_process
 global smp_set_cpu_current_thread
 
+extern syscall_entry
+
 extern load_tss
 
 section .data
@@ -36,6 +38,7 @@ smp_prepare_trampoline:
     mov qword [0x540], rsi
     mov qword [0x550], rdx
     mov qword [0x560], rcx
+    mov qword [0x570], syscall_entry
     sgdt [0x580]
     sidt [0x590]
 
@@ -58,7 +61,7 @@ smp_check_ap_flag:
 
 smp_init_cpu0_local:
     ; Load FS with the CPU local struct base address
-    mov ax, 0x23
+    mov ax, 0x1b
     mov fs, ax
     mov gs, ax
     mov rcx, 0xc0000100
@@ -87,6 +90,29 @@ smp_init_cpu0_local:
 
     mov ax, 0x38
     ltr ax
+
+    ; enable syscall in EFER
+    mov rcx, 0xc0000080
+    rdmsr
+    or al, 1
+    wrmsr
+
+    ; setup syscall MSRs
+    mov rcx, 0xc0000081
+    mov rdx, 0x00100008
+    mov rax, 0x00000000
+    wrmsr
+    mov rcx, 0xc0000082
+    mov rax, syscall_entry
+    mov rdx, rax
+    shr rdx, 32
+    and rax, 0xffffffff
+    wrmsr
+    mov rcx, 0xc0000084
+    mov rax, ~(0x202)
+    xor rdx, rdx
+    not rdx
+    wrmsr
 
     ret
 

@@ -21,7 +21,7 @@ static size_t task_count = 0;
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. See kernel/include/ctx.h for the register order. */
 struct ctx default_krnl_ctx = {0x10,0x10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
-struct ctx default_usr_ctx = {0x23,0x23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x1b,0x202,0,0x23};
+struct ctx default_usr_ctx = {0x1b,0x1b,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
 
 void init_sched(void) {
     kprint(KPRN_INFO, "sched: Initialising process table...");

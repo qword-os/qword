@@ -29,6 +29,9 @@ run-img:
 run-img-kvm:
 	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm -net none -serial stdio
 
+run-img-kvm-singlecore:
+	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1 -enable-kvm -net none -serial stdio
+
 clean:
 	$(MAKE) clean -C root/src
 	rm -f qword.iso qword.img

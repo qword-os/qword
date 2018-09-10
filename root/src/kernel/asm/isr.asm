@@ -284,7 +284,9 @@ syscall_entry:
   .out:
     add rsp, 16
     popams
-    iretq
+    push r11
+    popfq
+    o64 sysret
 
   .err:
     mov rax, -1
