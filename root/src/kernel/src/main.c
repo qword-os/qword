@@ -41,24 +41,24 @@ int kmain(void) {
     init_pmm();
     init_vmm();
 
-    /* Driver inits */
+    /* Early inits */
     init_vbe();
     init_vbe_tty();
     init_acpi();
     init_pic();
 
-    /* TODO move this someplace else */
+    /* Enable interrupts on BSP */
     asm volatile ("sti");
 
     init_pit();
     init_smp();
 
-    /* device drivers init */
+    /* Initialise device drivers */
     init_ata();
     init_pci();
     init_ahci();
 
-    /* Initialise vfs */
+    /* Initialise Virtual Filesystem */
     init_vfs();
 
     /* Initialise filesystem drivers */
@@ -68,43 +68,15 @@ int kmain(void) {
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
 
+    /* Mount /dev/hda on / */
+    mount("/dev/hda", "/", "echfs", 0, 0);
+
     /* Initialise scheduler */
     init_sched();
 
-    /* Try reading 128 bytes from /dev/hda */
-    /* int hda = open("/dev/hda", O_RDWR, 0);
-    kprint(KPRN_DBG, "\"/dev/hda\"'s handle is %u", hda);
-    uint8_t data[128];
-    read(hda, data, 128);
+    /* Execute a test process */
+    kexec("/bin/test", 0, 0);
 
-    for (size_t i = 0; i < 128; i+=16) {
-        kprint(KPRN_DBG, "%x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x",
-            data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7],
-            data[i+8], data[i+9], data[i+10], data[i+11], data[i+12], data[i+13], data[i+14], data[i+15]);
-    }
-
-    read(hda, data, 128);
-
-    for (size_t i = 0; i < 128; i+=16) {
-        kprint(KPRN_DBG, "%x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x",
-            data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7],
-            data[i+8], data[i+9], data[i+10], data[i+11], data[i+12], data[i+13], data[i+14], data[i+15]);
-    }
-
-    close(hda); */
-
-    /* Mount /dev/hda on / */
-    mount("/dev/hda", "/", "echfs", 0, 0);
-/*
-    int makefile;
-    kprint(KPRN_DBG, "echfs open handle: %u", (makefile = open("/src/kernel/Makefile", O_RDONLY, 0)));
-    read(makefile, data, 128);
-    data[127] = 0;
-    kprint(KPRN_DBG, "\n%s", data);
-    read(makefile, data, 128);
-    data[127] = 0;
-    kprint(KPRN_DBG, "\n%s", data);
-  */
     for (;;)
         asm volatile ("hlt;");
 

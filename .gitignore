@@ -1,4 +1,5 @@
 /root/bin
+/root/src/test/test
 /**/*.tar.bz2
 /**/*.tar.gz
 /qword.iso

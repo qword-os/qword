@@ -18,12 +18,7 @@ int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
     if (ret == -1) return -1;
 
     for (size_t i = 0; i < 4; i++) {
-        kprint(KPRN_DBG, "%c", hdr.ident[i]);
         if (hdr.ident[i] != magic[i]) return -1;
-    }
-
-    for (size_t i = 4; i < 15; i++) {
-        kprint(KPRN_DBG, "%u", hdr.ident[i]);
     }
 
     if (hdr.ident[EI_CLASS] != 0x02) return -1;
@@ -33,15 +28,14 @@ int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
 
     uint64_t phoff = hdr.phoff;
     ret = lseek(fd, phoff, SEEK_SET);
-    if (ret == -1) {
-        kprint(KPRN_DBG, "Failed to seek to program header table offset.");
-        return -1;
-    }
+    if (ret == -1) return -1;
 
     struct elf_phdr *phdr = kalloc(hdr.ph_num * sizeof(struct elf_phdr));
+    if (!phdr) return -1;
+
     ret = read(fd, phdr, hdr.ph_num * sizeof(struct elf_phdr));
     if (ret == -1) {
-        kprint(KPRN_DBG, "Failed to read program header table into memory");
+        kfree(phdr);
         return -1;
     }
 
@@ -50,10 +44,14 @@ int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
             continue;
 
         size_t page_count = phdr[i].p_memsz / 0x1000;
-        if (page_count % 0x1000) page_count++;
+        if (phdr[i].p_memsz % 0x1000) page_count++;
 
         /* Allocate space */
         void *addr = pmm_alloc(page_count);
+        if (!addr) {
+            kfree(phdr);
+            return -1;
+        }
 
         for (size_t j = 0; j < page_count; j++) {
             size_t virt = phdr[i].p_vaddr + (j * 0x1000);
@@ -64,15 +62,20 @@ int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
         void *buf = (void *)((size_t)addr + MEM_PHYS_OFFSET);
 
         ret = lseek(fd, phdr[i].p_offset, SEEK_SET);
-        if (ret == -1) return -1;
+        if (ret == -1) {
+            kfree(phdr);
+            return -1;
+        }
 
         ret = read(fd, buf, phdr[i].p_filesz);
-        if (ret == -1) return -1;
+        if (ret == -1) {
+            kfree(phdr);
+            return -1;
+        }
     }
 
-    kprint(KPRN_DBG, "ELF load successful!");
+    kfree(phdr);
 
     *entry = hdr.entry;
     return 0;
 }
-

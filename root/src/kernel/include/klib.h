@@ -3,13 +3,16 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <task.h>
 
 #define KPRN_INFO   0
 #define KPRN_WARN   1
 #define KPRN_ERR    2
 #define KPRN_DBG    3
 
-#define EMPTY (void *)(size_t)(-1)
+#define EMPTY ((void *)(size_t)(-1))
+
+pid_t kexec(const char *, const char **, const char **);
 
 char *kstrcpy(char *, const char *);
 size_t kstrlen(const char *);
