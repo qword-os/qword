@@ -5,9 +5,9 @@
 #include <klib.h>
 #include <smp.h>
 
-struct fs *filesystems;
-struct mnt *mountpoints;
-struct vfs_fd *file_descriptors;
+struct fs_t *filesystems;
+struct mnt_t *mountpoints;
+struct vfs_handle_t *file_descriptors;
 
 static size_t mountpoints_i = 0;
 static size_t filesystems_i = 0;
@@ -113,7 +113,7 @@ term:
 int open(const char *path, int mode, int perms) {
     char *loc_path;
 
-    struct vfs_fd handle = {0};
+    struct vfs_handle_t handle = {0};
 
     size_t i;
 
@@ -142,7 +142,7 @@ retry:
 
     /* Make more space */
     fd_count += 256;
-    file_descriptors = krealloc(file_descriptors, fd_count * sizeof(struct vfs_fd));
+    file_descriptors = krealloc(file_descriptors, fd_count * sizeof(struct vfs_handle_t));
 
     goto retry;
 }
@@ -200,7 +200,7 @@ int mount(const char *source, const char *target,
     int res = filesystems[i].mount(source, m_flags, data);
     if (res == -1) return -1;
 
-    mountpoints = krealloc(mountpoints, (mountpoints_i + 1) * sizeof(struct mnt));
+    mountpoints = krealloc(mountpoints, (mountpoints_i + 1) * sizeof(struct mnt_t));
 
     kstrcpy(mountpoints[mountpoints_i].mntpt, target);
     mountpoints[mountpoints_i].fs = i;
@@ -220,8 +220,8 @@ int fstat(int fd, struct stat *buffer) {
     return filesystems[fs].fstat(intern_fd, buffer);
 }
 
-int vfs_install_fs(struct fs filesystem) {
-    filesystems = krealloc(filesystems, (filesystems_i + 1) * sizeof(struct fs));
+int vfs_install_fs(struct fs_t filesystem) {
+    filesystems = krealloc(filesystems, (filesystems_i + 1) * sizeof(struct fs_t));
 
     filesystems[filesystems_i++] = filesystem;
 
@@ -229,7 +229,7 @@ int vfs_install_fs(struct fs filesystem) {
 }
 
 void init_vfs(void) {
-    file_descriptors = kalloc(256 * sizeof(struct vfs_fd));
+    file_descriptors = kalloc(256 * sizeof(struct vfs_handle_t));
     fd_count = 256;
 
     return;

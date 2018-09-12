@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct idt_entry {
+struct idt_entry_t {
     uint16_t offset_lo; 
     uint16_t selector; 
     uint8_t ist;       
@@ -14,7 +14,7 @@ struct idt_entry {
     uint32_t zero;
 };
 
-struct idt_ptr {
+struct idt_ptr_t {
     uint16_t size;
     /* Start address */
     uint64_t address; 

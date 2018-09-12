@@ -17,7 +17,7 @@
 #define	EI_VERSION	6
 #define	EI_OSABI	7
 
-struct elf_hdr {
+struct elf_hdr_t {
     uint8_t ident[16];
     uint16_t type;
     uint16_t machine;
@@ -34,7 +34,7 @@ struct elf_hdr {
     uint16_t shstrndx;
 };
 
-struct elf_phdr {
+struct elf_phdr_t {
     uint32_t p_type;
     uint32_t p_flags;
     uint64_t p_offset;
@@ -45,7 +45,7 @@ struct elf_phdr {
     uint64_t p_align;
 };
 
-struct elf_shdr {
+struct elf_shdr_t {
     uint32_t sh_name;
     uint32_t sh_type;
     uint64_t sh_flags;
@@ -58,6 +58,6 @@ struct elf_shdr {
     uint64_t sh_entsize;
 };
 
-int elf_load(int, struct pagemap *, uint64_t *);
+int elf_load(int, struct pagemap_t *, uint64_t *);
 
 #endif

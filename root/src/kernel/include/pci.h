@@ -8,7 +8,7 @@
 #define MAX_DEVICE 32
 #define MAX_BUS 256
 
-struct pci_device {
+struct pci_device_t {
     uint8_t bus;
     uint8_t func;
     uint8_t device;
@@ -22,15 +22,15 @@ struct pci_device {
     int available;
 };
 
-void pci_probe(struct pci_device *, uint8_t, uint8_t, uint8_t);
+void pci_probe(struct pci_device_t *, uint8_t, uint8_t, uint8_t);
 uint32_t pci_read_config(uint8_t, uint8_t, uint8_t, uint8_t);
-uint32_t pci_read_device(struct pci_device *, uint32_t);
-void pci_write_device(struct pci_device *, uint32_t, uint32_t);
-uint32_t pci_get_device_address(struct pci_device *, uint32_t);
-void pci_set_device_flag(struct pci_device *, uint32_t, uint32_t, int);
-void pci_load_bars(struct pci_device *device);
-uint32_t pci_get_bar(struct pci_device *, size_t);
-int pci_get_device(struct pci_device *, uint8_t, uint8_t);
+uint32_t pci_read_device(struct pci_device_t *, uint32_t);
+void pci_write_device(struct pci_device_t *, uint32_t, uint32_t);
+uint32_t pci_get_device_address(struct pci_device_t *, uint32_t);
+void pci_set_device_flag(struct pci_device_t *, uint32_t, uint32_t, int);
+void pci_load_bars(struct pci_device_t *device);
+uint32_t pci_get_bar(struct pci_device_t *, size_t);
+int pci_get_device(struct pci_device_t *, uint8_t, uint8_t);
 void pci_find_function(uint8_t, uint8_t, uint8_t);
 void pci_init_device(uint8_t, uint8_t);
 void pci_init_bus(uint8_t);

@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-struct vbe_info_struct {
+struct vbe_info_struct_t {
     uint8_t version_min;
     uint8_t version_maj;
     uint32_t oem;   // is a 32 bit pointer to char
@@ -16,7 +16,7 @@ struct vbe_info_struct {
     uint32_t prod_rev;   // is a 32 bit pointer to char
 } __attribute__((packed));
 
-struct edid_info_struct {
+struct edid_info_struct_t {
     uint8_t padding[8];
     uint16_t manufacturer_id_be;
     uint16_t edid_id_code;
@@ -43,7 +43,7 @@ struct edid_info_struct {
     uint8_t checksum;
 } __attribute__((packed));
 
-struct vbe_mode_info {
+struct vbe_mode_info_t {
     uint8_t pad0[16];
     uint16_t pitch;
     uint16_t res_x;
@@ -55,7 +55,7 @@ struct vbe_mode_info {
     uint8_t pad3[212];
 } __attribute__((packed));
 
-struct get_vbe {
+struct get_vbe_t {
     uint32_t vbe_mode_info;      // is a 32 bit pointer to vbe_mode_info_t
     uint16_t mode;
 };
@@ -67,9 +67,9 @@ extern int vbe_pitch;
 
 extern int vbe_available;
 
-void get_vbe_info(struct vbe_info_struct *);
-void get_edid_info(struct edid_info_struct *);
-void get_vbe_mode_info(struct get_vbe *);
+void get_vbe_info(struct vbe_info_struct_t *);
+void get_edid_info(struct edid_info_struct_t *);
+void get_vbe_mode_info(struct get_vbe_t *);
 void set_vbe_mode(uint16_t);
 
 void init_vbe(void);

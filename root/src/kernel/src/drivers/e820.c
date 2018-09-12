@@ -7,7 +7,7 @@ void get_e820(void *);
 
 uint64_t memory_size = 0;
 
-struct e820_entry e820_map[256];
+struct e820_entry_t e820_map[256];
 
 static const char *e820_type(uint32_t type) {
     switch (type) {

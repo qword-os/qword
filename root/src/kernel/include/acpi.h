@@ -6,7 +6,7 @@
 
 #define ACPI_TABLES_MAX 256
 
-struct rsdp {
+struct rsdp_t {
     char signature[8];
     uint8_t checksum;
     char oem_id[6];
@@ -19,7 +19,7 @@ struct rsdp {
     uint8_t reserved[3];
 } __attribute__((packed));
 
-struct sdt {
+struct sdt_t {
     char signature[4];
     uint32_t length;
     uint8_t rev;
@@ -31,21 +31,21 @@ struct sdt {
     uint32_t creator_rev;
 } __attribute__((packed));
 
-struct rsdt {
-    struct sdt sdt;
+struct rsdt_t {
+    struct sdt_t sdt;
     uint32_t sdt_ptr[];
 } __attribute__((packed));
 
-struct xsdt {
-    struct sdt sdt;
+struct xsdt_t {
+    struct sdt_t sdt;
     uint64_t sdt_ptr[];
 } __attribute__((packed));
 
 extern int acpi_available;
 
-extern struct rsdp *rsdp;
-extern struct rsdt *rsdt;
-extern struct xsdt *xsdt;
+extern struct rsdp_t *rsdp;
+extern struct rsdt_t *rsdt;
+extern struct xsdt_t *xsdt;
 
 void init_acpi(void);
 void *acpi_find_sdt(const char *);

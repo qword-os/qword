@@ -5,18 +5,18 @@
 #include <klib.h>
 
 int madt_available = 0;
-struct madt *madt;
+struct madt_t *madt;
 
-struct madt_local_apic **madt_local_apics;
+struct madt_local_apic_t **madt_local_apics;
 size_t madt_local_apic_i = 0;
 
-struct madt_io_apic **madt_io_apics;
+struct madt_io_apic_t **madt_io_apics;
 size_t madt_io_apic_i = 0;
 
-struct madt_iso **madt_isos;
+struct madt_iso_t **madt_isos;
 size_t madt_iso_i = 0;
 
-struct madt_nmi **madt_nmis;
+struct madt_nmi_t **madt_nmis;
 size_t madt_nmi_i = 0;
 
 void init_madt(void) {
@@ -41,22 +41,22 @@ void init_madt(void) {
             case 0:
                 /* processor local APIC */
                 kprint(KPRN_INFO, "acpi/madt: Found local APIC #%u", madt_local_apic_i);
-                madt_local_apics[madt_local_apic_i++] = (struct madt_local_apic *)madt_ptr;
+                madt_local_apics[madt_local_apic_i++] = (struct madt_local_apic_t *)madt_ptr;
                 break;
             case 1:
                 /* I/O APIC */
                 kprint(KPRN_INFO, "acpi/madt: Found I/O APIC #%u", madt_io_apic_i);
-                madt_io_apics[madt_io_apic_i++] = (struct madt_io_apic *)madt_ptr;
+                madt_io_apics[madt_io_apic_i++] = (struct madt_io_apic_t *)madt_ptr;
                 break;
             case 2:
                 /* interrupt source override */
                 kprint(KPRN_INFO, "acpi/madt: Found ISO #%u", madt_iso_i);
-                madt_isos[madt_iso_i++] = (struct madt_iso *)madt_ptr;
+                madt_isos[madt_iso_i++] = (struct madt_iso_t *)madt_ptr;
                 break;
             case 4:
                 /* NMI */
                 kprint(KPRN_INFO, "acpi/madt: Found NMI #%u", madt_nmi_i);
-                madt_nmis[madt_nmi_i++] = (struct madt_nmi *)madt_ptr;
+                madt_nmis[madt_nmi_i++] = (struct madt_nmi_t *)madt_ptr;
                 break;
             default:
                 break;

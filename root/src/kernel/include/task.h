@@ -14,7 +14,7 @@
 #define TASK_STS_READY 1
 #define TASK_STS_BLOCKED 2
 
-struct ctx {
+struct ctx_t {
     uint64_t es;
     uint64_t ds;
     uint64_t r15;
@@ -44,19 +44,19 @@ typedef size_t tid_t;
 typedef size_t uid_t;
 typedef size_t gid_t;
 
-struct thread {
+struct thread_t {
     tid_t tid;
     int status;
     int priority;
     size_t active_on_cpu;
-    struct ctx ctx;
+    struct ctx_t ctx;
 };
 
-struct process {
+struct process_t {
     pid_t pid;
     int priority;
-    struct pagemap *pagemap;
-    struct thread **threads;
+    struct pagemap_t *pagemap;
+    struct thread_t **threads;
     char *cwd;
     int *file_handles;
 };
@@ -64,12 +64,12 @@ struct process {
 extern int scheduler_ready;
 extern lock_t scheduler_lock;
 
-extern struct process **process_table;
+extern struct process_t **process_table;
 
 void init_sched(void);
 
 tid_t task_tcreate(pid_t, void *, void *(*)(void *), void *);
-pid_t task_pcreate(struct pagemap *);
+pid_t task_pcreate(struct pagemap_t *);
 int task_tkill(pid_t, tid_t);
 
 #endif

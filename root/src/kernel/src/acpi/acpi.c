@@ -9,9 +9,9 @@ int acpi_available = 0;
 
 static int use_xsdt = 0;
 
-struct rsdp *rsdp;
-struct rsdt *rsdt;
-struct xsdt *xsdt;
+struct rsdp_t *rsdp;
+struct rsdt_t *rsdt;
+struct xsdt_t *xsdt;
 
 /* This function should look for all the ACPI tables and index them for
    later use */
@@ -28,7 +28,7 @@ void init_acpi(void) {
         }
         if (!kstrncmp((char *)i, "RSD PTR ", 8)) {
             kprint(KPRN_INFO, "acpi: Found RSDP at %X", i);
-            rsdp = (struct rsdp *)i;
+            rsdp = (struct rsdp_t *)i;
             goto rsdp_found;
         }
     }
@@ -45,10 +45,10 @@ rsdp_found:
     if (rsdp->rev >= 2 && rsdp->xsdt_addr) {
         use_xsdt = 1;
         kprint(KPRN_INFO, "acpi: Found XSDT at %X", ((size_t)rsdp->xsdt_addr + MEM_PHYS_OFFSET));
-        xsdt = (struct xsdt *)((size_t)rsdp->xsdt_addr + MEM_PHYS_OFFSET);
+        xsdt = (struct xsdt_t *)((size_t)rsdp->xsdt_addr + MEM_PHYS_OFFSET);
     } else {
         kprint(KPRN_INFO, "acpi: Found RSDT at %X", ((size_t)rsdp->rsdt_addr + MEM_PHYS_OFFSET));
-        rsdt = (struct rsdt *)((size_t)rsdp->rsdt_addr + MEM_PHYS_OFFSET);
+        rsdt = (struct rsdt_t *)((size_t)rsdp->rsdt_addr + MEM_PHYS_OFFSET);
     }
 
     /* Call table inits */
@@ -59,11 +59,11 @@ rsdp_found:
 
 /* Find SDT by signature */
 void *acpi_find_sdt(const char *signature) {
-    struct sdt *ptr;
+    struct sdt_t *ptr;
 
     if (use_xsdt) {
         for (size_t i = 0; i < xsdt->sdt.length; i++) {
-            ptr = (struct sdt *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
+            ptr = (struct sdt_t *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!kstrncmp(ptr->signature, signature, 4)) {
                 kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
                 return (void *)ptr;
@@ -71,7 +71,7 @@ void *acpi_find_sdt(const char *signature) {
         }
     } else {
         for (size_t i = 0; i < rsdt->sdt.length; i++) {
-            ptr = (struct sdt *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
+            ptr = (struct sdt_t *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!kstrncmp(ptr->signature, signature, 4)) {
                 kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
                 return (void *)ptr;

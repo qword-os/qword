@@ -16,7 +16,7 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     pt_entry_t *pagemap = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
     if (pagemap == (void *)MEM_PHYS_OFFSET) return -1;
 
-    struct pagemap *new_pagemap = kalloc(sizeof(struct pagemap));
+    struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));
     if (!new_pagemap) return -1;
     new_pagemap->pagemap = pagemap;
     new_pagemap->lock = 1;

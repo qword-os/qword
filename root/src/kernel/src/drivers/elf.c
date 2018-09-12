@@ -6,15 +6,15 @@
 #include <panic.h>
 
 /* Execute an ELF file given some file data */
-int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
+int elf_load(int fd, struct pagemap_t *pagemap, uint64_t *entry) {
     int ret = lseek(fd, 0, SEEK_SET);
     if (ret == -1) return -1;
 
     char *magic = "\177ELF";
 
-    struct elf_hdr hdr;
+    struct elf_hdr_t hdr;
 
-    ret = read(fd, &hdr, sizeof(struct elf_hdr));
+    ret = read(fd, &hdr, sizeof(struct elf_hdr_t));
     if (ret == -1) return -1;
 
     for (size_t i = 0; i < 4; i++) {
@@ -30,10 +30,10 @@ int elf_load(int fd, struct pagemap *pagemap, uint64_t *entry) {
     ret = lseek(fd, phoff, SEEK_SET);
     if (ret == -1) return -1;
 
-    struct elf_phdr *phdr = kalloc(hdr.ph_num * sizeof(struct elf_phdr));
+    struct elf_phdr_t *phdr = kalloc(hdr.ph_num * sizeof(struct elf_phdr_t));
     if (!phdr) return -1;
 
-    ret = read(fd, phdr, hdr.ph_num * sizeof(struct elf_phdr));
+    ret = read(fd, phdr, hdr.ph_num * sizeof(struct elf_phdr_t));
     if (ret == -1) {
         kfree(phdr);
         return -1;

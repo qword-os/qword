@@ -30,19 +30,18 @@ typedef uint64_t nlink_t;
 typedef uint64_t blksize_t;
 typedef uint64_t blkcnt_t;
 
-struct vfs_fd {
+struct vfs_handle_t {
     int used;
     int fs;
     int intern_fd;
 };
 
-struct mnt {
+struct mnt_t {
     char mntpt[2048];
     int fs;
     int magic;
 };
 
-/* stat is like this for compatibility reasons */
 struct stat {
     dev_t st_dev;
     ino_t st_ino;
@@ -57,7 +56,7 @@ struct stat {
 };
 
 /* A filesystem, defined by the function pointers that allow us to access it */
-struct fs {
+struct fs_t {
     char type[256];
     int (*mount)(const char *, unsigned long, const void *);
     int (*umount)(const char *);
@@ -82,7 +81,7 @@ int lseek(int, off_t, int);
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
 void vfs_get_absolute_path(char *, const char *, const char *);
-int vfs_install_fs(struct fs);
+int vfs_install_fs(struct fs_t);
 void init_vfs(void);
 
 void init_devfs(void);

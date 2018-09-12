@@ -14,16 +14,16 @@
 
 size_t smp_cpu_count = 1;
 
-typedef struct {
+struct tss_t {
     uint32_t unused __attribute__((aligned(16)));
     uint64_t sp;
     uint32_t entries[23];
-} __attribute__((packed)) tss_t;
+} __attribute__((packed));
 
 static size_t cpu_stack_top = KERNEL_PHYS_OFFSET + 0xeffff0;
 
-cpu_local_t cpu_locals[MAX_CPUS];
-static tss_t cpu_tss[MAX_CPUS] __attribute__((aligned(16)));
+struct cpu_local_t cpu_locals[MAX_CPUS];
+static struct tss_t cpu_tss[MAX_CPUS] __attribute__((aligned(16)));
 
 static void ap_kernel_entry(void) {
     /* APs jump here after initialisation */
@@ -60,8 +60,8 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
 
     setup_cpu_local(cpu_number, target_apic_id);
 
-    cpu_local_t *cpu_local = &cpu_locals[cpu_number];
-    tss_t *tss = &cpu_tss[cpu_number];
+    struct cpu_local_t *cpu_local = &cpu_locals[cpu_number];
+    struct tss_t *tss = &cpu_tss[cpu_number];
 
     void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pagemap,
                                 (void *)cpu_stack_top, cpu_local, tss);
@@ -99,8 +99,8 @@ success:
 static void init_cpu0(void) {
     setup_cpu_local(0, 0);
 
-    cpu_local_t *cpu_local = &cpu_locals[0];
-    tss_t *tss = &cpu_tss[0];
+    struct cpu_local_t *cpu_local = &cpu_locals[0];
+    struct tss_t *tss = &cpu_tss[0];
 
     smp_init_cpu0_local(cpu_local, tss);
 

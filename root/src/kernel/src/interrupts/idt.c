@@ -6,7 +6,7 @@
 #include <ipi.h>
 #include <syscall.h>
 
-static struct idt_entry idt[256];
+static struct idt_entry_t idt[256];
 
 void init_idt(void) {
     for (size_t vec = 0; vec < 256; vec++) {
@@ -62,7 +62,7 @@ void init_idt(void) {
     /* syscall interface */
     register_interrupt_handler(0x80, syscall_entry, 0xee);
 
-    struct idt_ptr idt_ptr = {
+    struct idt_ptr_t idt_ptr = {
         sizeof(idt) - 1,
         (uint64_t)idt
     };

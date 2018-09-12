@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <ahci/fis.h>
 
-struct hba_port {
+struct hba_port_t {
     uint32_t clb;		// 0x00, command list base address, 1K-byte aligned
     uint32_t clbu;		// 0x04, command list base address upper 32 bits
     uint32_t fb;		// 0x08, FIS base address, 256-byte aligned
@@ -27,7 +27,7 @@ struct hba_port {
     uint32_t vendor[4];	// 0x70 ~ 0x7F, vendor specific
 };
 
-struct hba_mem {
+struct hba_mem_t {
     // 0x00 - 0x2B, Generic Host Control
     uint32_t cap;		// 0x00, Host capability
     uint32_t ghc;		// 0x04, Global host control
@@ -42,10 +42,10 @@ struct hba_mem {
     uint32_t bohc;		// 0x28, BIOS/OS handoff control and status
     uint8_t  rsv[0xA0-0x2C];
     uint8_t  vendor[0x100-0xA0];
-    struct hba_port ports[1];
+    struct hba_port_t ports[1];
 };
 
-struct hba_cmd_hdr {
+struct hba_cmd_hdr_t {
     uint8_t cfl:5;		    
     uint8_t a:1;		
     uint8_t w:1;		
@@ -62,7 +62,7 @@ struct hba_cmd_hdr {
     uint32_t rsv1[4];
 };
 
-struct hba_prdtl {
+struct hba_prdtl_t {
     uint32_t dba;
     uint32_t dbau;
     uint32_t rsv0;
@@ -71,11 +71,11 @@ struct hba_prdtl {
     uint32_t i : 1;
 };
 
-struct hba_cmd_tbl {
+struct hba_cmd_tbl_t {
     uint8_t  cfis[64];
     uint8_t  acmd[16];
     uint8_t  rsv[48];
-    struct hba_prdtl prdt_entry[1];
+    struct hba_prdtl_t prdt_entry[1];
 };
 
 

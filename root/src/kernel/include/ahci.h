@@ -22,9 +22,9 @@
 #define HBA_PxCMD_CR    0x8000
 
 void init_ahci(void);
-int probe_port(struct hba_mem *, size_t);
-int ahci_init_ata(struct hba_port *, size_t);
-int ahci_init_atapi(struct hba_port *, size_t);
-void port_rebase(struct hba_port *, size_t);
+int probe_port(struct hba_mem_t *, size_t);
+int ahci_init_ata(struct hba_port_t *, size_t);
+int ahci_init_atapi(struct hba_port_t *, size_t);
+void port_rebase(struct hba_port_t *, size_t);
 
 #endif

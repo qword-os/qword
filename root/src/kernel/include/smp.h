@@ -13,7 +13,7 @@
     cpu_number; \
 })
 
-typedef struct {
+struct cpu_local_t {
     /* DO NOT MOVE THESE MEMBERS FROM THESE LOCATIONS */
     /* DO NOT CHANGE THEIR TYPES */
     size_t cpu_number;
@@ -23,9 +23,9 @@ typedef struct {
     tid_t current_thread;
     uint8_t lapic_id;
     int reset_scheduler;
-} cpu_local_t;
+};
 
-extern cpu_local_t cpu_locals[MAX_CPUS];
+extern struct cpu_local_t cpu_locals[MAX_CPUS];
 
 void init_smp(void);
 void smp_init_cpu0_local(void *, void *);

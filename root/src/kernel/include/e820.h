@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-struct e820_entry {
+struct e820_entry_t {
     uint64_t base;
     uint64_t length;
     uint32_t type;
@@ -12,7 +12,7 @@ struct e820_entry {
 } __attribute__((packed));
 
 extern uint64_t memory_size;
-extern struct e820_entry e820_map[256];
+extern struct e820_entry_t e820_map[256];
 
 void init_e820(void);
 

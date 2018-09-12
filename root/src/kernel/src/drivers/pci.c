@@ -3,7 +3,7 @@
 #include <pci.h>
 #include <klib.h>
 
-struct pci_device *pci_devices;
+struct pci_device_t *pci_devices;
 size_t device_count;
 size_t available_count;
 
@@ -16,7 +16,7 @@ uint32_t pci_read_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset
 }
 
 /* Probe address space for information about a device */
-void pci_probe(struct pci_device *device, uint8_t bus, uint8_t slot, uint8_t func) {
+void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t func) {
     uint32_t config_0 = pci_read_config(bus, slot, func, 0);
 
     if (config_0 == 0xffffffff) {
@@ -50,19 +50,19 @@ void pci_probe(struct pci_device *device, uint8_t bus, uint8_t slot, uint8_t fun
     return;
 }
 
-uint32_t pci_get_device_address(struct pci_device *device, uint32_t offset) {
+uint32_t pci_get_device_address(struct pci_device_t *device, uint32_t offset) {
     return (1 << 31) | (((uint32_t)device->bus) << 16) | (((uint32_t)device->device) << 11)
         | (((uint32_t)device->func) << 8) | (((uint32_t)offset) & 0xfc);
 }
 
-uint32_t pci_read_device(struct pci_device *device, uint32_t offset) {
+uint32_t pci_read_device(struct pci_device_t *device, uint32_t offset) {
     uint32_t address = pci_get_device_address(device, offset);
     port_out_d(0xcf8, address);
 
     return port_in_d(0xcfc);
 }
 
-void pci_write_device(struct pci_device *device, uint32_t offset, uint32_t value) {
+void pci_write_device(struct pci_device_t *device, uint32_t offset, uint32_t value) {
     uint32_t address = pci_get_device_address(device, offset);
     port_out_d(0xcf8, address);
     port_out_d(0xcfc, value);
@@ -70,7 +70,7 @@ void pci_write_device(struct pci_device *device, uint32_t offset, uint32_t value
     return;
 }
 
-void pci_set_device_flag(struct pci_device *device, uint32_t offset, uint32_t flag, int toggle) {
+void pci_set_device_flag(struct pci_device_t *device, uint32_t offset, uint32_t flag, int toggle) {
     uint32_t value = pci_read_device(device, offset);
 
     if (toggle)
@@ -82,7 +82,7 @@ void pci_set_device_flag(struct pci_device *device, uint32_t offset, uint32_t fl
     return;
 }
 
-void pci_load_bars(struct pci_device *device) {
+void pci_load_bars(struct pci_device_t *device) {
     for (size_t i = 0; i < 6; i++) {
         /* Bars exist at offset spacings of 4 bytes */
         uint32_t bar = pci_read_device(device, (i * 4) + 0x10);
@@ -99,11 +99,11 @@ void pci_load_bars(struct pci_device *device) {
     }
 }
 
-uint32_t pci_get_bar(struct pci_device *device, size_t index) {
+uint32_t pci_get_bar(struct pci_device_t *device, size_t index) {
     return device->bars[index];
 }
 
-int pci_get_device(struct pci_device *device, uint8_t class, uint8_t subclass) {
+int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass) {
     for (size_t i = 0; i < device_count; i++) {
         if ((pci_devices[i].device_class == class) && (pci_devices[i].subclass == subclass)) {
             *device = pci_devices[i];
@@ -123,7 +123,7 @@ void pci_init_device(uint8_t bus, uint8_t dev) {
 }
 
 void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
-    struct pci_device device = {0};
+    struct pci_device_t device = {0};
     pci_probe(&device, bus, dev, func);
     if (device.available) {
         for (size_t i = 0; i < device_count; i++) {
@@ -134,7 +134,7 @@ void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
             }
         }
 
-        pci_devices = krealloc(pci_devices, (device_count + 1) * sizeof(struct pci_device));
+        pci_devices = krealloc(pci_devices, (device_count + 1) * sizeof(struct pci_device_t));
         pci_devices[device_count] = device;
         pci_devices++;
 
@@ -153,7 +153,7 @@ void pci_init_bus(uint8_t bus) {
 }
 
 void init_pci(void) {
-    pci_devices = kalloc(8192 * sizeof(struct pci_device));
+    pci_devices = kalloc(8192 * sizeof(struct pci_device_t));
     device_count = 8192;
     available_count = 0;
 

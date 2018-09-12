@@ -15,7 +15,7 @@ enum fis_type {
     FIS_TYPE_DEV_BITS	= 0xA1,
 };
 
-struct fis_regh2d {
+struct fis_regh2d_t {
     uint8_t  fis_type;
     uint8_t  pmport:4;
     uint8_t  rsv0:3;		// Reserved
@@ -43,7 +43,7 @@ struct fis_regh2d {
     uint8_t  rsv1[4];	// Reserved
 };
 
-struct fis_regd2h{
+struct fis_regd2h_t {
     // DWORD 0
     uint8_t  fis_type;    // FIS_TYPE_REG_D2H
 
@@ -76,7 +76,7 @@ struct fis_regd2h{
     uint8_t  rsv4[4];     // Reserved
 };
 
-struct fis_data {
+struct fis_data_t {
     // DWORD 0
     uint8_t  fis_type;	// FIS_TYPE_DATA
 
@@ -89,7 +89,7 @@ struct fis_data {
     uint32_t data[1];	// Payload
 };
 
-struct fis_pio_setup {
+struct fis_pio_setup_t {
     // DWORD 0
     uint8_t  fis_type;	// FIS_TYPE_PIO_SETUP
 
@@ -125,7 +125,7 @@ struct fis_pio_setup {
     uint8_t  rsv4[2];	// Reserved
 };
 
-struct fis_data_setup {
+struct fis_data_setup_t {
     uint8_t  fis_type;
     uint8_t  pmport : 4;
     uint8_t  rsvd0 : 1;

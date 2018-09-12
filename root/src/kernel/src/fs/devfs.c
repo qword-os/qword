@@ -4,7 +4,7 @@
 #include <fs.h>
 #include <dev.h>
 
-struct devfs_handle {
+struct devfs_handle_t {
     int free;
     char path[1024];
     int flags;
@@ -16,10 +16,10 @@ struct devfs_handle {
     int device;
 };
 
-static struct devfs_handle *devfs_handles = (struct devfs_handle *)0;
+static struct devfs_handle_t *devfs_handles = (struct devfs_handle_t *)0;
 static int devfs_handles_i = 0;
 
-static int devfs_create_handle(struct devfs_handle handle) {
+static int devfs_create_handle(struct devfs_handle_t handle) {
     int handle_n;
 
     for (int i = 0; i < devfs_handles_i; i++) {
@@ -29,14 +29,13 @@ static int devfs_create_handle(struct devfs_handle handle) {
         }
     }
 
-    devfs_handles = krealloc(devfs_handles, (devfs_handles_i + 1) * sizeof(struct devfs_handle));
+    devfs_handles = krealloc(devfs_handles, (devfs_handles_i + 1) * sizeof(struct devfs_handle_t));
     handle_n = devfs_handles_i++;
     
 load_handle:
     devfs_handles[handle_n] = handle;
     
     return handle_n;
-
 }
 
 static int devfs_write(int handle, const void *ptr, size_t len) {
@@ -72,7 +71,7 @@ static int devfs_open(char *path, int flags, int mode) {
     if (flags & O_CREAT)
         return -1;
 
-    struct devfs_handle new_handle = {0};
+    struct devfs_handle_t new_handle = {0};
     new_handle.free = 0;
     kstrcpy(new_handle.path, path);
     new_handle.flags = flags;
@@ -137,7 +136,7 @@ static int devfs_lseek(int handle, off_t offset, int type) {
 }
 
 void init_devfs(void) {
-    struct fs devfs = {0};
+    struct fs_t devfs = {0};
 
     kstrcpy(devfs.type, "devfs");
     devfs.read = devfs_read;
