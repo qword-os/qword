@@ -10,7 +10,11 @@
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff
-#define ENTRIES_PER_BLOCK       (BYTES_PER_BLOCK / 256)
+#define BYTES_PER_SECT          512
+#define SECTORS_PER_BLOCK       (bytesperblock / BYTES_PER_SECT)
+#define BYTES_PER_BLOCK         (SECTORS_PER_BLOCK * BYTES_PER_SECT)
+#define ENTRIES_PER_SECT        2
+#define ENTRIES_PER_BLOCK       (SECTORS_PER_BLOCK * ENTRIES_PER_SECT)
 #define FILENAME_LEN            218
 #define RESERVED_BLOCKS         16
 #define FILE_TYPE               0
@@ -40,244 +44,190 @@ typedef struct {
     int not_found;
 } path_result_t;
 
-int verbose = 0;
+static int verbose = 0;
 
-FILE* image;
-uint64_t imgsize;
-uint64_t blocks;
-uint64_t fatsize;
-uint64_t fatstart = RESERVED_BLOCKS;
-uint64_t dirsize;
-uint64_t dirstart;
-uint64_t datastart;
-uint64_t BYTES_PER_BLOCK;
+static FILE* image;
+static uint64_t imgsize;
+static uint64_t blocks;
+static uint64_t fatsize;
+static uint64_t fatstart = RESERVED_BLOCKS;
+static uint64_t dirsize;
+static uint64_t dirstart;
+static uint64_t datastart;
+static uint64_t bytesperblock;
 
-uint64_t power(uint64_t x, uint64_t y) {
-    uint64_t res;
-    for (res = 1; y; y--)
-        res *= x;
-    return res;
-}
-
-uint8_t rd_byte(uint64_t loc) {
+static inline uint8_t rd_byte(uint64_t loc) {
     fseek(image, (long)loc, SEEK_SET);
     return (uint8_t)fgetc(image);
 }
 
-void wr_byte(uint64_t loc, uint8_t x) {
+static inline void wr_byte(uint64_t loc, uint8_t x) {
     fseek(image, (long)loc, SEEK_SET);
     fputc((int)x, image);
     return;
 }
 
-uint16_t rd_word(uint64_t loc) {
+static inline uint16_t rd_word(uint64_t loc) {
     uint16_t x = 0;
     fseek(image, (long)loc, SEEK_SET);
-    for (uint64_t i = 0; i < 2; i++)
-        x += (uint16_t)fgetc(image) * (uint16_t)(power(0x100, i));
+    fread(&x, 2, 1, image);
     return x;
 }
 
-void wr_word(uint64_t loc, uint16_t x) {
+static inline void wr_word(uint64_t loc, uint16_t x) {
     fseek(image, (long)loc, SEEK_SET);
-    for (uint64_t i = 0; i < 2; i++)
-       fputc((int)(x / (power(0x100, i)) & 0xff), image);
+    fwrite(&x, 2, 1, image);
     return;
 }
 
-uint32_t rd_dword(uint64_t loc) {
+static inline uint32_t rd_dword(uint64_t loc) {
     uint32_t x = 0;
     fseek(image, (long)loc, SEEK_SET);
-    for (uint64_t i = 0; i < 4; i++)
-        x += (uint32_t)fgetc(image) * (uint32_t)(power(0x100, i));
+    fread(&x, 4, 1, image);
     return x;
 }
 
-void wr_dword(uint64_t loc, uint32_t x) {
+static inline void wr_dword(uint64_t loc, uint32_t x) {
     fseek(image, (long)loc, SEEK_SET);
-    for (uint64_t i = 0; i < 4; i++)
-       fputc((int)(x / (power(0x100, i)) & 0xff), image);
+    fwrite(&x, 4, 1, image);
     return;
 }
 
-uint64_t rd_qword(uint64_t loc) {
+static inline uint64_t rd_qword(uint64_t loc) {
     uint64_t x = 0;
     fseek(image, (long)loc, SEEK_SET);
-    for (uint64_t i = 0; i < 8; i++)
-        x += (uint64_t)fgetc(image) * (uint64_t)(power(0x100, i));
+    fread(&x, 8, 1, image);
     return x;
 }
 
-void wr_qword(uint64_t loc, uint64_t x) {
+static inline void wr_qword(uint64_t loc, uint64_t x) {
     fseek(image, (long)loc, SEEK_SET);
-    for (uint64_t i = 0; i < 8; i++)
-       fputc((int)(x / (power(0x100, i)) & 0xff), image);
+    fwrite(&x, 8, 1, image);
     return;
 }
 
-int fstrcmp(uint64_t loc, const char* str) {
-    for (int i = 0; (rd_byte(loc) || str[i]); i++)
-        if ((char)rd_byte(loc++) != str[i]) return 0;
-    return 1;
-}
-
-int fstrncmp(uint64_t loc, const char* str, int len) {
-    for (int i = 0; i < len; i++)
-        if ((char)rd_byte(loc++) != str[i]) return 0;
-    return 1;
-}
-
-void fstrcpy_in(char* str, uint64_t loc) {
-    int i = 0;
-    while (rd_byte(loc))
-        str[i++] = (char)rd_byte(loc++);
-    str[i] = 0;
-    return;
-}
-
-void fstrcpy_out(uint64_t loc, const char* str) {
-    int i = 0;
-    while (str[i])
-        wr_byte(loc++, (uint8_t)str[i++]);
-    wr_byte(loc, 0);
-    return;
-}
-
-void eputs(uint64_t loc) {
-    int c;
-    while (c = (int)rd_byte(loc++))
-        fputc(c, stdout);
-    return;
-}
-
-entry_t rd_entry(uint64_t entry) {
+static inline entry_t rd_entry(uint64_t entry) {
     entry_t res;
-    uint64_t loc = (dirstart * BYTES_PER_BLOCK) + (entry * sizeof(entry_t));
+    uint64_t loc = (dirstart * bytesperblock) + (entry * sizeof(entry_t));
 
-    if (loc >= (dirstart + dirsize) * BYTES_PER_BLOCK) {
+    if (loc >= (dirstart + dirsize) * bytesperblock) {
         fprintf(stderr, "PANIC! ATTEMPTING TO READ DIRECTORY OUT OF BOUNDS!\n");
-        exit(-1);
+        abort();
     }
 
-    res.parent_id = rd_qword(loc);
-    loc += sizeof(uint64_t);
-    res.type = rd_byte(loc++);
-    fstrcpy_in(res.name, loc);
-    loc += FILENAME_LEN;
-    res.perms = rd_byte(loc++);
-    res.owner = rd_word(loc);
-    loc += sizeof(uint16_t);
-    res.group = rd_word(loc);
-    loc += sizeof(uint16_t);
-    res.time = rd_qword(loc);
-    loc += sizeof(uint64_t);
-    res.payload = rd_qword(loc);
-    loc += sizeof(uint64_t);
-    res.size = rd_qword(loc);
-    
+    fseek(image, (long)loc, SEEK_SET);
+    fread(&res, sizeof(entry_t), 1, image);
+
     return res;
 }
 
-void wr_entry(uint64_t entry, entry_t entry_src) {
-    uint64_t loc = (dirstart * BYTES_PER_BLOCK) + (entry * sizeof(entry_t));
+static inline void wr_entry(uint64_t entry, entry_t entry_src) {
+    uint64_t loc = (dirstart * bytesperblock) + (entry * sizeof(entry_t));
 
     if (loc >= (dirstart + dirsize) * BYTES_PER_BLOCK) {
         fprintf(stderr, "PANIC! ATTEMPTING TO WRITE DIRECTORY OUT OF BOUNDS!\n");
-        exit(-1);
+        abort();
     }
 
-    wr_qword(loc, entry_src.parent_id);
-    loc += sizeof(uint64_t);
-    wr_byte(loc++, entry_src.type);
-    fstrcpy_out(loc, entry_src.name);
-    loc += FILENAME_LEN;
-    wr_byte(loc++, entry_src.perms);
-    wr_word(loc, entry_src.owner);
-    loc += sizeof(uint16_t);
-    wr_word(loc, entry_src.group);
-    loc += sizeof(uint16_t);
-    wr_qword(loc, entry_src.time);
-    loc += sizeof(uint64_t);
-    wr_qword(loc, entry_src.payload);
-    loc += sizeof(uint64_t);
-    wr_qword(loc, entry_src.size);
-    
+    fseek(image, (long)loc, SEEK_SET);
+    fwrite(&entry_src, sizeof(entry_t), 1, image);
+
     return;
 }
 
-uint64_t import_chain(FILE* source) {
+static uint64_t import_chain(FILE *source) {
     uint64_t start_block;
     uint64_t block;
     uint64_t prev_block;
-    uint64_t loc = (fatstart * BYTES_PER_BLOCK);
-    
+    uint64_t loc = (fatstart * bytesperblock);
+    uint8_t *block_buf = malloc(bytesperblock);
+    if (!block_buf) {
+        perror("malloc failure");
+        abort();
+    }
+
     fseek(source, 0L, SEEK_END);
-    uint64_t source_size = (uint64_t)ftell(source);    
+    uint64_t source_size = (uint64_t)ftell(source);
     rewind(source);
-    
-    uint64_t source_size_blocks = source_size / BYTES_PER_BLOCK;
-    if (source_size % BYTES_PER_BLOCK) source_size_blocks++;
-    
-    if (verbose) fprintf(stdout, "file size: %" PRIu64 "\n", source_size);
-    if (verbose) fprintf(stdout, "file size in blocks: %" PRIu64 "\n", source_size_blocks);
-    
+
+    uint64_t source_size_blocks = source_size / bytesperblock;
+    if (source_size % bytesperblock) source_size_blocks++;
+
+    if (verbose) {
+        fprintf(stdout, "file size: %" PRIu64 "\n", source_size);
+        fprintf(stdout, "file size in blocks: %" PRIu64 "\n", source_size_blocks);
+    }
+
     // find first block
-    for (block = 0; rd_qword(loc); block++) loc += 8;    
+    for (block = 0; rd_qword(loc); block++) loc += sizeof(uint64_t);
     start_block = block;
     if (verbose) fprintf(stdout, "first block of chain is #%" PRIu64 "\n", start_block);    
     
     for (uint64_t x = 0; ; x++) {
-        prev_block = (fatstart * BYTES_PER_BLOCK) + (block * sizeof(uint64_t));
+        prev_block = (fatstart * bytesperblock) + (block * sizeof(uint64_t));
         wr_qword(loc, END_OF_CHAIN);
         
-        fseek(image, (long)(block * BYTES_PER_BLOCK), SEEK_SET);    
+        fseek(image, (long)(block * bytesperblock), SEEK_SET);    
         // copy block
-        for (int i = 0; i < BYTES_PER_BLOCK; i++) {
-            if (ftell(source) == source_size) goto out;
-            fputc(fgetc(source), image);
-        }
-        
-        if (x == source_size_blocks) goto out;
+        fread(block_buf, bytesperblock, 1, source);
+        fwrite(block_buf, bytesperblock, 1, image);
+
+        if ((uint64_t)ftell(source) >= source_size)
+            break;
+
+        if (x == source_size_blocks)
+            break;
         
         // find next block
-        loc = (fatstart * BYTES_PER_BLOCK);
+        loc = (fatstart * bytesperblock);
         for (block = 0; rd_qword(loc); block++) loc += sizeof(uint64_t);
         
         wr_qword(prev_block, block);
     }
-out:   
-    
+
+    free(block_buf);
     return start_block;
 }
 
-void export_chain(FILE* dest, entry_t src) {
+static void export_chain(FILE *dest, entry_t src) {
     uint64_t cur_block;
-    
-    for (cur_block = src.payload; cur_block != END_OF_CHAIN; ) {
-        fseek(image, (long)(cur_block * BYTES_PER_BLOCK), SEEK_SET);
-        // copy block
-        for (int i = 0; i < BYTES_PER_BLOCK; i++) {
-            if (ftell(dest) == src.size) goto out;
-            fputc(fgetc(image), dest);
-        }
-        cur_block = rd_qword((fatstart * BYTES_PER_BLOCK) + (cur_block * sizeof(uint64_t)));
+    uint8_t *block_buf = malloc(bytesperblock);
+    if (!block_buf) {
+        perror("malloc failure");
+        abort();
     }
 
-out:
+    for (cur_block = src.payload; cur_block != END_OF_CHAIN; ) {
+        fseek(image, (long)(cur_block * bytesperblock), SEEK_SET);
+        // copy block
+        if (((uint64_t)ftell(dest) + bytesperblock) >= src.size) {
+            fread(block_buf, src.size % bytesperblock, 1, image);
+            fwrite(block_buf, src.size % bytesperblock, 1, dest);
+            break;
+        } else {
+            fread(block_buf, bytesperblock, 1, image);
+            fwrite(block_buf, bytesperblock, 1, dest);
+        }
+
+        cur_block = rd_qword((fatstart * bytesperblock) + (cur_block * sizeof(uint64_t)));
+    }
+
+    free(block_buf);
     return;        
 }
 
-uint64_t search(const char* name, uint64_t parent, uint8_t type) {
+static uint64_t search(const char *name, uint64_t parent, uint8_t type) {
     // returns unique entry #, SEARCH_FAILURE upon failure/not found
     for (uint64_t i = 0; ; i++) {
-        if (!rd_entry(i).parent_id) return SEARCH_FAILURE;              // check if past last entry
+        entry_t entry = rd_entry(i);
+        if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
         if (i >= (dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
-        if ((rd_entry(i).parent_id == parent) && (rd_entry(i).type == type) && (!strcmp(rd_entry(i).name, name)))
+        if ((entry.parent_id == parent) && (entry.type == type) && (!strcmp(entry.name, name)))
             return i;
     }
 }
 
-path_result_t path_resolver(const char* path, uint8_t type) {
+static path_result_t path_resolver(const char *path, uint8_t type) {
     // returns a struct of useful info
     // failure flag set upon failure
     // not_found flag set upon not found
@@ -322,64 +272,71 @@ next:
     path++;
     
     if (!last) {
-        if (search(name, parent.payload, DIRECTORY_TYPE) == SEARCH_FAILURE) {
+        uint64_t search_res = search(name, parent.payload, DIRECTORY_TYPE);
+        if (search_res == SEARCH_FAILURE) {
             result.failure = 1; // fail if search fails
             return result;
         }
-        parent = rd_entry(search(name, parent.payload, DIRECTORY_TYPE));
+        parent = rd_entry(search_res);
     } else {
-        if (search(name, parent.payload, type) == SEARCH_FAILURE)
+        uint64_t search_res = search(name, parent.payload, type);
+        if (search_res == SEARCH_FAILURE)
             result.not_found = 1;
         else {
-            result.target = rd_entry(search(name, parent.payload, type));
-            result.target_entry = search(name, parent.payload, type);
+            result.target = rd_entry(search_res);
+            result.target_entry = search_res;
         }
         result.parent = parent;
         strcpy(result.name, name);
         return result;
     }
-    
+
     goto next;
 }
 
-uint64_t get_free_id(void) {
+static inline uint64_t get_free_id(void) {
     uint64_t id = 1;
     uint64_t i;
 
-    for (i = 0; rd_entry(i).parent_id; i++) {
-        if ((rd_entry(i).type == 1) && (rd_entry(i).payload == id))
-            id = (rd_entry(i).payload + 1);
+    for (i = 0; ; i++) {
+        entry_t entry = rd_entry(i);
+        if (!entry.parent_id)
+            break;
+        if ((entry.type == 1) && (entry.payload == id))
+            id = (entry.payload + 1);
     }
     
     return id;
 }
 
-void mkdir_cmd(int argc, char** argv) {
+static void mkdir_cmd(int argc, char **argv) {
     uint64_t i;
     entry_t entry = {0};
-    entry_t extra_entry = {0};
     
     if (argc < 4) {
         fprintf(stderr, "%s: %s: missing argument: directory name.\n", argv[0], argv[2]);
         return;
     }
-    
+
+    path_result_t path_result = path_resolver(argv[3], DIRECTORY_TYPE);
+
     // check if it exists
-    if (!path_resolver(argv[3], DIRECTORY_TYPE).not_found) {
+    if (!(path_result.not_found)) {
         fprintf(stderr, "%s: %s: directory `%s` already exists.\n", argv[0], argv[2], argv[3]);
         return;
     }
     
     // find empty entry
     for (i = 0; ; i++) {
-        if ((rd_entry(i).parent_id == 0) || (rd_entry(i).parent_id == DELETED_ENTRY))
+        entry_t entry_i = rd_entry(i);
+        if ((entry_i.parent_id == 0) || (entry_i.parent_id == DELETED_ENTRY))
             break;
     }
     
-    entry.parent_id = path_resolver(argv[3], DIRECTORY_TYPE).parent.payload;
+    entry.parent_id = path_result.parent.payload;
     if (verbose) fprintf(stdout, "new directory's parent ID: %" PRIu64 "\n", entry.parent_id);
     entry.type = DIRECTORY_TYPE;
-    strcpy(entry.name, path_resolver(argv[3], DIRECTORY_TYPE).name);
+    strcpy(entry.name, path_result.name);
     entry.payload = get_free_id();
     if (verbose) fprintf(stdout, "new directory's ID: %" PRIu64 "\n", entry.payload);
     if (verbose) fprintf(stdout, "writing to entry #%" PRIu64 "\n", i);
@@ -392,8 +349,8 @@ void mkdir_cmd(int argc, char** argv) {
     return;
 }
 
-void import_cmd(int argc, char** argv) {
-    FILE* source;
+static void import_cmd(int argc, char **argv) {
+    FILE *source;
     entry_t entry = {0};
     uint64_t i;
     
@@ -433,9 +390,11 @@ subdir:
             goto subdir;
         }
     }
-    
+
+    path_result_t path_result = path_resolver(argv[4], FILE_TYPE);
+
     // check if the file exists
-    if (!path_resolver(argv[4], FILE_TYPE).not_found) {
+    if (!path_result.not_found) {
         fprintf(stderr, "%s: %s: error: file `%s` already exists.\n", argv[0], argv[2], argv[4]);
         return;
     }
@@ -445,9 +404,9 @@ subdir:
         return;
     }
 
-    entry.parent_id = path_resolver(argv[4], FILE_TYPE).parent.payload;
+    entry.parent_id = path_result.parent.payload;
     entry.type = FILE_TYPE;
-    strcpy(entry.name, path_resolver(argv[4], FILE_TYPE).name);
+    strcpy(entry.name, path_result.name);
     entry.payload = import_chain(source);
     fseek(source, 0L, SEEK_END);
     entry.size = (uint64_t)ftell(source);
@@ -455,7 +414,8 @@ subdir:
     
     // find empty entry
     for (i = 0; ; i++) {
-        if ((rd_entry(i).parent_id == 0) || (rd_entry(i).parent_id == DELETED_ENTRY))
+        entry_t entry_i = rd_entry(i);
+        if ((entry_i.parent_id == 0) || (entry_i.parent_id == DELETED_ENTRY))
             break;
     }
     wr_entry(i, entry);
@@ -465,8 +425,8 @@ subdir:
     return;
 }
 
-void export_cmd(int argc, char** argv) {
-    FILE* dest;
+static void export_cmd(int argc, char **argv) {
+    FILE *dest;
     
     if (argc < 4) {
         fprintf(stderr, "%s: %s: missing argument: source file.\n", argv[0], argv[2]);
@@ -476,9 +436,11 @@ void export_cmd(int argc, char** argv) {
         fprintf(stderr, "%s: %s: missing argument: destination file.\n", argv[0], argv[2]);
         return;
     }
+
+    path_result_t path_result = path_resolver(argv[3], FILE_TYPE);
     
     // check if the file doesn't exist
-    if (path_resolver(argv[3], FILE_TYPE).not_found) {
+    if (path_result.not_found) {
         fprintf(stderr, "%s: %s: error: file `%s` not found.\n", argv[0], argv[2], argv[3]);
         return;
     }
@@ -488,16 +450,16 @@ void export_cmd(int argc, char** argv) {
         return;
     }
 
-    export_chain(dest, path_resolver(argv[3], FILE_TYPE).target);
+    export_chain(dest, path_result.target);
     
     fclose(dest);
     if (verbose) fprintf(stdout, "exported file `%s` as `%s`\n", argv[3], argv[4]);
     return;
 }
 
-void ls_cmd(int argc, char** argv) {
+static void ls_cmd(int argc, char **argv) {
     uint64_t id;
-    
+
     if (argc < 4)
         id = ROOT_ID;
     else {
@@ -521,7 +483,7 @@ void ls_cmd(int argc, char** argv) {
     return;
 }
 
-void format_pass1(int argc, char **argv) {
+static void format_pass1(int argc, char **argv) {
 
     if (argc <= 3) {
         fprintf(stderr, "%s: error: unspecified block size.\n", argv[0]);
@@ -531,63 +493,69 @@ void format_pass1(int argc, char **argv) {
 
     if (verbose) fprintf(stdout, "formatting...\n");
 
-    BYTES_PER_BLOCK = atoi(argv[3]);
+    bytesperblock = atoi(argv[3]);
 
-    if ((BYTES_PER_BLOCK <= 0) || (BYTES_PER_BLOCK % 512)) {
+    if ((bytesperblock <= 0) || (bytesperblock % 512)) {
         fprintf(stderr, "%s: error: block size MUST be a multiple of 512.\n", argv[0]);
         fclose(image);
         abort();
     }
-    
-    if (imgsize % BYTES_PER_BLOCK) {
+
+    if (imgsize % bytesperblock) {
         fprintf(stderr, "%s: error: image is not block-aligned.\n", argv[0]);
         fclose(image);
         abort();
     }
 
-    blocks = imgsize / BYTES_PER_BLOCK;
+    blocks = imgsize / bytesperblock;
 
     // write signature
-    fstrcpy_out(4, "_ECH_FS_");
+    fseek(image, 4, SEEK_SET);
+    fputs("_ECH_FS_", image);
     // total blocks
     wr_qword(12, blocks);
     // directory size
     wr_qword(20, blocks / 20); // blocks / 20 (roughly 5% of the total)
     // block size
-    wr_qword(28, BYTES_PER_BLOCK);
-    
-    fseek(image, (RESERVED_BLOCKS * BYTES_PER_BLOCK), SEEK_SET);
+    wr_qword(28, bytesperblock);
+
+    fseek(image, (RESERVED_BLOCKS * bytesperblock), SEEK_SET);
     if (verbose) fprintf(stdout, "zeroing");
-    
+
     // zero out the rest of the image
-    for (uint64_t i = (RESERVED_BLOCKS * BYTES_PER_BLOCK); i < imgsize; i++) {
-        fputc(0, image);
-        if (!(i % 65536))
-            if (verbose) fputc('.', stdout);
+    uint8_t *zeroblock = calloc(bytesperblock, 1);
+    if (!zeroblock) {
+        perror("calloc failure");
+        abort();
     }
-    
+    for (uint64_t i = (RESERVED_BLOCKS * bytesperblock); i < imgsize; i += bytesperblock) {
+        fwrite(zeroblock, bytesperblock, 1, image);
+        if (verbose) fputc('.', stdout);
+    }
+    free(zeroblock);
+
     if (verbose) fputc('\n', stdout);
     
     return;
 
 }
 
-void format_pass2(void) {
+static void format_pass2(void) {
     // mark reserved blocks
-    uint64_t loc = fatstart * BYTES_PER_BLOCK;
-    
+    uint64_t loc = fatstart * bytesperblock;
+
     for (uint64_t i = 0; i < (RESERVED_BLOCKS + fatsize + dirsize); i++) {
         wr_qword(loc, RESERVED_BLOCK);
         loc += sizeof(uint64_t);
     }
-    
+
     if (verbose) fprintf(stdout, "format complete!\n");
 
     return;
 }
 
-int main(int argc, char** argv) {
-    
+int main(int argc, char **argv) {
+
     if ((argc > 1) && (!strcmp(argv[1], "-v"))) {
         verbose = 1;
         argv[1] = argv[0];
@@ -604,14 +572,17 @@ int main(int argc, char** argv) {
         fprintf(stderr, "%s: error: couldn't access `%s`.\n", argv[0], argv[1]);
         return EXIT_FAILURE;
     }
-    
+
     fseek(image, 0L, SEEK_END);
-    imgsize = (uint64_t)ftell(image);    
+    imgsize = (uint64_t)ftell(image);
     rewind(image);
-    
+
     if ((argc > 2) && (!strcmp(argv[2], "format"))) format_pass1(argc, argv);
-    
-    if (!fstrncmp(4, "_ECH_FS_", 8)) {
+
+    char signature[8] = {0};
+    fseek(image, 4, SEEK_SET);
+    fread(signature, 8, 1, image);
+    if (strncmp(signature, "_ECH_FS_", 8)) {
         fprintf(stderr, "%s: error: echidnaFS signature missing.\n", argv[0]);
         fclose(image);
         return EXIT_FAILURE;
@@ -620,55 +591,54 @@ int main(int argc, char** argv) {
     
     if (verbose) fprintf(stdout, "image size: %" PRIu64 " bytes\n", imgsize);
 
-    BYTES_PER_BLOCK = rd_qword(28);
+    bytesperblock = rd_qword(28);
     if (verbose) fprintf(stdout, "bytes per block: %" PRIu64 "\n", BYTES_PER_BLOCK);
-    
-    if (imgsize % BYTES_PER_BLOCK) {
+
+    if (imgsize % bytesperblock) {
         fprintf(stderr, "%s: error: image is not block-aligned.\n", argv[0]);
         fclose(image);
         return EXIT_FAILURE;
     }
-    
-    blocks = imgsize / BYTES_PER_BLOCK;
+
+    blocks = imgsize / bytesperblock;
     
     if (verbose) fprintf(stdout, "block count: %" PRIu64 "\n", blocks);
-    
+
     if (verbose) fprintf(stdout, "declared block count: %" PRIu64 "\n", rd_qword(12));
     if (rd_qword(12) != blocks) {
         fprintf(stderr, "%s: warning: declared block count mismatch.\n", argv[0]);
-        //fclose(image);
-        //return EXIT_FAILURE;
     }
-    
-    fatsize = (blocks * sizeof(uint64_t)) / BYTES_PER_BLOCK;
-    if ((blocks * sizeof(uint64_t)) % BYTES_PER_BLOCK) fatsize++;    
+
+    fatsize = (blocks * sizeof(uint64_t)) / bytesperblock;
+    if ((blocks * sizeof(uint64_t)) % bytesperblock) fatsize++;    
     if (verbose) fprintf(stdout, "expected allocation table size: %" PRIu64 " blocks\n", fatsize);
-    
+
     if (verbose) fprintf(stdout, "expected allocation table start: block %" PRIu64 "\n", fatstart);
-    
+
     dirsize = rd_qword(20);
     if (verbose) fprintf(stdout, "declared directory size: %" PRIu64 " blocks\n", dirsize);
-    
+
     dirstart = fatstart + fatsize;
     if (verbose) fprintf(stdout, "expected directory start: block %" PRIu64 "\n", dirstart);
-    
+
     datastart = RESERVED_BLOCKS + fatsize + dirsize;
     if (verbose) fprintf(stdout, "expected reserved blocks: %" PRIu64 "\n", datastart);
-    
+
     if (verbose) fprintf(stdout, "expected usable blocks: %" PRIu64 "\n", blocks - datastart);
-    
-    if (rd_word(510) == 0xaa55)
+
+    if (rd_word(510) == 0xaa55) {
         if (verbose) fprintf(stdout, "the image is bootable\n");
-    else
+    } else {
         if (verbose) fprintf(stdout, "the image is NOT bootable\n");
-    
+    }
+
     if (argc > 2) {
         if (!strcmp(argv[2], "mkdir")) mkdir_cmd(argc, argv);
         else if (!strcmp(argv[2], "ls")) ls_cmd(argc, argv);
         else if (!strcmp(argv[2], "format")) format_pass2();
         else if (!strcmp(argv[2], "import")) import_cmd(argc, argv);
         else if (!strcmp(argv[2], "export")) export_cmd(argc, argv);
-    
+
         else fprintf(stderr, "%s: error: invalid action: `%s`.\n", argv[0], argv[2]);
     } else
         fprintf(stderr, "%s: no action specified, exiting.\n", argv[0]);
