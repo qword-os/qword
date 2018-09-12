@@ -5,27 +5,44 @@
 - SMP compliant scheduler supporting thread scheduling.
 - Program loading with minimal userspace.
 - ATA PIO disk support.
-- Fully functional VFS and devfs with support for the echidnaOS filesystem, `echfs`.
+- Fully functional VFS and devfs with support for the echidnaFS filesystem.
 
 ## Planned features
 - Support for AHCI/SATA.
 - Support for `pthreads` and other elements of POSIX, to allow porting common programs.
 
 
+## Build requirements
+In order to build qword, make sure to have the following installed:
+- bash
+- make
+- GCC and binutils
+- nasm
+- QEMU (to test it)
+
+On Debian and Ubuntu, these packages can be installed with:
+```bash
+sudo apt-get install build-essential nasm qemu-system-x86
+```
+
 ## Building
 ```bash
-# clone repo wherever you like
+# Clone repo wherever you like
 git clone https://github.com/qword-os/qword.git
 cd qword
-# build echfs-utils (used to build the root fs image).
+# Build and install echfs-utils (used to build the root fs image)
 cd host/echfs-utils
-sudo make
-# copy echfs-utils to /usr/local/bin. If you want to place it 
-# somewhere else in your path, just change the PREFIX variable in the
-# Makefile. The binary will then be copied to $PREFIX/bin.
+make
+# Ehis will install echfs-utils in /usr/local
 sudo make install
-# Now to build qword itself. Ensure you have nasm installed.
-cd ...
-make img
+# Else specify a PREFIX variable if you want to install it elsewhere
+make PREFIX=<myprefix> install
+# Go back to the root of the tree
+cd ../..
+# Now to build qword itself
+make clean && make img && sync
 ```
-- You've now built qword. To run the OS, use `make run-img` to start a qemu instance. Again, you should have qemu installed for this.
+
+You've now built qword, a flat `qword.img` disk image has been generated.
+To run the OS in QEMU, use `make run-img`.
+To run it with KVM enabled, use `make run-img-kvm`.
