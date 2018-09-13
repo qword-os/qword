@@ -3,7 +3,6 @@
 #include <mm.h>
 #include <fs.h>
 #include <task.h>
-#include <lock.h>
 #include <klib.h>
 #include <elf.h>
 
@@ -43,8 +42,6 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
                     (size_t)(a + (i * PAGE_SIZE)), 0x07);
     }
 
-    spinlock_acquire(scheduler_lock);
-
     /* Create a new process */
     pid_t new_pid = task_pcreate(new_pagemap);
     if (new_pid == (pid_t)(-1)) return -1;
@@ -52,8 +49,6 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     /* Create main thread */
     tid_t new_thread = task_tcreate(new_pid, (void *)VIRT_STACK_LOCATION_TOP, (void *)entry, 0);
     if (new_thread == (tid_t)(-1)) return -1;
-
-    spinlock_release(scheduler_lock);
 
     return new_pid;
 }

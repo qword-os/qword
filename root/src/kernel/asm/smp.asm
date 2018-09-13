@@ -106,7 +106,7 @@ smp_init_cpu0_local:
     mov rax, syscall_entry
     mov rdx, rax
     shr rdx, 32
-    and rax, 0xffffffff
+    mov eax, eax
     wrmsr
     mov rcx, 0xc0000084
     mov rax, ~(0x202)

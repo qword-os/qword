@@ -14,6 +14,9 @@
 #define TASK_STS_READY 1
 #define TASK_STS_BLOCKED 2
 
+#define CURRENT_PROCESS cpu_locals[current_cpu].current_process
+#define CURRENT_THREAD cpu_locals[current_cpu].current_thread
+
 struct ctx_t {
     uint64_t es;
     uint64_t ds;
@@ -39,16 +42,16 @@ struct ctx_t {
     uint64_t ss;
 };
 
-typedef size_t pid_t;
-typedef size_t tid_t;
-typedef size_t uid_t;
-typedef size_t gid_t;
+typedef int32_t pid_t;
+typedef int32_t tid_t;
+typedef int32_t uid_t;
+typedef int32_t gid_t;
 
 struct thread_t {
     tid_t tid;
     int status;
     int priority;
-    size_t active_on_cpu;
+    int active_on_cpu;
     struct ctx_t ctx;
 };
 
@@ -61,7 +64,6 @@ struct process_t {
     int *file_handles;
 };
 
-extern int scheduler_ready;
 extern lock_t scheduler_lock;
 
 extern struct process_t **process_table;

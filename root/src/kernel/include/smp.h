@@ -8,7 +8,7 @@
 #define MAX_CPUS 128
 
 #define current_cpu ({ \
-    size_t cpu_number; \
+    int cpu_number; \
     asm volatile ("mov rax, qword ptr fs:[0]" : "=a" (cpu_number)); \
     cpu_number; \
 })
@@ -32,6 +32,6 @@ void smp_init_cpu0_local(void *, void *);
 void *smp_prepare_trampoline(void *, void *, void *, void *, void *);
 int smp_check_ap_flag(void);
 
-extern size_t smp_cpu_count;
+extern int smp_cpu_count;
 
 #endif

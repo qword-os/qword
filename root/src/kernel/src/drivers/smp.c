@@ -12,7 +12,7 @@
 
 #define CPU_STACK_SIZE 16384
 
-size_t smp_cpu_count = 1;
+int smp_cpu_count = 1;
 
 struct tss_t {
     uint32_t unused __attribute__((aligned(16)));
@@ -33,9 +33,12 @@ static void ap_kernel_entry(void) {
     
     /* Enable this AP's local APIC */
     lapic_enable();
-    
-    for (;;) { asm volatile ("sti; hlt"); }
-    return;
+
+    /* Enable interrupts */
+    asm volatile ("sti");
+
+    /* Wait for some job to be scheduled */
+    for (;;) asm volatile ("hlt");
 }
 
 static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {

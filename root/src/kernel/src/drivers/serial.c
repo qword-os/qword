@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <lock.h>
 #include <cio.h>
 #include <serial.h>
@@ -15,22 +16,20 @@ void init_com1(void) {
     return;
 }
 
-static lock_t com1_read_lock = 1;
+static lock_t com1_lock = 1;
 
 uint8_t com1_read(void) {
-    spinlock_acquire(&com1_read_lock);
+    spinlock_acquire(&com1_lock);
     while (!(port_in_b(serial_ports[0] + 5) & 0x01));
     volatile uint8_t ret = port_in_b(serial_ports[0]);
-    spinlock_release(&com1_read_lock);
+    spinlock_release(&com1_lock);
     return ret;
 }
 
-static lock_t com1_write_lock = 1;
-
 void com1_write(uint8_t data) {
-    spinlock_acquire(&com1_write_lock);
+    spinlock_acquire(&com1_lock);
     while (!(port_in_b(serial_ports[0] + 5) & 0x20));
     port_out_b(serial_ports[0], data);
-    spinlock_release(&com1_write_lock);
+    spinlock_release(&com1_lock);
     return;
 }

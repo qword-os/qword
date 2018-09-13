@@ -33,7 +33,7 @@ void kmain_thread(void) {
 }
 
 /* Main kernel entry point, all the things should be initialised */
-int kmain(void) {
+void kmain(void) {
     init_idt();
 
     init_com1();
@@ -83,10 +83,12 @@ int kmain(void) {
     /* Initialise scheduler */
     init_sched();
 
+    /* Start a main kernel thread which will take over when the scheduler is running */
     task_tcreate(0, kalloc(4096) + 4096, (void *)kmain_thread, 0);
 
-    for (;;)
-        asm volatile ("hlt;");
+    /* Unlock the scheduler for the first time */
+    spinlock_release(&scheduler_lock);
 
-    return 0;
+    /* Pre-scheduler init done. Wait for the main kernel thread to be scheduled. */
+    for (;;) asm volatile ("hlt");
 }
