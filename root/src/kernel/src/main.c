@@ -65,7 +65,7 @@ void kmain(void) {
     /* Initialise device drivers */
     init_ata();
     init_pci();
-    init_ahci();
+    // init_ahci();
 
     /* Initialise Virtual Filesystem */
     init_vfs();
@@ -88,6 +88,18 @@ void kmain(void) {
 
     /* Unlock the scheduler for the first time */
     spinlock_release(&scheduler_lock);
+
+    int tty_fd = open("/dev/tty", 0, O_RDWR);
+    if (tty_fd != -1) {
+        kprint(KPRN_DBG, "successfully opened tty device for writing");
+        char *str = kalloc(12);
+        kstrcpy(str, "hello, world");
+        int ret = write(tty_fd, str, 12);
+        if (ret == -1)
+            kprint(KPRN_DBG, "failed writing to tty device");
+    } else
+        kprint(KPRN_DBG, "failed to open tty device for writing");
+    close(tty_fd);
 
     /* Pre-scheduler init done. Wait for the main kernel thread to be scheduled. */
     for (;;) asm volatile ("hlt");
