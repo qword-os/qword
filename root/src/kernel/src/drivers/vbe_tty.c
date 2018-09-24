@@ -4,8 +4,11 @@
 #include <tty.h>
 #include <vbe.h>
 #include <panic.h>
+#include <lock.h>
 
 int vbe_tty_available = 0;
+
+static lock_t vbe_tty_lock = 1;
 
 static int cursor_x = 0;
 static int cursor_y = 0;
@@ -82,11 +85,15 @@ static void draw_cursor(void) {
 }
 
 void vbe_tty_refresh(void) {
+    spinlock_acquire(&vbe_tty_lock);
+
     /* interpret the grid and print the chars */
     for (size_t i = 0; i < (size_t)(rows * cols); i++) {
         plot_char_grid(grid[i], i % cols, i / cols, gridfg[i], gridbg[i]);
     }
     draw_cursor();
+
+    spinlock_release(&vbe_tty_lock);
     return;
 }
 
@@ -109,6 +116,8 @@ static void scroll(void) {
 }
 
 void vbe_tty_clear(void) {
+    spinlock_acquire(&vbe_tty_lock);
+
     for (size_t i = 0; i < (size_t)(rows * cols); i++) {
         grid[i] = ' ';
         gridbg[i] = text_bg_col;
@@ -118,7 +127,9 @@ void vbe_tty_clear(void) {
     cursor_x = 0;
     cursor_y = 0;
 
+    spinlock_release(&vbe_tty_lock);
     vbe_tty_refresh();
+
     return;
 }
 
@@ -134,14 +145,18 @@ static void vbe_tty_clear_no_move(void) {
 }
 
 void vbe_tty_enable_cursor(void) {
+    spinlock_acquire(&vbe_tty_lock);
     cursor_status = 1;
     draw_cursor();
+    spinlock_release(&vbe_tty_lock);
     return;
 }
 
 void vbe_tty_disable_cursor(void) {
+    spinlock_acquire(&vbe_tty_lock);
     cursor_status = 0;
     clear_cursor();
+    spinlock_release(&vbe_tty_lock);
     return;
 }
 
@@ -268,12 +283,17 @@ static void escape_parse(char c) {
     return;
 }
 
+static lock_t vbe_tty_putchar_lock = 1;
+
 void vbe_tty_putchar(char c) {
     if (!vbe_tty_available || !vbe_available)
         return;
 
+    spinlock_acquire(&vbe_tty_putchar_lock);
+
     if (escape) {
         escape_parse(c);
+        spinlock_release(&vbe_tty_putchar_lock);
         return;
     }
     switch (c) {
@@ -315,14 +335,18 @@ void vbe_tty_putchar(char c) {
             }
             draw_cursor();
     }
+
+    spinlock_release(&vbe_tty_putchar_lock);
     return;
 }
 
 void vbe_tty_set_cursor_pos(int x, int y) {
+    spinlock_acquire(&vbe_tty_lock);
     clear_cursor();
     cursor_x = x;
     cursor_y = y;
     draw_cursor();
+    spinlock_release(&vbe_tty_lock);
     return;
 }
 

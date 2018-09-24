@@ -8,23 +8,31 @@
 #include <cmdline.h>
 #include <kbd.h>
 #include <dev.h>
+#include <lock.h>
 
 /* TODO: handle multiple ttys */
 static int use_vbe = 0;
 
+static lock_t tty_io_lock = 1;
+
 static int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
+    spinlock_acquire(&tty_io_lock);
+
     char *buf = (char *)data;
 
     for (size_t i = 0; i < count; i++) {
         tty_putchar(buf[i]);
     }
 
-    return 0;
+    spinlock_release(&tty_io_lock);
+    return (int)count;
 }
 
 static int tty_read(int magic, void *data, uint64_t loc, size_t count) {
+    spinlock_acquire(&tty_io_lock);
     kmemcpy(data, (void *)tty_bufs[0], count);
 
+    spinlock_release(&tty_io_lock);
     return 0;
 }
 

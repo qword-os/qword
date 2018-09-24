@@ -1,5 +1,7 @@
 # qword - A modern and fast unix-like operating system, written in C and Assembly for x86_64.
 
+[![goto counter](https://img.shields.io/github/search/qword-os/qword/goto.svg)](https://github.com/qword-os/qword/search?q=goto)
+
 ## Features
 - Paging support with higher-half kernel.
 - SMP compliant scheduler supporting thread scheduling.
@@ -33,7 +35,7 @@ cd qword
 # Build and install echfs-utils (used to build the root fs image)
 cd host/echfs-utils
 make
-# Ehis will install echfs-utils in /usr/local
+# This will install echfs-utils in /usr/local
 sudo make install
 # Else specify a PREFIX variable if you want to install it elsewhere
 make PREFIX=<myprefix> install

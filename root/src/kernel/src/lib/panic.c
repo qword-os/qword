@@ -16,7 +16,9 @@ void panic(const char *msg, size_t error_code, size_t debug_info) {
     spinlock_test_and_acquire(&scheduler_lock);
 
     /* Send an abort IPI to all other APs */
-    for (int i = 1; i < smp_cpu_count; i++) {
+    for (int i = 0; i < smp_cpu_count; i++) {
+        if (i == current_cpu)
+            continue;
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_ABORT);
     }
@@ -42,7 +44,9 @@ void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t de
     spinlock_test_and_acquire(&scheduler_lock);
 
     /* Send an abort IPI to all other APs */
-    for (int i = 1; i < smp_cpu_count; i++) {
+    for (int i = 0; i < smp_cpu_count; i++) {
+        if (i == current_cpu)
+            continue;
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_ABORT);
     }

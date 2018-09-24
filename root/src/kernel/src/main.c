@@ -25,9 +25,28 @@
 
 void kmain_thread(void) {
     /* Execute a test process */
+    spinlock_acquire(&scheduler_lock);
     kexec("/bin/test", 0, 0);
+    kexec("/bin/test", 0, 0);
+    kexec("/bin/test", 0, 0);
+    kexec("/bin/test", 0, 0);
+    kexec("/bin/test", 0, 0);
+    kexec("/bin/test", 0, 0);
+    spinlock_release(&scheduler_lock);
 
     kprint(KPRN_INFO, "kmain: End of init.");
+
+    int tty_fd = open("/dev/tty", 0, O_RDWR);
+    if (tty_fd != -1) {
+        kprint(KPRN_DBG, "successfully opened tty device for writing");
+        char *str = kalloc(12);
+        kstrcpy(str, "hello, world");
+        int ret = write(tty_fd, str, 12);
+        if (ret == -1)
+            kprint(KPRN_DBG, "failed writing to tty device");
+    } else
+        kprint(KPRN_DBG, "failed to open tty device for writing");
+    close(tty_fd);
 
     for (;;) asm volatile ("hlt;");
 }
@@ -89,17 +108,8 @@ void kmain(void) {
     /* Unlock the scheduler for the first time */
     spinlock_release(&scheduler_lock);
 
-    int tty_fd = open("/dev/tty", 0, O_RDWR);
-    if (tty_fd != -1) {
-        kprint(KPRN_DBG, "successfully opened tty device for writing");
-        char *str = kalloc(12);
-        kstrcpy(str, "hello, world");
-        int ret = write(tty_fd, str, 12);
-        if (ret == -1)
-            kprint(KPRN_DBG, "failed writing to tty device");
-    } else
-        kprint(KPRN_DBG, "failed to open tty device for writing");
-    close(tty_fd);
+    /*** DO NOT ADD ANYTHING TO THIS FUNCTION AFTER THIS POINT, ADD TO kmain_thread
+         INSTEAD! ***/
 
     /* Pre-scheduler init done. Wait for the main kernel thread to be scheduled. */
     for (;;) asm volatile ("hlt");
