@@ -28,9 +28,6 @@ struct cpu_local_t {
 extern struct cpu_local_t cpu_locals[MAX_CPUS];
 
 void init_smp(void);
-void smp_init_cpu0_local(void *, void *);
-void *smp_prepare_trampoline(void *, void *, void *, void *, void *);
-int smp_check_ap_flag(void);
 
 extern int smp_cpu_count;
 

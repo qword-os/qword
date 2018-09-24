@@ -4,15 +4,11 @@ extern pic_send_eoi
 section .text
 
 task_spinup:
-    push rsi
     push rdi
 
     call pic_send_eoi
 
     pop rdi
-    pop rsi
-
-    mov cr3, rsi
 
     mov rsp, rdi
 

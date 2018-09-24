@@ -12,6 +12,11 @@
 
 #define CPU_STACK_SIZE 16384
 
+/* External assembly routines */
+void smp_init_cpu0_local(void *, void *);
+void *smp_prepare_trampoline(void *, void *, void *, void *, void *);
+int smp_check_ap_flag(void);
+
 int smp_cpu_count = 1;
 
 struct tss_t {

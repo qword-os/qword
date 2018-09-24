@@ -24,7 +24,11 @@ static int64_t task_count = 0;
 static struct ctx_t default_krnl_ctx = {0x10,0x10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
 static struct ctx_t default_usr_ctx = {0x1b,0x1b,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
 
+static uint8_t default_fxstate[512];
+
 void init_sched(void) {
+    fxsave(&default_fxstate);
+
     kprint(KPRN_INFO, "sched: Initialising process table...");
     /* Make room for task table */
     if ((process_table = kalloc(MAX_PROCESSES * sizeof(struct process_t *))) == 0) {
@@ -103,7 +107,7 @@ get_next_process:
 
 }
 
-void task_spinup(void *, void *);
+void task_spinup(void *);
 
 static lock_t switched_cpus = 0;
 
@@ -121,12 +125,15 @@ void task_resched(struct ctx_t *ctx) {
     }
 
     pid_t current_process = cpu_locals[current_cpu].current_process;
+    pid_t last_process = current_process;
     tid_t current_thread = cpu_locals[current_cpu].current_thread;
 
     if (current_process != -1 && current_thread != -1) {
         /* Save current context */
         process_table[current_process]->threads[current_thread]->active_on_cpu = -1;
         process_table[current_process]->threads[current_thread]->ctx = *ctx;
+        /* Save FPU context */
+        fxsave(&process_table[current_process]->threads[current_thread]->fxstate);
         if (cpu_locals[current_cpu].reset_scheduler)
             goto reset_scheduler;
         task_get_next(&current_process, &current_thread, smp_cpu_count);
@@ -143,28 +150,37 @@ reset_scheduler:
 
     process_table[current_process]->threads[current_thread]->active_on_cpu = current_cpu;
 
+    /* Swap cr3, if necessary */
+    if (current_process != last_process) {
+        cr3_load((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET);
+    }
+
+    /* Restore FPU context */
+    fxrstor(&process_table[current_process]->threads[current_thread]->fxstate);
+
     spinlock_inc(&switched_cpus);
     while (spinlock_read(&switched_cpus) < smp_cpu_count);
     if (!current_cpu) {
         spinlock_release(&scheduler_lock);
     }
 
-    task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
-                (void *)((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET));
+    /* Return to the thread */
+    task_spinup(&process_table[current_process]->threads[current_thread]->ctx);
 
 }
 
 static int pit_ticks = 0;
 
 void task_resched_bsp(struct ctx_t *ctx) {
-    if (++pit_ticks == SMP_TIMESLICE_MS) {
-        pit_ticks = 0;
-    } else {
+    /* Assert lock on the scheduler */
+    if (!spinlock_test_and_acquire(&scheduler_lock)) {
         return;
     }
 
-    /* Assert lock on the scheduler */
-    if (!spinlock_test_and_acquire(&scheduler_lock)) {
+    if (++pit_ticks == SMP_TIMESLICE_MS) {
+        pit_ticks = 0;
+    } else {
+        spinlock_release(&scheduler_lock);
         return;
     }
 
@@ -301,6 +317,8 @@ found_new_tid:
     new_thread->ctx.rip = (size_t)entry;
     new_thread->ctx.rsp = (size_t)stack;
     new_thread->ctx.rdi = (size_t)arg;
+
+    kmemcpy(new_thread->fxstate, default_fxstate, 512);
 
     new_thread->tid = new_tid;
 

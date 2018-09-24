@@ -17,6 +17,18 @@
 #define CURRENT_PROCESS cpu_locals[current_cpu].current_process
 #define CURRENT_THREAD cpu_locals[current_cpu].current_thread
 
+#define fxsave(PTR) ({ \
+    asm volatile ("fxsave [rbx];" : : "b" (PTR)); \
+})
+
+#define fxrstor(PTR) ({ \
+    asm volatile ("fxrstor [rbx];" : : "b" (PTR)); \
+})
+
+#define cr3_load(NEW_CR3) ({ \
+    asm volatile ("mov cr3, rax;" : : "a" (NEW_CR3)); \
+})
+
 struct ctx_t {
     uint64_t es;
     uint64_t ds;
@@ -53,6 +65,7 @@ struct thread_t {
     int priority;
     int active_on_cpu;
     struct ctx_t ctx;
+    uint8_t fxstate[512] __attribute__((aligned(16)));
 };
 
 struct process_t {
