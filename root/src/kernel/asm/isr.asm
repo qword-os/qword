@@ -61,7 +61,6 @@ extern apic_spurious_handler
 
 ; IPIs
 global ipi_abort
-extern ipi_abort_handler
 global ipi_resched
 global ipi_abortexec
 
@@ -299,7 +298,10 @@ pic1_generic:
 
 ; IPIs
 ipi_abort:
-    common_handler ipi_abort_handler
+    cli
+  .hlt:
+    hlt
+    jmp .hlt
 
 ; APIC NMI + Spurious interrupts
 apic_nmi:

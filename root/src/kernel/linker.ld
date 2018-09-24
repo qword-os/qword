@@ -18,7 +18,6 @@ SECTIONS
         sections_data = . - 0xffffffffc0000000;
         KEEP(*(.data))
         KEEP(*(.rodata))
-        KEEP(*(.debug_symbols))
         sections_data_end = . - 0xffffffffc0000000;
     }
 

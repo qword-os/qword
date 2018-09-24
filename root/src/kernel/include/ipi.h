@@ -10,6 +10,4 @@ void ipi_abort(void);
 void ipi_resched(void);
 void ipi_abortexec(void);
 
-void ipi_abort_handler(void);
-
 #endif

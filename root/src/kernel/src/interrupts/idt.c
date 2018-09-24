@@ -59,9 +59,6 @@ void init_idt(void) {
 
     register_interrupt_handler(0xff, apic_spurious, 0x8e);
 
-    /* syscall interface */
-    register_interrupt_handler(0x80, syscall_entry, 0xee);
-
     struct idt_ptr_t idt_ptr = {
         sizeof(idt) - 1,
         (uint64_t)idt
