@@ -103,7 +103,7 @@ uint32_t io_apic_get_max_redirect(size_t io_apic_num) {
     return (io_apic_read(io_apic_num, 1) & 0xff0000) >> 16;
 }
 
-void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t apic) {
+void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t apic, int status) {
     size_t io_apic = io_apic_from_redirect(gsi);
     
     /* Map APIC irqs to vectors beginning after exceptions */
@@ -117,9 +117,14 @@ void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t api
         redirect |= (1 << 15);
     }
 
+    if (!status) {
+        /* Set mask bit */
+        redirect |= (1 << 16);
+    }
+
     /* Set target APIC ID */
     redirect |= ((uint64_t)apic) << 56;
-
+    kprint(KPRN_DBG, "redirect = %u", redirect);
     uint32_t ioredtbl = (gsi - madt_io_apics[io_apic]->gsib) * 2 + 16;
 
     io_apic_write(io_apic, ioredtbl + 0, (uint32_t)redirect);
@@ -127,20 +132,15 @@ void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t api
 }
 
 void io_apic_set_mask(int irq, int status) {
-    if (status) {
-        /* install IRQ ISO */
-        for (size_t i = 0; i < madt_iso_i; i++) {
-            if (madt_isos[i]->irq_source == irq) {
-                io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
-                                madt_isos[i]->flags, madt_local_apics[0]->apic_id);
-                return;
-            }
-        }
-        /* not found in the ISOs, redirect normally */
-        io_apic_set_redirect(irq, irq, 0, madt_local_apics[0]->apic_id);
-    } else {
-        /* TODO: code to mask APIC IRQs */
+    /* Redirect will handle whether the IRQ is masked or not, we just need to search the
+     * MADT ISOs for a corresponding IRQ */
+    for (size_t i = 0; i < madt_iso_i; i++) {
+        if (madt_isos[i]->irq_source == irq)
+            io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
+                            madt_isos[i]->flags, madt_local_apics[0]->apic_id, status);
     }
+
+    io_apic_set_redirect(irq, irq, 0, madt_local_apics[0]->apic_id, status);
 
     return;
 }

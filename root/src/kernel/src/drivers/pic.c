@@ -7,7 +7,7 @@ static int should_use_apic = 0;
 
 void pic_send_eoi(uint8_t current_vector) {
     if (should_use_apic) {
-        lapic_eoi(); 
+        lapic_eoi();
     } else {
         pic_8259_eoi(current_vector);
     }
@@ -27,7 +27,6 @@ void pic_set_mask(int irq, int status) {
 
 void init_pic(void) {
     if (apic_supported()) {
-        /* TODO initialise APIC, mask PIC interrupts */
         pic_8259_remap(0xa0, 0xa8);
         pic_8259_mask_all();
         should_use_apic = 1;

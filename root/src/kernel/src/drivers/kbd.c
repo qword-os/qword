@@ -85,7 +85,6 @@ void kbd_handler(uint8_t input_byte) {
                 c = ascii_capslock[input_byte];
 
             tty_bufs[0][buf_index++] = c;
-            tty_putchar(c);
         }
     }
 
