@@ -37,7 +37,8 @@ void init_idt(void) {
     register_interrupt_handler(0x1e, exc_security_handler, 0x8e);
     
     register_interrupt_handler(0x20, irq0_handler, 0x8e);
-    
+    register_interrupt_handler(0x21, irq1_handler, 0x8e);    
+
     /* Inter-processor interrupts */
     register_interrupt_handler(IPI_ABORT, ipi_abort, 0x8e);
     register_interrupt_handler(IPI_RESCHED, ipi_resched, 0x8e);

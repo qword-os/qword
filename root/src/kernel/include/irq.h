@@ -3,6 +3,7 @@
 
 void int_handler(void);
 void irq0_handler(void);
+void irq1_handler(void);
 void pic0_generic(void);
 void pic1_generic(void);
 void apic_nmi(void);

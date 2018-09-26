@@ -167,9 +167,5 @@ void init_pci(void) {
 
     kprint(KPRN_INFO, "pci: Full recursive device scan done, %u devices found", available_count);
 
-    for (size_t i = 0; i < available_count; i++) {
-        
-    }
-
     return;
 }

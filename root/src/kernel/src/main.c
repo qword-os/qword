@@ -22,6 +22,8 @@
 #include <elf.h>
 #include <pci.h>
 #include <ahci.h>
+#include <time.h>
+#include <kbd.h>
 
 void kmain_thread(void) {
     /* Execute a test process */
@@ -46,6 +48,7 @@ void kmain_thread(void) {
             kprint(KPRN_DBG, "failed writing to tty device");
     } else
         kprint(KPRN_DBG, "failed to open tty device for writing");
+
     close(tty_fd);
 
     for (;;) asm volatile ("hlt;");
@@ -85,6 +88,7 @@ void kmain(void) {
     init_ata();
     init_pci();
     // init_ahci();
+    init_kbd();
 
     /* Initialise Virtual Filesystem */
     init_vfs();

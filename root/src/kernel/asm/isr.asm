@@ -48,6 +48,7 @@ extern security_handler
 
 ; IRQs
 global irq0_handler
+global irq1_handler
 global pic0_generic
 global pic1_generic
 global apic_nmi
@@ -70,6 +71,7 @@ global int_handler
 extern task_resched_bsp
 extern task_resched
 global syscall_entry
+extern kbd_handler
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -295,7 +297,15 @@ pic0_generic:
     common_handler pic0_generic_handler
 pic1_generic:
     common_handler pic1_generic_handler
-
+irq1_handler:
+    pusham
+    xor rax, rax
+    in al, 0x60
+    mov rdi, rax
+    call kbd_handler
+    call pic_send_eoi
+    popam
+    iretq
 ; IPIs
 ipi_abort:
     cli

@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <klib.h>
+#include <pic.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a
@@ -45,12 +47,12 @@ static const char ascii_nomod[] = {
     'b', 'n', 'm', ',', '.', '/', '\0', '\0', '\0', ' '
 };
 
-int init_kbd(void) {
-    /* TODO init stuff */ 
-    return 0;
+void init_kbd(void) {
+    pic_set_mask(1, 1); 
+    return;
 }
 
-void kbd_handler(uint8_t input_byte) {
+void kbd_handler(uint8_t input_byte) {   
     char c = '\0';
 
     if (ctrl_active) {
@@ -65,6 +67,7 @@ void kbd_handler(uint8_t input_byte) {
     /* Update modifiers */
     if (input_byte == CAPSLOCK) {
         /* TODO LED stuff */
+        return;
     } else if (input_byte == LEFT_SHIFT || input_byte == RIGHT_SHIFT || input_byte == LEFT_SHIFT_REL || input_byte == RIGHT_SHIFT_REL)
         shift_active = !shift_active;
     else if (input_byte == LEFT_CTRL || input_byte == LEFT_CTRL_REL)
@@ -80,9 +83,10 @@ void kbd_handler(uint8_t input_byte) {
                 c = ascii_shift_capslock[input_byte];
             else
                 c = ascii_capslock[input_byte];
-        }
 
-        tty_bufs[0][buf_index++] = c;
+            tty_bufs[0][buf_index++] = c;
+            tty_putchar(c);
+        }
     }
 
     return;
