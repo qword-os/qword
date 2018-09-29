@@ -2,7 +2,7 @@ MAKE = make
 
 PREFIX = $(shell pwd)/root
 
-.PHONY: all iso img clean run run-kvm run-img run-img-kvm
+.PHONY: all iso img clean run run-kvm run-img run-img-singlecore run-img-kvm run-img-kvm-singlecore
 
 all:
 	$(MAKE) PREFIX=$(PREFIX) -C root/src
@@ -15,7 +15,7 @@ img: all
 	dd bs=32768 count=32768 if=/dev/zero >> ./qword.img
 	truncate --size=-4096 ./qword.img
 	echfs-utils ./qword.img format 32768
-	./copy-root-to-img.sh
+	./copy-root-to-img.sh root qword.img
 
 run:
 	qemu-system-x86_64 -drive file=qword.iso,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -net none -serial stdio
@@ -25,6 +25,9 @@ run-kvm:
 
 run-img:
 	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -net none -serial stdio
+
+run-img-singlecore:
+	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1 -net none -serial stdio
 
 run-img-kvm:
 	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm -net none -serial stdio
