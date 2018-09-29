@@ -25,6 +25,16 @@
 #include <time.h>
 #include <kbd.h>
 
+void readline(int fd, char *str) {
+    for (size_t i = 0; ; i++) {
+        read(fd, &str[i], 1);
+        if (str[i] == '\n') {
+            str[i] = 0;
+            return;
+        }
+    }
+}
+
 void kmain_thread(void) {
     /* Execute a test process */
     spinlock_acquire(&scheduler_lock);
@@ -39,15 +49,13 @@ void kmain_thread(void) {
     kprint(KPRN_INFO, "kmain: End of init.");
 
     int tty_fd = open("/dev/tty", 0, O_RDWR);
-    if (tty_fd != -1) {
-        kprint(KPRN_DBG, "successfully opened tty device for writing");
-        char *str = kalloc(12);
-        kstrcpy(str, "hello, world");
-        int ret = write(tty_fd, str, 12);
-        if (ret == -1)
-            kprint(KPRN_DBG, "failed writing to tty device");
-    } else
-        kprint(KPRN_DBG, "failed to open tty device for writing");
+
+    for (;;) {
+        char buf[256];
+        write(tty_fd, "\nqword> ", 8);
+        readline(tty_fd, buf);
+        write(tty_fd, buf, kstrlen(buf));
+    }
 
     close(tty_fd);
 
