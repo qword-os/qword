@@ -8,6 +8,19 @@
 #include <mm.h>
 #include <time.h>
 
+int ktolower(int c) {
+    if (c >= 0x41 && c <= 0x5a)
+        return c + 0x20;
+    return c;
+}
+
+char *kstrchrnul(const char *s, int c) {
+    while (*s)
+        if ((*s++) == c)
+            break;
+    return (char *)s;
+}
+
 char *kstrcpy(char *dest, const char *src) {
     size_t i = 0;
 

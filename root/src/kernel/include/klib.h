@@ -14,6 +14,8 @@
 
 pid_t kexec(const char *, const char **, const char **);
 
+int ktolower(int);
+char *kstrchrnul(const char *, int);
 char *kstrcpy(char *, const char *);
 size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);
