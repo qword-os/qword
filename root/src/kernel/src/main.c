@@ -112,11 +112,6 @@ void kmain(void) {
     /* Mount /dev/hda on / */
     mount("/dev/hda", "/", "echfs", 0, 0);
     mount("/dev/hdb", "/iso", "iso9660", 0, 0);
-    char buf[5];
-    buf[4] = '\0';
-    int fd = open("/iso/test.txt", 0, 0);
-    read(fd, buf, 4);
-    kprint(KPRN_DBG, "%s", buf);
 
     /* Initialise scheduler */
     init_sched();

@@ -294,8 +294,9 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     struct mount_t *mount = &mounts[handle_s->mount];
 
     if (((size_t)handle_s->offset + count) >= (size_t)handle_s->end)
-        count -= ((size_t)handle_s->offset + count) - (size_t)handle_s->end;
-
+        count = (size_t)(handle_s->offset - handle_s->end);
+    if (!count)
+        return -1;
     lseek(mount->device, (handle_s->begin * SECTOR_SIZE) +
             handle_s->offset, SEEK_SET);
     if (!buf)
@@ -303,6 +304,29 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     read(mount->device, buf, count);
     handle_s->offset += count;
     return (int)count;
+}
+
+static int iso9660_seek(int handle, off_t offset, int type) {
+    if (handle < 0)
+        return -1;
+    if (handle > handle_i)
+        return -1;
+    if (handles[handle].free)
+        return -1;
+    struct handle_t *handle_s = &handles[handle];
+    switch (type) {
+        case SEEK_SET:
+            handle_s->offset = offset;
+            return handle_s->offset;
+        case SEEK_CUR:
+            handle_s->offset += offset;
+            return handle_s->offset;
+        case SEEK_END:
+            handle_s->offset = handle_s->end;
+            return handle_s->offset;
+        default:
+            return -1;
+    }
 }
 
 static int iso9660_mount(const char *source) {
@@ -339,6 +363,7 @@ void init_iso9660(void) {
     iso9660.mount = (void *)iso9660_mount;
     iso9660.open = iso9660_open;
     iso9660.read = iso9660_read;
+    iso9660.lseek = iso9660_seek;
 
     vfs_install_fs(iso9660);
 }
