@@ -135,7 +135,7 @@ struct handle_t {
     int mount;
     int flags;
     int mode;
-    long ptr;
+    long offset;
     long begin;
     long end;
     struct path_result_t path_res;
@@ -278,14 +278,28 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
     handle.mode = mode;
     handle.mount = mount;
     handle.end = result.target->extent_length.little;
-    if (flags & O_APPEND) {
+    if (flags & O_APPEND)
         handle.begin = handle.end;
-        handle.ptr = handle.end;
-    } else {
-        handle.begin = 0;
-        handle.ptr = 0;
-    }
+    else
+        handle.begin = result.target->extent_location.little;
+    handle.offset = 0;
     return create_handle(handle);
+}
+
+static int iso9660_read(int handle, void *buf, size_t count) {
+    struct handle_t *handle_s = &handles[handle];
+    struct mount_t *mount = &mounts[handle_s->mount];
+
+    if (((size_t)handle_s->offset + count) >= (size_t)handle_s->end)
+        count -= ((size_t)handle_s->offset + count) - (size_t)handle_s->end;
+
+    lseek(mount->device, (handle_s->begin * SECTOR_SIZE) +
+            handle_s->offset, SEEK_SET);
+    if (!buf)
+        return -1;
+    read(mount->device, buf, count);
+    handle_s->offset += count;
+    return (int)count;
 }
 
 static int iso9660_mount(const char *source) {
@@ -321,6 +335,7 @@ void init_iso9660(void) {
     kstrcpy(iso9660.type, "iso9660");
     iso9660.mount = (void *)iso9660_mount;
     iso9660.open = iso9660_open;
+    iso9660.read = iso9660_read;
 
     vfs_install_fs(iso9660);
 }
