@@ -217,6 +217,14 @@ static struct path_result_t resolve_path(struct mount_t *mount,
         path = kstrchrnul(path, '/');
         size_t seg_length = path - seg;
 
+        if (seg_length == 1 && *seg == '.')
+            seg = "\0";
+
+        if (seg_length == 1 && seg[0] == '.' && seg[1] == '.') {
+            seg = "\1";
+            seg_length = 1;
+        }
+
         if (result.target)
             current_dir = load_dir(mount, result.target);
 
