@@ -104,12 +104,15 @@ void kmain(void) {
     /* Initialise filesystem drivers */
     init_devfs();
     init_echfs();
+    init_iso9660();
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
 
     /* Mount /dev/hda on / */
     mount("/dev/hda", "/", "echfs", 0, 0);
+    mount("/dev/hdb", "/iso", "iso9660", 0, 0);
+    kprint(KPRN_DBG, "%U", open("/iso/test.txt", 0, 0));
 
     /* Initialise scheduler */
     init_sched();

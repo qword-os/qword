@@ -86,5 +86,6 @@ void init_vfs(void);
 
 void init_devfs(void);
 void init_echfs(void);
+void init_iso9660(void);
 
 #endif
