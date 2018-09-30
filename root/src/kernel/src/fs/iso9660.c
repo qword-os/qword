@@ -225,8 +225,10 @@ static struct path_result_t resolve_path(struct mount_t *mount,
             seg_length = 1;
         }
 
-        if (result.target)
+        if (result.target) {
+            kfree(current_dir.entries);
             current_dir = load_dir(mount, result.target);
+        }
 
         int found = 0;
         int pos = 0;
@@ -254,6 +256,7 @@ out:
             result.not_found = 1;
             return result;
         }
+
         result.parent = result.target;
         result.target = entry;
     } while(*path);
