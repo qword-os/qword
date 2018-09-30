@@ -329,6 +329,13 @@ static int iso9660_seek(int handle, off_t offset, int type) {
     }
 }
 
+/* TODO fix this, it's just a stub for size now */
+static int iso9660_fstat(int handle, struct stat *st) {
+    struct handle_t *handle_s = &handles[handle];
+    st->st_size = handle_s->end;
+
+    return 0;
+}
 static int iso9660_mount(const char *source) {
     int device = open(source, O_RDONLY, 0);
 
@@ -364,6 +371,7 @@ void init_iso9660(void) {
     iso9660.open = iso9660_open;
     iso9660.read = iso9660_read;
     iso9660.lseek = iso9660_seek;
+    iso9660.fstat = iso9660_fstat;
 
     vfs_install_fs(iso9660);
 }
