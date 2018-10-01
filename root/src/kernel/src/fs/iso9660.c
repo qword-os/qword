@@ -355,11 +355,20 @@ static int iso9660_read(int handle, void *buf, size_t count) {
         count = (size_t)(handle_s->offset - handle_s->end);
     if (!count)
         return -1;
-    int cache = cache_block(mount, handle_s->begin);
-    if (cache == -1)
-        return -1;
-    kmemcpy(buf, mount->cache[cache].cache + handle_s->offset, count);
-    handle_s->offset += count;
+
+    int num_blocks = count / mount->block_size;
+    if (count % mount->block_size)
+        num_blocks++;
+    
+    int i = handle_s->offset / mount->block_size;
+    for (; i < num_blocks; i++) {
+        int cache = cache_block(mount, handle_s->begin + i);
+        if (cache == -1)
+            return -1;
+        kmemcpy(buf, mount->cache[cache].cache + (handle_s->offset %
+                    mount->block_size), count);
+        handle_s->offset += count;
+    }
     return (int)count;
 }
 
