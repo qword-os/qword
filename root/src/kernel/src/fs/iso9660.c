@@ -210,23 +210,35 @@ static struct directory_result_t load_dir(struct mount_t *mount,
       return result;
     }
     result.entries = kalloc(dir->extent_length.little);
+    
+    int num_blocks = dir->extent_length.little / mount->block_size;
+    if (dir->extent_length.little % mount->block_size)
+        num_blocks++;
+
+    int cache_index = cache_block(mount, dir->extent_location.little);
+    struct cached_block_t *cache = &mount->cache[cache_index];
 
     int count = 0;
-    uint8_t length;
+    uint8_t length = 0;
+    int curr_block = 0;
     for (uint32_t pos = 0; pos < dir->extent_length.little; pos += length) {
-        length = rd_byte(mount->device,
-                (dir->extent_location.little * SECTOR_SIZE) + pos);
+        length = (uint8_t)cache->cache[pos % mount->block_size];
+
         if (length == 0) {
+            if (curr_block >= num_blocks)
+                break;
             /* the end of the sector is padded */
             int offset = next_sector((dir->extent_location.little * SECTOR_SIZE)
                     + pos);
             pos += offset;
+            curr_block++;
+            cache_index = cache_block(mount, curr_block + dir->extent_location
+                    .little);
             continue;
         }
 
-        lseek(mount->device, (dir->extent_location.little * SECTOR_SIZE) + pos,
-                SEEK_SET);
-        read(mount->device, result.entries + pos, length);
+        kmemcpy(result.entries + pos, cache->cache + (pos % mount->block_size),
+                length);
         count++;
     }
     result.num_entries = count;
@@ -344,7 +356,6 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     if (!count)
         return -1;
     int cache = cache_block(mount, handle_s->begin);
-    kprint(KPRN_DBG, "%U, %U", cache, mount->block_size);
     if (cache == -1)
         return -1;
     kmemcpy(buf, mount->cache[cache].cache + handle_s->offset, count);
