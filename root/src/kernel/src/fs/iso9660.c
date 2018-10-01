@@ -128,6 +128,14 @@ struct mount_t {
     uint32_t path_table_size;
     uint32_t path_table_loc;
     struct directory_entry_t root_entry;
+    struct cached_block_t *cache;
+    int cache_i;
+};
+
+struct cached_block_t {
+    char *cache;
+    int ready;
+    uint32_t block;
 };
 
 struct handle_t {
@@ -159,6 +167,41 @@ static int next_sector(int location) {
     return (location + 2047) & ~2047;
 } 
 
+static int get_cache(struct mount_t *mount, uint32_t block) {
+    int num = 0;
+    struct cached_block_t *cache = NULL;
+    for (int i = 0; i < mount->cache_i; i++) {
+        if (mount->cache[i].block == block) {
+            num = i;
+            cache = &mount->cache[i];
+        }
+    }
+
+    if (!cache) {
+        mount->cache = krealloc(mount->cache, sizeof(struct cached_block_t) *
+                mount->cache_i);
+        num = mount->cache_i;
+        mount->cache_i++;
+        mount->cache[num].block = block;
+        mount->cache[num].ready = 0;
+        mount->cache[num].cache = NULL;
+    }
+
+    return num;
+}
+
+static int cache_block(struct mount_t *mount, uint32_t block) {
+    int cache_index = get_cache(mount, block);
+    struct cached_block_t *cache = &mount->cache[cache_index];
+    if (cache->ready)
+        return cache_index;
+    
+    cache->cache = kalloc(mount->block_size);
+    lseek(mount->device, cache->block * mount->block_size, SEEK_SET);
+    read(mount->device, cache->cache, mount->block_size);
+    return cache_index;
+}
+
 static struct directory_result_t load_dir(struct mount_t *mount,
       struct directory_entry_t *dir) {
     struct directory_result_t result;
@@ -167,23 +210,35 @@ static struct directory_result_t load_dir(struct mount_t *mount,
       return result;
     }
     result.entries = kalloc(dir->extent_length.little);
+    
+    int num_blocks = dir->extent_length.little / mount->block_size;
+    if (dir->extent_length.little % mount->block_size)
+        num_blocks++;
+
+    int cache_index = cache_block(mount, dir->extent_location.little);
+    struct cached_block_t *cache = &mount->cache[cache_index];
 
     int count = 0;
-    uint8_t length;
+    uint8_t length = 0;
+    int curr_block = 0;
     for (uint32_t pos = 0; pos < dir->extent_length.little; pos += length) {
-        length = rd_byte(mount->device,
-                (dir->extent_location.little * SECTOR_SIZE) + pos);
+        length = (uint8_t)cache->cache[pos % mount->block_size];
+
         if (length == 0) {
+            if (curr_block >= num_blocks)
+                break;
             /* the end of the sector is padded */
             int offset = next_sector((dir->extent_location.little * SECTOR_SIZE)
                     + pos);
             pos += offset;
+            curr_block++;
+            cache_index = cache_block(mount, curr_block + dir->extent_location
+                    .little);
             continue;
         }
 
-        lseek(mount->device, (dir->extent_location.little * SECTOR_SIZE) + pos,
-                SEEK_SET);
-        read(mount->device, result.entries + pos, length);
+        kmemcpy(result.entries + pos, cache->cache + (pos % mount->block_size),
+                length);
         count++;
     }
     result.num_entries = count;
@@ -293,16 +348,27 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     struct handle_t *handle_s = &handles[handle];
     struct mount_t *mount = &mounts[handle_s->mount];
 
+    if (!buf)
+        return -1;
+
     if (((size_t)handle_s->offset + count) >= (size_t)handle_s->end)
         count = (size_t)(handle_s->offset - handle_s->end);
     if (!count)
         return -1;
-    lseek(mount->device, (handle_s->begin * SECTOR_SIZE) +
-            handle_s->offset, SEEK_SET);
-    if (!buf)
-        return -1;
-    read(mount->device, buf, count);
-    handle_s->offset += count;
+
+    int num_blocks = count / mount->block_size;
+    if (count % mount->block_size)
+        num_blocks++;
+    
+    int i = handle_s->offset / mount->block_size;
+    for (; i < num_blocks; i++) {
+        int cache = cache_block(mount, handle_s->begin + i);
+        if (cache == -1)
+            return -1;
+        kmemcpy(buf, mount->cache[cache].cache + (handle_s->offset %
+                    mount->block_size), count);
+        handle_s->offset += count;
+    }
     return (int)count;
 }
 
@@ -359,6 +425,8 @@ static int iso9660_mount(const char *source) {
     mount->path_table_size = primary_descriptor.path_table_size.little;
     mount->path_table_loc = primary_descriptor.l_path_table_location;
     kmemcpy(&mount->root_entry, &primary_descriptor.length, 34);
+    mount->cache_i = 0;
+    mount->cache = NULL;
 
     return mount_i++;
 }
