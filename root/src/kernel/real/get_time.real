@@ -1,0 +1,23 @@
+org 0x8000
+bits 16
+
+push ebx
+mov ah, 0x02
+int 0x1a
+pop ebx
+
+mov byte [ebx+0], dh
+mov byte [ebx+1], cl
+mov byte [ebx+2], ch
+
+push ebx
+mov ah, 0x04
+int 0x1a
+pop ebx
+
+mov byte [ebx+3], dl
+mov byte [ebx+4], dh
+mov byte [ebx+5], cl
+mov byte [ebx+6], ch
+
+ret

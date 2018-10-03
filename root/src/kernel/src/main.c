@@ -75,6 +75,13 @@ void kmain(void) {
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
 
+    struct s_time_t s_time;
+
+    bios_get_time(&s_time);
+    kprint(KPRN_INFO, "Current date & time: %u/%u/%u %u:%u:%u",
+           s_time.years, s_time.months, s_time.days,
+           s_time.hours, s_time.minutes, s_time.seconds);
+
     /* Memory-related stuff */
     init_e820();
     init_pmm();
