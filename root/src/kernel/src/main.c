@@ -124,7 +124,7 @@ void kmain(void) {
     init_sched();
 
     /* Start a main kernel thread which will take over when the scheduler is running */
-    task_tcreate(0, kalloc(4096) + 4096, (void *)kmain_thread, 0);
+    task_tcreate(0, (void *)kmain_thread, 0);
 
     /* Unlock the scheduler for the first time */
     spinlock_release(&scheduler_lock);

@@ -293,9 +293,12 @@ int task_tkill(pid_t pid, tid_t tid) {
 #define KSTACK_LOCATION_TOP ((size_t)0x0000800000000000)
 #define KSTACK_SIZE ((size_t)32768)
 
+#define STACK_LOCATION_TOP ((size_t)0x0000700000000000)
+#define STACK_SIZE ((size_t)32768)
+
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
-tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
+tid_t task_tcreate(pid_t pid, void *(*entry)(void *), void *arg) {
     /* Search for free thread ID */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
@@ -315,29 +318,58 @@ found_new_tid:
 
     new_thread->active_on_cpu = -1;
 
-    /* Set up a kernel stack for the thread */
-    size_t kstack_bottom = KSTACK_LOCATION_TOP - KSTACK_SIZE * (new_tid + 1);
-    void *kstack = pmm_alloc(KSTACK_SIZE / PAGE_SIZE);
-    if (!kstack) {
-        kfree(process_table[pid]->threads[new_tid]);
-        process_table[pid]->threads[new_tid] = EMPTY;
-        return -1;
-    }
-    for (size_t i = 0; i < KSTACK_SIZE / PAGE_SIZE; i++) {
-        map_page(process_table[pid]->pagemap, (size_t)(kstack + (i * PAGE_SIZE)),
-                    (size_t)(kstack_bottom + (i * PAGE_SIZE)), 0x03);
-    }
-    new_thread->kstack = kstack_bottom + KSTACK_SIZE;
-
     /* Set registers to defaults */
     if (pid)
         new_thread->ctx = default_usr_ctx;
     else
         new_thread->ctx = default_krnl_ctx;
 
-    /* Set instruction pointer to entry point, prepare RSP, and set first argument to arg */
+    /* Set up a user stack for the thread */
+    if (1) {
+        size_t stack_guardpage = STACK_LOCATION_TOP -
+                                 (STACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
+        size_t stack_bottom = stack_guardpage + PAGE_SIZE;
+        for (size_t i = 0; i < STACK_SIZE / PAGE_SIZE; i++) {
+            void *ptr = pmm_alloc(1);
+            if (!ptr) {
+                kfree(process_table[pid]->threads[new_tid]);
+                process_table[pid]->threads[new_tid] = EMPTY;
+                return -1;
+            }
+            map_page(process_table[pid]->pagemap,
+                     (size_t)ptr,
+                     (size_t)(stack_bottom + (i * PAGE_SIZE)),
+                     pid ? 0x07 : 0x03);
+        }
+        /* Add a guard page */
+        unmap_page(process_table[pid]->pagemap, stack_guardpage);
+        new_thread->ctx.rsp = stack_bottom + STACK_SIZE;
+    }
+
+    /* Set up a kernel stack for the thread */
+    if (pid) {
+        size_t kstack_guardpage = KSTACK_LOCATION_TOP -
+                                  (KSTACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
+        size_t kstack_bottom = kstack_guardpage + PAGE_SIZE;
+        for (size_t i = 0; i < KSTACK_SIZE / PAGE_SIZE; i++) {
+            void *ptr = pmm_alloc(1);
+            if (!ptr) {
+                kfree(process_table[pid]->threads[new_tid]);
+                process_table[pid]->threads[new_tid] = EMPTY;
+                return -1;
+            }
+            map_page(process_table[pid]->pagemap,
+                     (size_t)ptr,
+                     (size_t)(kstack_bottom + (i * PAGE_SIZE)),
+                     0x03);
+        }
+        /* Add a guard page */
+        unmap_page(process_table[pid]->pagemap, kstack_guardpage);
+        new_thread->kstack = kstack_bottom + KSTACK_SIZE;
+    }
+
+    /* Set instruction pointer to entry point, and set first argument to arg */
     new_thread->ctx.rip = (size_t)entry;
-    new_thread->ctx.rsp = (size_t)stack;
     new_thread->ctx.rdi = (size_t)arg;
 
     kmemcpy(new_thread->fxstate, default_fxstate, 512);

@@ -85,7 +85,7 @@ extern struct process_t **process_table;
 
 void init_sched(void);
 
-tid_t task_tcreate(pid_t, void *, void *(*)(void *), void *);
+tid_t task_tcreate(pid_t, void *(*)(void *), void *);
 pid_t task_pcreate(struct pagemap_t *);
 int task_tkill(pid_t, tid_t);
 

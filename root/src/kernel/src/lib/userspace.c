@@ -6,9 +6,6 @@
 #include <klib.h>
 #include <elf.h>
 
-#define DEFAULT_STACK_SIZE 32768
-#define VIRT_STACK_LOCATION_TOP 0xf0000000
-
 /* TODO expand this to be like execve */
 pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     /* Create a new pagemap for the process */
@@ -32,22 +29,12 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     }
     kprint(KPRN_DBG, "elf: %s successfully loaded. entry point: %X", filename, entry);
 
-    size_t a = VIRT_STACK_LOCATION_TOP - DEFAULT_STACK_SIZE;
-
-    /* Allocate and map stack into the process */
-    void *stack = pmm_alloc(DEFAULT_STACK_SIZE / PAGE_SIZE);
-    if (!stack) return -1;
-    for (size_t i = 0; i < DEFAULT_STACK_SIZE / PAGE_SIZE; i++) {
-        map_page(new_pagemap, (size_t)(stack + (i * PAGE_SIZE)),
-                    (size_t)(a + (i * PAGE_SIZE)), 0x07);
-    }
-
     /* Create a new process */
     pid_t new_pid = task_pcreate(new_pagemap);
     if (new_pid == (pid_t)(-1)) return -1;
 
     /* Create main thread */
-    tid_t new_thread = task_tcreate(new_pid, (void *)VIRT_STACK_LOCATION_TOP, (void *)entry, 0);
+    tid_t new_thread = task_tcreate(new_pid, (void *)entry, 0);
     if (new_thread == (tid_t)(-1)) return -1;
 
     return new_pid;
