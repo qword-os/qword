@@ -45,7 +45,7 @@ void init_sched(void) {
     }
     process_table[0]->pagemap = &kernel_pagemap;
     process_table[0]->pid = 0;
-    
+
     kprint(KPRN_INFO, "sched: Init done.");
 
     return;
@@ -134,6 +134,8 @@ void task_resched(struct ctx_t *ctx) {
         process_table[current_process]->threads[current_thread]->ctx = *ctx;
         /* Save FPU context */
         fxsave(&process_table[current_process]->threads[current_thread]->fxstate);
+        /* Save user rsp */
+        process_table[current_process]->threads[current_thread]->ustack = cpu_locals[current_cpu].thread_ustack;
         if (cpu_locals[current_cpu].reset_scheduler)
             goto reset_scheduler;
         task_get_next(&current_process, &current_thread, smp_cpu_count);
@@ -147,6 +149,9 @@ reset_scheduler:
 
     cpu_locals[current_cpu].current_process = current_process;
     cpu_locals[current_cpu].current_thread = current_thread;
+
+    cpu_locals[current_cpu].thread_kstack = process_table[current_process]->threads[current_thread]->kstack;
+    cpu_locals[current_cpu].thread_ustack = process_table[current_process]->threads[current_thread]->ustack;
 
     process_table[current_process]->threads[current_thread]->active_on_cpu = current_cpu;
 
@@ -220,14 +225,14 @@ found_new_pid:
         process_table[new_pid] = EMPTY;
         return -1;
     }
-    
+
     if ((new_process->file_handles = kalloc(MAX_FILE_HANDLES * sizeof(int))) == 0) {
         kfree(new_process->threads);
         kfree(new_process);
         process_table[new_pid] = EMPTY;
         return -1;
     }
- 
+
     /* Initially, mark all file handles as unused */
     for (size_t i = 0; i < MAX_FILE_HANDLES; i++) {
         process_table[new_pid]->file_handles[i] = -1;
@@ -285,6 +290,9 @@ int task_tkill(pid_t pid, tid_t tid) {
     return 0;
 }
 
+#define KSTACK_LOCATION_TOP ((size_t)0x0000800000000000)
+#define KSTACK_SIZE ((size_t)32768)
+
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
 tid_t task_tcreate(pid_t pid, void *stack, void *(*entry)(void *), void *arg) {
@@ -306,7 +314,21 @@ found_new_tid:
     struct thread_t *new_thread = process_table[pid]->threads[new_tid];
 
     new_thread->active_on_cpu = -1;
-    
+
+    /* Set up a kernel stack for the thread */
+    size_t kstack_bottom = KSTACK_LOCATION_TOP - KSTACK_SIZE * (new_tid + 1);
+    void *kstack = pmm_alloc(KSTACK_SIZE / PAGE_SIZE);
+    if (!kstack) {
+        kfree(process_table[pid]->threads[new_tid]);
+        process_table[pid]->threads[new_tid] = EMPTY;
+        return -1;
+    }
+    for (size_t i = 0; i < KSTACK_SIZE / PAGE_SIZE; i++) {
+        map_page(process_table[pid]->pagemap, (size_t)(kstack + (i * PAGE_SIZE)),
+                    (size_t)(kstack_bottom + (i * PAGE_SIZE)), 0x03);
+    }
+    new_thread->kstack = kstack_bottom + KSTACK_SIZE;
+
     /* Set registers to defaults */
     if (pid)
         new_thread->ctx = default_usr_ctx;

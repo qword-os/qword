@@ -89,7 +89,7 @@ extern kbd_handler
     pop rdx
     pop rsi
     pop rdi
-    
+
     call %1
 
     iretq
@@ -267,6 +267,9 @@ syscall_table:
   .end:
 
 syscall_entry:
+    mov qword [fs:0024], rsp ; save the user stack
+    mov rsp, qword [fs:0016] ; switch to the kernel space stack for the thread
+
     pusham
 
     xor rbx, rbx
@@ -287,6 +290,9 @@ syscall_entry:
     popams
     push r11
     popfq
+
+    mov rsp, qword [fs:0024] ; restore the user stack
+
     o64 sysret
 
   .err:

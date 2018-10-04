@@ -18,6 +18,8 @@ struct cpu_local_t {
     /* DO NOT CHANGE THEIR TYPES */
     size_t cpu_number;
     size_t kernel_stack;
+    size_t thread_kstack;
+    size_t thread_ustack;
     /* Feel free to move every other member, and use any type as you see fit */
     pid_t current_process;
     tid_t current_thread;
