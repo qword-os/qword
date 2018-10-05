@@ -5,6 +5,7 @@
 #include <cio.h>
 #include <klib.h>
 #include <dev.h>
+#include <pci.h>
 #include <ata.h>
 
 #define DEVICE_COUNT 4
@@ -42,6 +43,11 @@ typedef struct {
     uint64_t sector_count;
     uint16_t bytes_per_sector;
 
+    uint32_t bar4;
+    uint32_t bmr_command;
+    uint32_t bmr_status;
+    uint32_t bmr_prdt;
+
     cached_sector_t *cache;
 } ata_device;
 
@@ -60,7 +66,8 @@ static const int max_ports = 4;
 
 static int ata_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ata_write(int drive, const void *buf, uint64_t loc, size_t count);
-static ata_device init_ata_device(uint16_t port_base, int master);
+static ata_device init_ata_device(uint16_t port_base, int master,
+        struct pci_device_t *pci);
 static void ata_identify(ata_device* dev);
 static int ata_read28(int disk, uint32_t sector, uint8_t *buffer);
 static int ata_read48(int disk, uint64_t sector, uint8_t *buffer);
@@ -247,11 +254,19 @@ static int ata_flush1(int device) {
 void init_ata(void) {
     kprint(KPRN_INFO, "ata: Initialising ata device driver...");
 
+    struct pci_device_t pci_device = {0};
+    int ret = pci_get_device(&pci_device, 0x1, 0x1);
+    if (ret) {
+        kprint(KPRN_ERR, "ata: could not find pci device!");
+        return;
+    }
+
     int j = 0;
     int master = 1;
     for (int i = 0; i < DEVICE_COUNT; i++) {
         if (j >= max_ports) return;
-        while (!(devices[i] = init_ata_device(ata_ports[j], master)).exists) {
+        while (!(devices[i] = init_ata_device(ata_ports[j], master, 
+                        &pci_device)).exists) {
             j++;
             if (j >= max_ports) return;
             if (j % 2) master = 0;
@@ -268,7 +283,8 @@ void init_ata(void) {
     return;
 }
 
-static ata_device init_ata_device(uint16_t port_base, int master) {
+static ata_device init_ata_device(uint16_t port_base, int master,
+        struct pci_device_t *pci) {
     ata_device dev;
 
     dev.data_port = port_base;
@@ -282,6 +298,19 @@ static ata_device init_ata_device(uint16_t port_base, int master) {
     dev.control_port = port_base + 0x206;
     dev.exists = 0;
     dev.master = master;
+
+    dev.bar4 = pci_get_bar(pci, 4);
+    if (dev.bar4 & 0x1)
+        dev.bar4 &= 0xFFFFFFFC;
+    if (master) {
+        dev.bmr_command = dev.bar4;
+        dev.bmr_status = dev.bar4 + 0x2;
+        dev.bmr_prdt = dev.bar4 + 0x4;
+    } else {
+        dev.bmr_command = dev.bar4 + 0x8;
+        dev.bmr_status = dev.bar4 + 0xA;
+        dev.bmr_prdt = dev.bar4 + 0xC;
+    }
 
     dev.bytes_per_sector = 512;
 
