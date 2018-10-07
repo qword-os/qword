@@ -93,7 +93,7 @@ int ahci_init_atapi(volatile struct hba_port_t *port, size_t portno) {
 /* Reconfigure the memory areas for a given port */
 void port_rebase(volatile struct hba_port_t *port, size_t portno) {
     kprint(KPRN_DBG, "stopping command engine");
-    stop_cmd(port);
+    //stop_cmd(port);
 
     /* calculate base of the command list */
     port->clb = (uint32_t)(ahci_base + (portno << 10));

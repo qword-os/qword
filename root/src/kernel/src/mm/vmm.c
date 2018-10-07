@@ -186,7 +186,8 @@ void init_vmm(void) {
     /* Forcefully map the first 4 GiB for I/O into the higher half */
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
-
+        
+        map_page(&kernel_pagemap, addr, addr, 0x03);
         map_page(&kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
     }
 

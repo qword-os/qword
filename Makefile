@@ -28,7 +28,7 @@ run-iso-kvm:
 	qemu-system-x86_64 -drive file=qword.iso,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm -net none -serial stdio
 
 run-img:
-	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -net none -serial stdio -hdb testiso.iso
+	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -net none -serial stdio -hdb testiso.iso -device ahci,id=ahci -drive if=none,id=disk,file=test.img,format=raw -device ide-drive,drive=disk,bus=ahci.0
 
 run-img-singlecore:
 	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1 -net none -serial stdio -hdb testiso.iso
