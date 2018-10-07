@@ -127,7 +127,7 @@ void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
     pci_probe(&device, bus, dev, func);
     if (device.available) {
         for (size_t i = 0; i < device_count; i++) {
-            if (pci_devices[i].available) {
+            if (!pci_devices[i].available) {
                 pci_load_bars(&device);
                 pci_devices[i] = device;
                 return;
