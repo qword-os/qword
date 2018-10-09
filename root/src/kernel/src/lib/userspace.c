@@ -22,7 +22,7 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
 
     uint64_t entry;
     int ret = elf_load(fd, new_pagemap, &entry);
-    //close(fd);        TODO: echfs_close should be a thing tbh
+    close(fd);
     if (ret == -1) {
         kprint(KPRN_DBG, "elf: Load of binary file %s failed.", filename);
         return -1;
