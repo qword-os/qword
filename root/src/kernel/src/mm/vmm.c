@@ -9,7 +9,7 @@ struct pagemap_t kernel_pagemap;
 /* map physaddr -> virtaddr using pml4 pointer */
 void map_page(struct pagemap_t *pml4, size_t phys_addr, size_t virt_addr, size_t flags) {
     spinlock_acquire(&pml4->lock);
-    
+
     /* Calculate the indices in the various tables using the virtual address */
     size_t pml4_entry = (virt_addr & ((size_t)0x1ff << 39)) >> 39;
     size_t pdpt_entry = (virt_addr & ((size_t)0x1ff << 30)) >> 30;
@@ -109,7 +109,7 @@ int unmap_page(struct pagemap_t *pml4, size_t virt_addr) {
 
     /* Unmap entry */
     pt[pt_entry] = 0;
-    
+
     spinlock_release(&pml4->lock);
 
     return 0;
@@ -186,8 +186,7 @@ void init_vmm(void) {
     /* Forcefully map the first 4 GiB for I/O into the higher half */
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
-        
-        map_page(&kernel_pagemap, addr, addr, 0x03);
+
         map_page(&kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
     }
 

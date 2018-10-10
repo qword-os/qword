@@ -42,7 +42,7 @@ void init_ahci(void) {
     int ret = pci_get_device(&device, class_mass_storage, subclass_serial_ata);
     if (!ret) kprint(KPRN_INFO, "ahci: Found AHCI controller");
 
-    ahci_base = (size_t)pci_read_device(&device, 0x24);
+    ahci_base = ((size_t)pci_read_device(&device, 0x24) + MEM_PHYS_OFFSET);
     kprint(KPRN_DBG, "ahci: ABAR at %x", ahci_base);
     volatile struct hba_mem_t *mem = (volatile struct hba_mem_t *)ahci_base;
 
@@ -77,9 +77,9 @@ int probe_port(volatile struct hba_mem_t *mem, size_t portno) {
 int ahci_init_ata(volatile struct hba_port_t *port, size_t portno) {
     port_rebase(port, portno);
     kprint(KPRN_DBG, "port rebase done, begin identify command");
-    //int ret = ahci_identify(port, 0xec);
-    //if (ret == -1)
-        //return -1;
+    /* int ret = ahci_identify(port, 0xec);
+    if (ret == -1)
+        return -1; */
 
     return 0;
 }
@@ -96,19 +96,23 @@ void port_rebase(volatile struct hba_port_t *port, size_t portno) {
     //stop_cmd(port);
 
     /* calculate base of the command list */
-    port->clb = (uint32_t)(ahci_base + (portno << 10));
+    kprint(KPRN_DBG, "calculating base of command list");
+    port->clb = (ahci_base + (portno << 10));
     port->clbu = 0;
     /* zero command list */
-    kmemset((void *)(port->clb), 0, 1024);
+    kprint(KPRN_DBG, "zeroing command list");
+    kmemset((void *)((size_t)port->clb), 0, 1024);
 
     /* calculate received fis base addr */
-    port->fb  = (uint32_t)(ahci_base + (32 << 10) + (portno << 8));
+    kprint(KPRN_DBG, "calculating base of fis receive area");
+    port->fb  = (ahci_base + (32 << 10) + (portno << 8));
     port->fbu = 0;
+    kprint(KPRN_DBG, "zeroing fis receive area");
     /* fis entry size = 256b per port */
-    kmemset((void *)(port->clb), 0, 256);
+    kmemset((void *)(((size_t)port->fb) + MEM_PHYS_OFFSET), 0, 256);
 
     volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)(size_t)port->clb;
-    
+
     kprint(KPRN_DBG, "setting up command tables");
     for (size_t i = 0; i < 32; i++) {
         cmd_hdr[i].prdtl = 8;
@@ -128,24 +132,24 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
     int spin = 0;
 
     port->is = (uint32_t)-1;
-    
+
     int slot = find_cmdslot(port);
     if (slot == -1)
         return -1;
 
-    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_header_t *)port->clb;
+    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_header_t *)(size_t)port->clb;
     cmd_hdr += slot;
     cmd_hdr->cfl = sizeof(volatile struct fis_regh2d_t) / sizeof(uint32_t);
     cmd_hdr->w = 0;
     cmd_hdr->prdtl = 1;
 
-    volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)cmd_hdr->ctba;
+    volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(size_t)cmd_hdr->ctba;
     kmemset((void *)cmdtbl, 0, sizeof(volatile struct hba_cmd_tbl_t));
 
     cmdtbl->prdt_entry[0].dba = (uint32_t)dest;
     cmdtbl->prdt_entry[0].dbc = (512 | 1);
 
-    struct fis_regh2d_t *cmdfis = (struct fis_reg_h2d_t *)cmdtbl->cfis;
+    struct fis_regh2d_t *cmdfis = (struct fis_reg_h2d_t *)(size_t)cmdtbl->cfis;
     kmemset(cmdfis, 0, sizeof(struct fis_regh2d_t));
 
     cmdfis->pmport = (uint8_t)(1 << 7);
@@ -154,7 +158,7 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
     cmdfis->countl = 1;
     cmdfis->counth = 0;
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
-    
+
     kprint(KPRN_DBG, "fis setup complete, waiting for a free port");
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) {
         spin++;
@@ -176,7 +180,7 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
             return -1;
         }
     }
-    
+
     /* Check again for task file error */
     if (port->is & (1 << 30)) {
         kprint(KPRN_DBG, "ahci: Disk read error in ahci_identify()");
@@ -184,7 +188,7 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
     }
 
     stop_cmd(port);
-    
+
     kprint(KPRN_DBG, "identify successful");
 
     return 0;
@@ -223,7 +227,7 @@ void stop_cmd(volatile struct hba_port_t *port) {
             continue;
         break;
     }
- 
+
     /* Clear bit 4 */
     port->cmd &= ~HBA_PxCMD_FRE;
 
