@@ -1,5 +1,4 @@
-extern pic_send_eoi
-extern kernel_cr3
+extern lapic_eoi
 
 global int_handler
 
@@ -210,27 +209,20 @@ exc_security_handler:
 irq0_handler:
     pusham
 
-    xor rax, rax
-    mov ax, ds
-    push rax
-    mov ax, es
-    push rax
-
     call pit_handler
 
     mov rdi, rsp
 
     call task_resched_bsp
 
-    call pic_send_eoi
+    call lapic_eoi
 
-    add rsp, 16
     popam
     iretq
 
 ipi_abortexec:
     mov rsp, qword [fs:0008]
-    call pic_send_eoi
+    call lapic_eoi
     sti
   .wait:
     hlt
@@ -239,19 +231,12 @@ ipi_abortexec:
 ipi_resched:
     pusham
 
-    xor rax, rax
-    mov ax, ds
-    push rax
-    mov ax, es
-    push rax
-
     mov rdi, rsp
 
     call task_resched
 
-    call pic_send_eoi
+    call lapic_eoi
 
-    add rsp, 16
     popam
     iretq
 
@@ -259,24 +244,26 @@ invalid_syscall:
     mov rax, -1
     ret
 
+section .data
+
 syscall_count equ ((syscall_table.end - syscall_table) / 8)
+
+align 16
 syscall_table:
     extern test_syscall
     dq test_syscall
     dq invalid_syscall
   .end:
 
+section .text
+
 syscall_entry:
     mov qword [fs:0024], rsp ; save the user stack
     mov rsp, qword [fs:0016] ; switch to the kernel space stack for the thread
 
-    pusham
+    sti         ; Reenable interrupt flag
 
-    xor rbx, rbx
-    mov bx, ds
-    push rbx
-    mov bx, es
-    push rbx
+    pusham
 
     mov rdi, rsp
 
@@ -286,10 +273,9 @@ syscall_entry:
     call [syscall_table + rax * 8]
 
   .out:
-    add rsp, 16
     popams
-    push r11
-    popfq
+
+    cli         ; Clear interrupt flag
 
     mov rsp, qword [fs:0024] ; restore the user stack
 
@@ -309,7 +295,7 @@ irq1_handler:
     in al, 0x60
     mov rdi, rax
     call kbd_handler
-    call pic_send_eoi
+    call lapic_eoi
     popam
     iretq
 ; IPIs

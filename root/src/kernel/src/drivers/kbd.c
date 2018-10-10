@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <klib.h>
 #include <pic.h>
+#include <tty.h>
 #include <lock.h>
 
 #define MAX_CODE 0x57
@@ -54,7 +55,7 @@ static const char ascii_nomod[] = {
 };
 
 void init_kbd(void) {
-    pic_set_mask(1, 1); 
+    pic_set_mask(1, 1);
     return;
 }
 
@@ -62,10 +63,8 @@ static lock_t kbd_read_lock = 1;
 
 int kbd_read(char *buf, size_t count) {
     while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-        asm volatile ("hlt");
+        asm volatile ("hlt;");
     }
-
-    asm volatile ("cli");
 
     for (size_t i = 0; i < count; ) {
         if (big_buf_i) {
@@ -76,24 +75,28 @@ int kbd_read(char *buf, size_t count) {
             }
         } else {
             /* wait to register new keypresses */
-            asm volatile ("sti; hlt; cli");
+            spinlock_release(&kbd_read_lock);
+            asm volatile ("hlt;");
+            while (!spinlock_test_and_acquire(&kbd_read_lock)) {
+                asm volatile ("hlt;");
+            }
         }
     }
-
-    asm volatile ("sti");
 
     spinlock_release(&kbd_read_lock);
 
     return count;
 }
 
-void kbd_handler(uint8_t input_byte) {   
+void kbd_handler(uint8_t input_byte) {
     char c = '\0';
+
+    spinlock_acquire(&kbd_read_lock);
 
     if (ctrl_active) {
         switch (input_byte) {
             case 0x2e:
-                return;
+                goto out;
             default:
                 break;
         }
@@ -103,13 +106,13 @@ void kbd_handler(uint8_t input_byte) {
     if (input_byte == CAPSLOCK) {
         /* TODO LED stuff */
         capslock_active = !capslock_active;
-        return;
+        goto out;
     } else if (input_byte == LEFT_SHIFT || input_byte == RIGHT_SHIFT || input_byte == LEFT_SHIFT_REL || input_byte == RIGHT_SHIFT_REL) {
         shift_active = !shift_active;
-        return;
+        goto out;
     } else if (input_byte == LEFT_CTRL || input_byte == LEFT_CTRL_REL) {
         ctrl_active = !ctrl_active;
-        return;
+        goto out;
     } else {
         /* Assign the correct character for this scancode based on modifiers */
         if (input_byte < MAX_CODE) {
@@ -122,7 +125,7 @@ void kbd_handler(uint8_t input_byte) {
             else
                 c = ascii_capslock[input_byte];
         } else {
-            return;
+            goto out;
         }
     }
 
@@ -155,5 +158,7 @@ void kbd_handler(uint8_t input_byte) {
             break;
     }
 
+out:
+    spinlock_release(&kbd_read_lock);
     return;
 }
