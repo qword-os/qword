@@ -21,8 +21,8 @@ static int64_t task_count = 0;
 
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. See kernel/include/ctx.h for the register order. */
-static struct ctx_t default_krnl_ctx = {0x10,0x10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
-static struct ctx_t default_usr_ctx = {0x1b,0x1b,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
+static struct ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
+static struct ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
 
 static uint8_t default_fxstate[512];
 
@@ -107,7 +107,7 @@ get_next_process:
 
 }
 
-void task_spinup(void *);
+void task_spinup(void *, size_t);
 
 static lock_t switched_cpus = 0;
 
@@ -155,11 +155,6 @@ reset_scheduler:
 
     process_table[current_process]->threads[current_thread]->active_on_cpu = current_cpu;
 
-    /* Swap cr3, if necessary */
-    if (current_process != last_process) {
-        cr3_load((size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET);
-    }
-
     /* Restore FPU context */
     fxrstor(&process_table[current_process]->threads[current_thread]->fxstate);
 
@@ -169,8 +164,15 @@ reset_scheduler:
         spinlock_release(&scheduler_lock);
     }
 
-    /* Return to the thread */
-    task_spinup(&process_table[current_process]->threads[current_thread]->ctx);
+    /* Swap cr3, if necessary */
+    if (current_process != last_process) {
+        /* Switch cr3 and return to the thread */
+        task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
+                    (size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET);
+    } else {
+        /* Don't switch cr3 and return to the thread */
+        task_spinup(&process_table[current_process]->threads[current_thread]->ctx, 0);
+    }
 
 }
 

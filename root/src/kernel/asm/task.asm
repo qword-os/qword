@@ -1,21 +1,21 @@
 global task_spinup
-extern pic_send_eoi
+extern lapic_eoi
 
 section .text
 
 task_spinup:
     push rdi
-
-    call pic_send_eoi
-
+    push rsi
+    call lapic_eoi
+    pop rsi
     pop rdi
 
-    mov rsp, rdi
+    test rsi, rsi
+    jz .dont_load_cr3
+    mov cr3, rsi
 
-    pop rax
-    mov es, ax
-    pop rbx
-    mov ds, ax
+  .dont_load_cr3:
+    mov rsp, rdi
 
     pop r15
     pop r14
@@ -31,6 +31,11 @@ task_spinup:
     pop rdx
     pop rcx
     pop rbx
+
+    mov rax, qword [rsp+32+8]
+    mov ds, ax
+    mov es, ax
+
     pop rax
 
     iretq

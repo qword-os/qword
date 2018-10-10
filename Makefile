@@ -17,6 +17,13 @@ img: all
 	echfs-utils ./qword.img format 32768
 	./copy-root-to-img.sh root qword.img
 
+QEMU_FLAGS := $(QEMU_FLAGS) \
+	-drive file=qword.img,index=0,media=disk,format=raw \
+	-drive file=testiso.iso,index=1,media=disk,format=raw \
+	-net none \
+	-serial stdio \
+	-d cpu_reset
+
 run: run-img
 
 run-kvm: run-img-kvm
@@ -28,16 +35,16 @@ run-iso-kvm:
 	qemu-system-x86_64 -drive file=qword.iso,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm -net none -serial stdio
 
 run-img:
-	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -net none -serial stdio -hdb testiso.iso -device ahci,id=ahci -drive if=none,id=disk,file=test.img,format=raw -device ide-drive,drive=disk,bus=ahci.0
+	qemu-system-x86_64 $(QEMU_FLAGS) -smp sockets=1,cores=4,threads=1 -device ahci,id=ahci -drive if=none,id=disk,file=test.img,format=raw -device ide-drive,drive=disk,bus=ahci.0
 
 run-img-singlecore:
-	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1 -net none -serial stdio -hdb testiso.iso
+	qemu-system-x86_64 $(QEMU_FLAGS) -smp sockets=1,cores=1,threads=1
 
 run-img-kvm:
-	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm -net none -serial stdio -hdb testiso.iso
+	qemu-system-x86_64 $(QEMU_FLAGS) -smp sockets=1,cores=4,threads=1 -enable-kvm
 
 run-img-kvm-singlecore:
-	qemu-system-x86_64 -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1 -enable-kvm -net none -serial stdio -hdb testiso.iso
+	qemu-system-x86_64 $(QEMU_FLAGS) -smp sockets=1,cores=1,threads=1 -enable-kvm
 
 clean:
 	$(MAKE) clean -C root/src
