@@ -108,12 +108,12 @@ static int cache_block(int handle, uint64_t block) {
 
 static int echfs_read(int handle, void *buf, size_t count) {
     struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
-    
+
     if ((size_t)echfs_handles[handle].ptr + count
       >= (size_t)echfs_handles[handle].end) {
         count -= ((size_t)echfs_handles[handle].ptr + count) - (size_t)echfs_handles[handle].end;
     }
-    
+
     uint64_t block_count = count / BYTES_PER_BLOCK;
     if (count % BYTES_PER_BLOCK) block_count++;
 
@@ -151,7 +151,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
 
         cur_block++;
     }
-    
+
     echfs_handles[handle].ptr += count;
 
     return (int)count;
@@ -160,7 +160,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
 static int echfs_create_handle(struct echfs_handle_t handle) {
     int handle_n;
 
-    /* Check for a free handle */     
+    /* Check for a free handle */
     for (int i = 0; i < echfs_handles_i; i++) {
         if (echfs_handles[i].free) {
             handle_n = i;
@@ -170,10 +170,10 @@ static int echfs_create_handle(struct echfs_handle_t handle) {
 
     echfs_handles = krealloc(echfs_handles, (echfs_handles_i + 1) * sizeof(struct echfs_handle_t));
     handle_n = echfs_handles_i++;
-    
+
 load_handle:
     echfs_handles[handle_n] = handle;
-    
+
     return handle_n;
 }
 
@@ -234,7 +234,7 @@ static inline struct entry_t rd_entry(struct mount_t *mnt, uint64_t entry) {
     uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(struct entry_t));
     lseek(mnt->device, loc, SEEK_SET);
     read(mnt->device, (void *)&res, sizeof(struct entry_t));
-    
+
     return res;
 }
 
@@ -242,7 +242,7 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(struct entry_t));
     lseek(mnt->device, loc, SEEK_SET);
     write(mnt->device, (void *)&entry_src, sizeof(struct entry_t));
-    
+
     return;
 }
 
@@ -261,14 +261,14 @@ static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, u
 static uint64_t get_free_id(struct mount_t *mnt) {
     uint64_t id = 1;
     uint64_t i;
-    
+
     struct entry_t entry;
 
     for (i = 0; (entry = rd_entry(mnt, i)).parent_id; i++) {
         if ((entry.type == 1) && (entry.payload == id))
             id = (entry.payload + 1);
     }
-    
+
     return id;
 }
 
@@ -284,16 +284,16 @@ static struct path_result_t path_resolver(struct mount_t *mnt, const char *path,
     int i;
     struct path_result_t result;
     struct entry_t empty_entry = {0};
-    
+
     result.name[0] = 0;
     result.target_entry = 0;
     result.parent = empty_entry;
     result.target = empty_entry;
     result.failure = 0;
     result.not_found = 0;
-    
+
     parent.payload = ROOT_ID;
-    
+
     if ((type == DIRECTORY_TYPE) && !kstrcmp(path, "/")) {
         result.target.payload = ROOT_ID;
         return result; // exception for root
@@ -302,10 +302,10 @@ static struct path_result_t path_resolver(struct mount_t *mnt, const char *path,
         result.failure = 1;
         return result; // fail if looking for a file named "/"
     }
-    
+
     if (*path == '/') path++;
 
-next:    
+next:
     for (i = 0; *path != '/'; path++) {
         if (!*path) {
             last = 1;
@@ -315,7 +315,7 @@ next:
     }
     name[i] = 0;
     path++;
-    
+
     if (!last) {
         uint64_t search_res = search(mnt, name, parent.payload, DIRECTORY_TYPE);
         if (search_res == SEARCH_FAILURE) {
@@ -335,8 +335,26 @@ next:
         kstrcpy(result.name, name);
         return result;
     }
-    
+
     goto next;
+}
+
+static int echfs_close(int handle) {
+    if (handle < 0)
+        goto fail;
+
+    if (handle >= echfs_handles_i)
+        goto fail;
+
+    if (echfs_handles[handle].free)
+        goto fail;
+
+    echfs_handles[handle].free = 1;
+
+    return 0;
+
+fail:
+    return -1;
 }
 
 static int echfs_open(const char *path, int flags, int mode, int mnt) {
@@ -359,14 +377,14 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
     }
 
     new_handle.mnt = mnt;
-    
+
     int cached_file;
 
     if (!mounts[mnt].cached_files_ptr) goto skip_search;
 
     for (cached_file = 0; kstrcmp(mounts[mnt].cached_files[cached_file].path, path); cached_file++)
         if (cached_file == (mounts[mnt].cached_files_ptr - 1)) goto skip_search;
-        
+
     goto search_out;
 
 skip_search:
@@ -378,7 +396,7 @@ skip_search:
     mounts[mnt].cached_files[cached_file].path_res = path_result;
 
     mounts[mnt].cached_files[cached_file].cache = kalloc(mounts[mnt].bytesperblock);
-     
+
     mounts[mnt].cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
     mounts[mnt].cached_files[cached_file].alloc_map[0] = mounts[mnt].cached_files[cached_file].path_res.target.payload;
     for (uint64_t i = 1; mounts[mnt].cached_files[cached_file].alloc_map[i-1] != END_OF_CHAIN; i++) {
@@ -388,7 +406,7 @@ skip_search:
     }
 
     mounts[mnt].cached_files[cached_file].cache_status = CACHE_NOTREADY;
-    
+
     mounts[mnt].cached_files_ptr++;
 
 search_out:
@@ -404,10 +422,10 @@ static int echfs_lseek(int handle, off_t offset, int type) {
 
     if (handle >= echfs_handles_i)
         return -1;
-    
+
     if (echfs_handles[handle].free)
         return -1;
-        
+
     switch (type) {
         case SEEK_SET:
             if ((echfs_handles[handle].begin + offset) > echfs_handles[handle].end ||
@@ -449,7 +467,7 @@ static int echfs_mount(const char *source) {
         close(device);
         return -1;
     }
-    
+
     mounts = krealloc(mounts, sizeof(struct mount_t) * (mounts_i + 1));
 
     mounts[mounts_i].device = device;
@@ -484,6 +502,7 @@ void init_echfs(void) {
     kstrcpy(echfs.type, "echfs");
     echfs.mount = (void *)echfs_mount;
     echfs.open = echfs_open;
+    echfs.close = echfs_close;
     echfs.read = echfs_read;
     echfs.lseek = echfs_lseek;
     echfs.fstat = echfs_fstat;

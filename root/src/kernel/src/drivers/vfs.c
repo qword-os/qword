@@ -158,9 +158,7 @@ int write(int fd, const void *buf, size_t len) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
-    spinlock_acquire(&scheduler_lock);
     int res = filesystems[fs].write(intern_fd, buf, len);
-    spinlock_release(&scheduler_lock);
 
     return res;
 }
@@ -171,11 +169,9 @@ int close(int fd) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
-    spinlock_acquire(&scheduler_lock);
     int res = filesystems[fs].close(intern_fd);
     if (res == -1) return -1;
     file_descriptors[fd].used = 0;
-    spinlock_release(&scheduler_lock);
 
     return res;
 }
