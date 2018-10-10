@@ -42,9 +42,9 @@ void init_ahci(void) {
     int ret = pci_get_device(&device, class_mass_storage, subclass_serial_ata);
     if (!ret) kprint(KPRN_INFO, "ahci: Found AHCI controller");
 
-    ahci_base = ((size_t)pci_read_device(&device, 0x24) + MEM_PHYS_OFFSET);
+    ahci_base = (size_t)pci_read_device(&device, 0x24);
     kprint(KPRN_DBG, "ahci: ABAR at %x", ahci_base);
-    volatile struct hba_mem_t *mem = (volatile struct hba_mem_t *)ahci_base;
+    volatile struct hba_mem_t *mem = (volatile struct hba_mem_t *)(ahci_base + MEM_PHYS_OFFSET);
 
     for (size_t i = 0; i < 32; i++) {
         int ret = probe_port(mem, i);
@@ -101,26 +101,27 @@ void port_rebase(volatile struct hba_port_t *port, size_t portno) {
     port->clbu = 0;
     /* zero command list */
     kprint(KPRN_DBG, "zeroing command list");
-    kmemset((void *)((size_t)port->clb), 0, 1024);
+    kmemset((void *)(((size_t)port->clb) + MEM_PHYS_OFFSET), 0, 1024);
 
     /* calculate received fis base addr */
     kprint(KPRN_DBG, "calculating base of fis receive area");
     port->fb  = (ahci_base + (32 << 10) + (portno << 8));
+    kprint(KPRN_DBG, "fb = %x", (size_t)(void *)port->fb);
     port->fbu = 0;
     kprint(KPRN_DBG, "zeroing fis receive area");
     /* fis entry size = 256b per port */
     kmemset((void *)(((size_t)port->fb) + MEM_PHYS_OFFSET), 0, 256);
 
-    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)(size_t)port->clb;
+    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb + MEM_PHYS_OFFSET);
 
     kprint(KPRN_DBG, "setting up command tables");
     for (size_t i = 0; i < 32; i++) {
         cmd_hdr[i].prdtl = 8;
 
         /* command table base addr = 40K + 8K * portno + header index * 256 */
-        cmd_hdr[i].ctba = (uint32_t)(ahci_base + (40 << 10) + (portno << 13) + (i << 8));
+        cmd_hdr[i].ctba = (ahci_base + (40 << 10) + (portno << 13) + (i << 8));
         cmd_hdr[i].ctbau = 0;
-        kmemset((void *)(cmd_hdr[i].ctba), 0, 256);
+        kmemset((void *)(((size_t)cmd_hdr[i].ctba) + MEM_PHYS_OFFSET), 0, 256);
     }
 
     /* restart command engine */
