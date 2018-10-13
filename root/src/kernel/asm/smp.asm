@@ -99,7 +99,7 @@ smp_init_cpu0_local:
 
     ; setup syscall MSRs
     mov rcx, 0xc0000081
-    mov rdx, 0x00100008
+    mov rdx, 0x00130008
     mov rax, 0x00000000
     wrmsr
     mov rcx, 0xc0000082
