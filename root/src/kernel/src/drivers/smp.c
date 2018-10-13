@@ -20,9 +20,20 @@ int smp_check_ap_flag(void);
 int smp_cpu_count = 1;
 
 struct tss_t {
-    uint32_t unused __attribute__((aligned(16)));
-    uint64_t sp;
-    uint32_t entries[23];
+    uint32_t unused0 __attribute__((aligned(16)));
+    uint64_t rsp0;
+    uint64_t rsp1;
+    uint64_t rsp2;
+    uint64_t unused1;
+    uint64_t ist1;
+    uint64_t ist2;
+    uint64_t ist3;
+    uint64_t ist4;
+    uint64_t ist5;
+    uint64_t ist6;
+    uint64_t ist7;
+    uint64_t unused2;
+    uint32_t iopb_offset;
 } __attribute__((packed));
 
 static size_t cpu_stack_top = KERNEL_PHYS_OFFSET + 0xeffff0;
@@ -35,7 +46,7 @@ static void ap_kernel_entry(void) {
 
     kprint(KPRN_INFO, "smp: Started up AP #%u", current_cpu);
     kprint(KPRN_INFO, "smp: Kernel stack top: %X", cpu_locals[current_cpu].kernel_stack);
-    
+
     /* Enable this AP's local APIC */
     lapic_enable();
 
@@ -56,7 +67,8 @@ static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
     cpu_locals[cpu_number].reset_scheduler = 0;
 
     /* Prepare TSS */
-    cpu_tss[cpu_number].sp = (uint64_t)cpu_stack_top;
+    cpu_tss[cpu_number].rsp0 = (uint64_t)cpu_stack_top;
+    cpu_tss[cpu_number].ist1 = (uint64_t)cpu_stack_top;
 
     return;
 }
