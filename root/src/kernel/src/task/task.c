@@ -111,8 +111,6 @@ void task_resched(struct ctx_t *ctx) {
 
     if (current_task != -1) {
         struct thread_t *current_thread = task_table[current_task];
-        /* Release lock on this thread */
-        spinlock_release(&current_thread->lock);
         /* Save current context */
         current_thread->active_on_cpu = -1;
         current_thread->ctx = *ctx;
@@ -120,6 +118,8 @@ void task_resched(struct ctx_t *ctx) {
         fxsave(&current_thread->fxstate);
         /* Save user rsp */
         current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
+        /* Release lock on this thread */
+        spinlock_release(&current_thread->lock);
     } else {
         current_task = 0;
     }

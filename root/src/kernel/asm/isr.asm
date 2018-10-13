@@ -72,6 +72,16 @@ extern task_resched
 global syscall_entry
 extern kbd_handler
 
+%macro iretq_fix 0
+    ; AMD Ryzen bug fix
+    cmp qword [rsp+32], 0x18
+    je .adjust_rsp
+    iretq
+  .adjust_rsp:
+    mov qword [rsp+32], 0x1b
+    iretq
+%endmacro
+
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
     pusham
@@ -80,7 +90,7 @@ extern kbd_handler
 
     popam
 
-    iretq
+    iretq_fix
 %endmacro
 
 %macro except_handler_err_code 1
@@ -91,7 +101,7 @@ extern kbd_handler
 
     call %1
 
-    iretq
+    iretq_fix
 %endmacro
 
 %macro except_handler 1
@@ -100,7 +110,7 @@ extern kbd_handler
 
     call %1
 
-    iretq
+    iretq_fix
 %endmacro
 
 ; Save registers.
@@ -218,7 +228,7 @@ irq0_handler:
     call lapic_eoi
 
     popam
-    iretq
+    iretq_fix
 
 ipi_abortexec:
     mov rsp, qword [fs:0008]
@@ -235,10 +245,10 @@ ipi_resched:
 
     call task_resched
 
-    call lapic_eoi
-
-    popam
-    iretq
+    ; ** EXECUTION SHOULD NEVER REACH THIS POINT **
+  .halt:
+    hlt
+    jmp .halt
 
 invalid_syscall:
     mov rax, -1
@@ -297,7 +307,7 @@ irq1_handler:
     call kbd_handler
     call lapic_eoi
     popam
-    iretq
+    iretq_fix
 ; IPIs
 ipi_abort:
     cli

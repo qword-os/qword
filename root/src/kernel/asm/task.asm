@@ -38,4 +38,10 @@ task_spinup:
 
     pop rax
 
+    ; AMD Ryzen bug fix
+    cmp qword [rsp+32], 0x18
+    je .adjust_rsp
+    iretq
+  .adjust_rsp:
+    mov qword [rsp+32], 0x1b
     iretq
