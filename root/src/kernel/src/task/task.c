@@ -13,11 +13,16 @@
 
 #define SMP_TIMESLICE_MS 5
 
+void task_spinup(void *, size_t);
+
 lock_t scheduler_lock = 0;
 
 struct process_t **process_table;
 
+struct thread_t **task_table;
 static int64_t task_count = 0;
+
+static lock_t switched_cpus = 0;
 
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. See kernel/include/ctx.h for the register order. */
@@ -30,11 +35,14 @@ void init_sched(void) {
     fxsave(&default_fxstate);
 
     kprint(KPRN_INFO, "sched: Initialising process table...");
+
     /* Make room for task table */
+    if ((task_table = kalloc(MAX_TASKS * sizeof(struct thread_t *))) == 0) {
+        panic("sched: Unable to allocate task table.", 0, 0);
+    }
     if ((process_table = kalloc(MAX_PROCESSES * sizeof(struct process_t *))) == 0) {
         panic("sched: Unable to allocate process table.", 0, 0);
     }
-
     /* Now make space for PID 0 */
     kprint(KPRN_INFO, "sched: Creating PID 0");
     if ((process_table[0] = kalloc(sizeof(struct process_t))) == 0) {
@@ -52,111 +60,89 @@ void init_sched(void) {
 }
 
 /* Search for a new task to run */
-static void task_get_next(pid_t *process, pid_t *thread, size_t step) {
-    size_t step_counter = 0;
-    struct thread_t *next_thread;
-    struct process_t *next_process;
+static inline void task_get_next(tid_t *taskptr) {
+    tid_t current_task = *taskptr+1;
 
-    if (!step) {
-        /* Step is 0, return the current process-thread if valid, else find first valid one */
-        next_thread = process_table[*process]->threads[*thread];
-        /* Confirm that thread is inactive and valid */
-        if (next_thread && next_thread != (void *)(-1))
-            return;
-    }
-
-get_next_thread:
-    (*thread)++;
-get_next_thread_noincrement:
-    /* Now check if this thread is the last thread in the process. If it is,
-     * skip to the next process in the process table */
-    next_thread = process_table[*process]->threads[*thread];
-    /* Same as above, check if inactive and valid */
-    if (next_thread && next_thread != (void *)(-1)) {
-        if (++step_counter >= step)
-            return;
-        else
-            goto get_next_thread;
-    }
-    if (!next_thread) {
-        goto get_next_process;
-    } else {
-        goto get_next_thread;
-    }
-
-get_next_process:
-    *thread = 0;
-    next_process = process_table[++(*process)];
-    /* If the selected process is valid, continue searching for
-     * threads in this new process */
-    if (next_process && next_process != (void *)(-1)) {
-        goto get_next_thread_noincrement;
-    }
-    if (!next_process) {
-        /* We reached the end of tasks, start from the beginning and exit */
-        *process = 0;
-        *thread = 0;
-        task_get_next(process, thread, current_cpu);
+    for (;;) {
+        struct thread_t *thread = task_table[current_task];
+        if (!thread) {
+            current_task = 0;
+            continue;
+        } else if (thread == (void *)(-1)) {
+            if (++current_task == MAX_TASKS)
+                current_task = 0;
+            continue;
+        }
+        if (!spinlock_test_and_acquire(&thread->lock)) {
+            if (++current_task == MAX_TASKS)
+                current_task = 0;
+            continue;
+        }
+        *taskptr = current_task;
         return;
-    } else {
-        /* If we reached this point, we still need to find a new process. Do that thing */
-        goto get_next_process;
     }
-
-    panic("something weird happened", 0, 0);
 
 }
 
-void task_spinup(void *, size_t);
-
-static lock_t switched_cpus = 0;
-
-void task_resched(struct ctx_t *ctx) {
+static inline void idle(void) {
     if (task_count <= current_cpu) {
-        cpu_locals[current_cpu].reset_scheduler = 0;
-        cpu_locals[current_cpu].current_process = -1;
+        cpu_locals[current_cpu].current_task = -1;
         cpu_locals[current_cpu].current_thread = -1;
+        cpu_locals[current_cpu].current_process = -1;
         spinlock_inc(&switched_cpus);
         while (spinlock_read(&switched_cpus) < smp_cpu_count);
         if (!current_cpu) {
             spinlock_release(&scheduler_lock);
         }
-        return;
+        asm volatile (
+            "mov rsp, qword ptr fs:[8];"
+            "call lapic_eoi;"
+            "sti;"
+            "1: "
+            "hlt;"
+            "jmp 1b;"
+        );
     }
+}
 
-    pid_t current_process = cpu_locals[current_cpu].current_process;
-    pid_t last_process = current_process;
-    tid_t current_thread = cpu_locals[current_cpu].current_thread;
+void task_resched(struct ctx_t *ctx) {
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+    pid_t last_task = current_task;
 
-    if (current_process != -1 && current_thread != -1) {
+    if (current_task != -1) {
+        struct thread_t *current_thread = task_table[current_task];
+        /* Release lock on this thread */
+        spinlock_release(&current_thread->lock);
         /* Save current context */
-        process_table[current_process]->threads[current_thread]->active_on_cpu = -1;
-        process_table[current_process]->threads[current_thread]->ctx = *ctx;
+        current_thread->active_on_cpu = -1;
+        current_thread->ctx = *ctx;
         /* Save FPU context */
-        fxsave(&process_table[current_process]->threads[current_thread]->fxstate);
+        fxsave(&current_thread->fxstate);
         /* Save user rsp */
-        process_table[current_process]->threads[current_thread]->ustack = cpu_locals[current_cpu].thread_ustack;
-        if (cpu_locals[current_cpu].reset_scheduler)
-            goto reset_scheduler;
-        task_get_next(&current_process, &current_thread, smp_cpu_count);
+        current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
     } else {
-reset_scheduler:
-        cpu_locals[current_cpu].reset_scheduler = 0;
-        current_process = 0;
-        current_thread = 0;
-        task_get_next(&current_process, &current_thread, current_cpu);
+        current_task = 0;
     }
 
-    cpu_locals[current_cpu].current_process = current_process;
-    cpu_locals[current_cpu].current_thread = current_thread;
+    /* Idle check */
+    idle();
+    /* Get to the next task */
+    task_get_next(&current_task);
 
-    cpu_locals[current_cpu].thread_kstack = process_table[current_process]->threads[current_thread]->kstack;
-    cpu_locals[current_cpu].thread_ustack = process_table[current_process]->threads[current_thread]->ustack;
+    struct cpu_local_t *cpu_local = &cpu_locals[current_cpu];
+    struct thread_t *thread = task_table[current_task];
 
-    process_table[current_process]->threads[current_thread]->active_on_cpu = current_cpu;
+    cpu_local->current_task = current_task;
+    cpu_local->current_thread = thread->tid;
+    cpu_local->current_process = thread->process;
+
+    cpu_local->thread_kstack = thread->kstack;
+    cpu_local->thread_ustack = thread->ustack;
+
+    thread->active_on_cpu = current_cpu;
 
     /* Restore FPU context */
-    fxrstor(&process_table[current_process]->threads[current_thread]->fxstate);
+    fxrstor(&thread->fxstate);
 
     spinlock_inc(&switched_cpus);
     while (spinlock_read(&switched_cpus) < smp_cpu_count);
@@ -165,15 +151,13 @@ reset_scheduler:
     }
 
     /* Swap cr3, if necessary */
-    if (current_process != last_process) {
+    if (task_table[last_task]->process != thread->process) {
         /* Switch cr3 and return to the thread */
-        task_spinup(&process_table[current_process]->threads[current_thread]->ctx,
-                    (size_t)process_table[current_process]->pagemap->pagemap - MEM_PHYS_OFFSET);
+        task_spinup(&thread->ctx, (size_t)process_table[thread->process]->pagemap->pagemap - MEM_PHYS_OFFSET);
     } else {
         /* Don't switch cr3 and return to the thread */
-        task_spinup(&process_table[current_process]->threads[current_thread]->ctx, 0);
+        task_spinup(&thread->ctx, 0);
     }
-
 }
 
 static int pit_ticks = 0;
@@ -251,13 +235,6 @@ found_new_pid:
     return new_pid;
 }
 
-static void task_reset_sched(void) {
-    for (int i = 0; i < smp_cpu_count; i++) {
-        cpu_locals[i].reset_scheduler = 1;
-    }
-    return;
-}
-
 /* Kill a thread in a given process */
 /* Return -1 on failure */
 int task_tkill(pid_t pid, tid_t tid) {
@@ -279,8 +256,6 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     task_count--;
 
-    task_reset_sched();
-
     if (active_on_cpu != -1) {
         cpu_locals[active_on_cpu].current_process = -1;
         cpu_locals[active_on_cpu].current_thread = -1;
@@ -301,22 +276,32 @@ int task_tkill(pid_t pid, tid_t tid) {
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
 tid_t task_tcreate(pid_t pid, void *(*entry)(void *), void *arg) {
-    /* Search for free thread ID */
+    /* Search for free thread ID in the process */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
         if (!process_table[pid]->threads[new_tid] || process_table[pid]->threads[new_tid] == (void *)(-1))
             goto found_new_tid;
     }
     return -1;
+found_new_tid:;
 
-found_new_tid:
-    /* Try to make space for this new task */
-    if ((process_table[pid]->threads[new_tid] = kalloc(sizeof(struct thread_t))) == 0) {
-        process_table[pid]->threads[new_tid] = EMPTY;
+    /* Search for free global task ID */
+    tid_t new_task_id;
+    for (new_task_id = 0; new_task_id < MAX_TASKS; new_task_id++) {
+        if (!task_table[new_task_id] || task_table[new_tid] == (void *)(-1))
+            goto found_new_task_id;
+    }
+    return -1;
+found_new_task_id:;
+
+    /* Try to make space for this new thread */
+    struct thread_t *new_thread;
+    if ((new_thread = kalloc(sizeof(struct thread_t))) == 0) {
         return -1;
     }
 
-    struct thread_t *new_thread = process_table[pid]->threads[new_tid];
+    process_table[pid]->threads[new_tid] = new_thread;
+    task_table[new_task_id] = new_thread;
 
     new_thread->active_on_cpu = -1;
 
@@ -377,9 +362,10 @@ found_new_tid:
     kmemcpy(new_thread->fxstate, default_fxstate, 512);
 
     new_thread->tid = new_tid;
+    new_thread->process = pid;
+    spinlock_release(&new_thread->lock);
 
     task_count++;
-    task_reset_sched();
 
     return new_tid;
 }

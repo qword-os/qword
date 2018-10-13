@@ -63,8 +63,8 @@ static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
     cpu_locals[cpu_number].kernel_stack = cpu_stack_top;
     cpu_locals[cpu_number].current_process = -1;
     cpu_locals[cpu_number].current_thread = -1;
+    cpu_locals[cpu_number].current_task = -1;
     cpu_locals[cpu_number].lapic_id = lapic_id;
-    cpu_locals[cpu_number].reset_scheduler = 0;
 
     /* Prepare TSS */
     cpu_tss[cpu_number].rsp0 = (uint64_t)cpu_stack_top;

@@ -8,11 +8,8 @@
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
+#define MAX_TASKS (MAX_PROCESSES)
 #define MAX_FILE_HANDLES 256
-
-#define TASK_STS_RUNNING 0
-#define TASK_STS_READY 1
-#define TASK_STS_BLOCKED 2
 
 #define CURRENT_PROCESS cpu_locals[current_cpu].current_process
 #define CURRENT_THREAD cpu_locals[current_cpu].current_thread
@@ -59,6 +56,8 @@ typedef int32_t gid_t;
 
 struct thread_t {
     tid_t tid;
+    pid_t process;
+    lock_t lock;
     int status;
     int priority;
     int active_on_cpu;

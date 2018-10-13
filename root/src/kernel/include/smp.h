@@ -21,10 +21,10 @@ struct cpu_local_t {
     size_t thread_kstack;
     size_t thread_ustack;
     /* Feel free to move every other member, and use any type as you see fit */
+    tid_t current_task;
     pid_t current_process;
     tid_t current_thread;
     uint8_t lapic_id;
-    int reset_scheduler;
 };
 
 extern struct cpu_local_t cpu_locals[MAX_CPUS];

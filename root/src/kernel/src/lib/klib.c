@@ -71,7 +71,7 @@ static void kputchar(char c) {
 
 static void kputs(const char *string) {
     size_t i;
-    
+
     for (i = 0; string[i]; i++) {
         kputchar(string[i]);
     }
@@ -267,12 +267,12 @@ void *kmemcpy(void *dest, const void *src, size_t count) {
 
     uint8_t *dest2 = dest;
     const uint8_t *src2 = src;
-    
+
     /* Copy byte by byte */
     for (i = 0; i < count; i++) {
         dest2[i] = src2[i];
     }
-    
+
     return dest;
 }
 
@@ -282,7 +282,7 @@ void *kmemset(void *s, int c, size_t count) {
         *p = (uint8_t)c;
     }
 
-    return s;    
+    return s;
 }
 
 void *kmemmove(void *dest, const void *src, size_t count) {
@@ -307,7 +307,7 @@ void *kmemmove(void *dest, const void *src, size_t count) {
 int kmemcmp(const void *s1, const void *s2, size_t n) {
     const uint8_t *a = s1;
     const uint8_t *b = s2;
-    
+
     for (size_t i = 0; i < n; i++) {
         if (a[i] < b[i]) {
             return -1;

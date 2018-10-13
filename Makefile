@@ -18,6 +18,7 @@ img: all
 	./copy-root-to-img.sh root qword.img
 
 QEMU_FLAGS := $(QEMU_FLAGS) \
+	-m 2G \
 	-drive file=qword.img,index=0,media=disk,format=raw \
 	-drive file=testiso.iso,index=1,media=disk,format=raw \
 	-device ahci,id=ahci -drive if=none,id=disk,file=test.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 \

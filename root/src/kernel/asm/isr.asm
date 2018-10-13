@@ -261,9 +261,9 @@ syscall_entry:
     mov qword [fs:0024], rsp ; save the user stack
     mov rsp, qword [fs:0016] ; switch to the kernel space stack for the thread
 
-    sti         ; Reenable interrupt flag
-
     pusham
+
+    sti         ; Reenable interrupt flag
 
     mov rdi, rsp
 
@@ -273,9 +273,9 @@ syscall_entry:
     call [syscall_table + rax * 8]
 
   .out:
-    popams
-
     cli         ; Clear interrupt flag
+
+    popams
 
     mov rsp, qword [fs:0024] ; restore the user stack
 

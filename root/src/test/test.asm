@@ -4,7 +4,7 @@ global _start
 _start:
     mov rax, 0x00
     mov rdi, msg
-jmp $
+;jmp $
     syscall
     jmp $
 
