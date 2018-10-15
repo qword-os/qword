@@ -263,8 +263,6 @@ syscall_entry:
 
     pusham
 
-    sti         ; Reenable interrupt flag
-
     mov rdi, rsp
 
     cmp rax, syscall_count   ; is syscall_number too big?
@@ -273,8 +271,6 @@ syscall_entry:
     call [syscall_table + rax * 8]
 
   .out:
-    cli         ; Clear interrupt flag
-
     popams
 
     mov rsp, qword [fs:0024] ; restore the user stack

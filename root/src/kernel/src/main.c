@@ -52,7 +52,10 @@ void kmain_thread(void) {
 
     for (;;) {
         char buf[256];
-        write(tty_fd, "\nqword> ", 8);
+        int core = current_cpu;
+        core += '0';
+        write(tty_fd, &core, 1);
+        write(tty_fd, ": qword> ", 9);
         readline(tty_fd, buf);
         write(tty_fd, buf, kstrlen(buf));
     }

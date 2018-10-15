@@ -60,49 +60,72 @@ void init_sched(void) {
 }
 
 /* Search for a new task to run */
-static inline void task_get_next(tid_t *taskptr) {
-    tid_t current_task = *taskptr+1;
+static inline tid_t task_get_next(tid_t current_task) {
+    if (current_task != -1) {
+        current_task++;
+    } else {
+        current_task = 0;
+    }
 
-    for (;;) {
+    for (int64_t i = 0; i < task_count; ) {
         struct thread_t *thread = task_table[current_task];
         if (!thread) {
+            /* End of task table, rewind */
             current_task = 0;
-            continue;
-        } else if (thread == (void *)(-1)) {
-            if (++current_task == MAX_TASKS)
-                current_task = 0;
-            continue;
+            thread = task_table[current_task];
+        }
+        if (thread == EMPTY) {
+            /* This is an empty thread, skip */
+            goto skip;
         }
         if (!spinlock_test_and_acquire(&thread->lock)) {
-            if (++current_task == MAX_TASKS)
-                current_task = 0;
-            continue;
+            /* If unable to acquire the thread's lock, skip */
+            goto next;
         }
-        *taskptr = current_task;
-        return;
+        return current_task;
+        next:
+        i++;
+        skip:
+        if (++current_task == MAX_TASKS)
+            current_task = 0;
     }
 
+    return -1;
 }
 
-static inline void idle(void) {
-    if (task_count <= current_cpu) {
-        cpu_locals[current_cpu].current_task = -1;
-        cpu_locals[current_cpu].current_thread = -1;
-        cpu_locals[current_cpu].current_process = -1;
-        spinlock_inc(&switched_cpus);
-        while (spinlock_read(&switched_cpus) < smp_cpu_count);
-        if (!current_cpu) {
-            spinlock_release(&scheduler_lock);
-        }
-        asm volatile (
-            "mov rsp, qword ptr fs:[8];"
-            "call lapic_eoi;"
-            "sti;"
-            "1: "
-            "hlt;"
-            "jmp 1b;"
-        );
+__attribute__((noinline)) static void _idle(void) {
+    cpu_locals[current_cpu].current_task = -1;
+    cpu_locals[current_cpu].current_thread = -1;
+    cpu_locals[current_cpu].current_process = -1;
+    spinlock_inc(&switched_cpus);
+    while (spinlock_read(&switched_cpus) < smp_cpu_count);
+    if (!current_cpu) {
+        spinlock_release(&scheduler_lock);
     }
+    asm volatile (
+        "call lapic_eoi;"
+        "sti;"
+        "1: "
+        "hlt;"
+        "jmp 1b;"
+    );
+}
+
+__attribute__((noinline)) static void idle(void) {
+    /* This idle function swaps cr3 and rsp then calls _idle for technical reasons */
+    asm volatile (
+        "mov rbx, cr3;"
+        "cmp rax, rbx;"
+        "je 1f;"
+        "mov cr3, rax;"
+        "1: "
+        "mov rsp, qword ptr fs:[8];"
+        "call _idle;"
+        :
+        : "a" ((size_t)kernel_pagemap.pagemap - MEM_PHYS_OFFSET)
+    );
+    /* Dead call so GCC doesn't garbage collect _idle */
+    _idle();
 }
 
 void task_resched(struct ctx_t *ctx) {
@@ -120,14 +143,13 @@ void task_resched(struct ctx_t *ctx) {
         current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
-    } else {
-        current_task = 0;
     }
 
-    /* Idle check */
-    idle();
     /* Get to the next task */
-    task_get_next(&current_task);
+    current_task = task_get_next(current_task);
+    /* If there's nothing to do, idle */
+    if (current_task == -1)
+        idle();
 
     struct cpu_local_t *cpu_local = &cpu_locals[current_cpu];
     struct thread_t *thread = task_table[current_task];

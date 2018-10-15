@@ -109,7 +109,7 @@ smp_init_cpu0_local:
     mov eax, eax
     wrmsr
     mov rcx, 0xc0000084
-    mov rax, ~(0x002)
+    mov rax, ~(0x202)
     xor rdx, rdx
     not rdx
     wrmsr
