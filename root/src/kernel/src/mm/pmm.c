@@ -46,7 +46,7 @@ static void bm_realloc(void) {
     for (size_t i = bitmap_full; i < bitmap_full + 2048; i++) {
         tmp_bitmap[i] = 0xffffffff;
     }
-    
+
     bitmap_full += 2048;
 
     volatile uint32_t *tmp = tmp_bitmap;
@@ -127,7 +127,7 @@ found:
 
     spinlock_release(&pmm_lock);
 
-    uint64_t *pages = (uint64_t *)(start * PAGE_SIZE);
+    uint64_t *pages = (uint64_t *)((start * PAGE_SIZE) + MEM_PHYS_OFFSET);
 
     for (size_t i = 0; i < (pg_count * PAGE_SIZE) / sizeof(uint64_t); i++)
         pages[i] = 0;

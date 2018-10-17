@@ -8,7 +8,7 @@
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
-#define MAX_TASKS (MAX_PROCESSES)
+#define MAX_TASKS (MAX_PROCESSES*16)
 #define MAX_FILE_HANDLES 256
 
 #define CURRENT_PROCESS cpu_locals[current_cpu].current_process
