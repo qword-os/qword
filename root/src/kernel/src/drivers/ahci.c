@@ -80,7 +80,7 @@ int ahci_init_ata(volatile struct hba_port_t *port, size_t portno) {
     //kprint(KPRN_DBG, "port rebase done, begin identify command");
     //int ret = ahci_identify(port, 0xec);
     //if (ret == -1)
-      //  return -1; 
+      //  return -1;
 
     return 0;
 }
@@ -94,7 +94,6 @@ int ahci_init_atapi(volatile struct hba_port_t *port, size_t portno) {
 /* Reconfigure the memory areas for a given port */
 void port_rebase(volatile struct hba_port_t *port, size_t portno) {
     kprint(KPRN_DBG, "stopping command engine");
-    //stop_cmd(port);
 
     /* calculate base of the command list */
     kprint(KPRN_DBG, "calculating base of command list");
@@ -134,7 +133,7 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
     int spin = 0;
 
     port->is = (uint32_t)-1;
-    
+
     int slot = find_cmdslot(port);
     if (slot == -1) {
         kprint(KPRN_DBG, "failed to find command slot");
@@ -224,13 +223,7 @@ void stop_cmd(volatile struct hba_port_t *port) {
     /* Clear bit 0 */
     port->cmd &= ~HBA_PxCMD_ST;
 
-    for (;;) {
-        if (port->cmd & HBA_PxCMD_FR)
-            continue;
-        if (port->cmd & HBA_PxCMD_CR)
-            continue;
-        break;
-    }
+    while (port->cmd & HBA_PxCMD_CR)
 
     /* Clear bit 4 */
     port->cmd &= ~HBA_PxCMD_FRE;
