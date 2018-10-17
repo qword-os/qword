@@ -223,7 +223,7 @@ void stop_cmd(volatile struct hba_port_t *port) {
     /* Clear bit 0 */
     port->cmd &= ~HBA_PxCMD_ST;
 
-    while (port->cmd & HBA_PxCMD_CR)
+    while (port->cmd & HBA_PxCMD_CR);
 
     /* Clear bit 4 */
     port->cmd &= ~HBA_PxCMD_FRE;
