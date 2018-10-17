@@ -9,19 +9,26 @@
 /* TODO expand this to be like execve */
 pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     /* Create a new pagemap for the process */
-    pt_entry_t *pagemap = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
-    if (pagemap == (void *)MEM_PHYS_OFFSET) return -1;
+    pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+    if ((size_t)pml4 == MEM_PHYS_OFFSET) return -1;
 
-    struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));
-    if (!new_pagemap) return -1;
-    new_pagemap->pagemap = pagemap;
-    new_pagemap->lock = 1;
+    struct pagemap_t *pagemap = kalloc(sizeof(struct pagemap_t));
+    if (!pagemap) {
+        pmm_free((void *)((size_t)pml4 - MEM_PHYS_OFFSET), 1);
+        return -1;
+    }
+    pagemap->pml4 = pml4;
+    spinlock_release(&pagemap->lock);
 
     int fd = open(filename, 0, 0);
-    if (fd == -1) return -1;
+    if (fd == -1) {
+        kfree(pagemap);
+        pmm_free((void *)((size_t)pml4 - MEM_PHYS_OFFSET), 1);
+        return -1;
+    }
 
     uint64_t entry;
-    int ret = elf_load(fd, new_pagemap, &entry);
+    int ret = elf_load(fd, pagemap, &entry);
     close(fd);
     if (ret == -1) {
         kprint(KPRN_DBG, "elf: Load of binary file %s failed.", filename);
@@ -30,7 +37,7 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     kprint(KPRN_DBG, "elf: %s successfully loaded. entry point: %X", filename, entry);
 
     /* Create a new process */
-    pid_t new_pid = task_pcreate(new_pagemap);
+    pid_t new_pid = task_pcreate(pagemap);
     if (new_pid == (pid_t)(-1)) return -1;
 
     /* Create main thread */

@@ -83,7 +83,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     struct cpu_local_t *cpu_local = &cpu_locals[cpu_number];
     struct tss_t *tss = &cpu_tss[cpu_number];
 
-    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pagemap,
+    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pml4,
                                 (void *)cpu_stack_top, cpu_local, tss);
 
     /* Send the INIT IPI */

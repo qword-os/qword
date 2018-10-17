@@ -14,7 +14,7 @@
 typedef uint64_t pt_entry_t;
 
 struct pagemap_t {
-    pt_entry_t *pagemap;
+    pt_entry_t *pml4;
     lock_t lock;
 };
 
@@ -25,7 +25,7 @@ void *pmm_alloc(size_t);
 void pmm_free(void *, size_t);
 void init_pmm(void);
 
-void map_page(struct pagemap_t *, size_t, size_t, size_t);
+int map_page(struct pagemap_t *, size_t, size_t, size_t);
 int unmap_page(struct pagemap_t *, size_t);
 int remap_page(struct pagemap_t *, size_t, size_t);
 void init_vmm(void);

@@ -122,7 +122,7 @@ __attribute__((noinline)) static void idle(void) {
         "mov rsp, qword ptr fs:[8];"
         "call _idle;"
         :
-        : "a" ((size_t)kernel_pagemap.pagemap - MEM_PHYS_OFFSET)
+        : "a" ((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET)
     );
     /* Dead call so GCC doesn't garbage collect _idle */
     _idle();
@@ -175,7 +175,7 @@ void task_resched(struct ctx_t *ctx) {
     /* Swap cr3, if necessary */
     if (task_table[last_task]->process != thread->process) {
         /* Switch cr3 and return to the thread */
-        task_spinup(&thread->ctx, (size_t)process_table[thread->process]->pagemap->pagemap - MEM_PHYS_OFFSET);
+        task_spinup(&thread->ctx, (size_t)process_table[thread->process]->pagemap->pml4 - MEM_PHYS_OFFSET);
     } else {
         /* Don't switch cr3 and return to the thread */
         task_spinup(&thread->ctx, 0);
@@ -248,7 +248,7 @@ found_new_pid:
 
     /* Map the higher half into the process */
     for (size_t i = 256; i < 512; i++) {
-        pagemap->pagemap[i] = process_table[0]->pagemap->pagemap[i];
+        pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
     }
 
     new_process->pagemap = pagemap;
