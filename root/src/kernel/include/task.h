@@ -58,8 +58,7 @@ struct thread_t {
     tid_t tid;
     pid_t process;
     lock_t lock;
-    int status;
-    int priority;
+    uint64_t yield_target;
     int active_on_cpu;
     size_t kstack;
     size_t ustack;

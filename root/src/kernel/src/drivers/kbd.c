@@ -63,7 +63,7 @@ static lock_t kbd_read_lock = 1;
 
 int kbd_read(char *buf, size_t count) {
     while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-        asm volatile ("hlt;");
+        yield(10);
     }
 
     for (size_t i = 0; i < count; ) {
@@ -76,9 +76,9 @@ int kbd_read(char *buf, size_t count) {
         } else {
             /* wait to register new keypresses */
             spinlock_release(&kbd_read_lock);
-            asm volatile ("hlt;");
+            yield(10);
             while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-                asm volatile ("hlt;");
+                yield(10);
             }
         }
     }

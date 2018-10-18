@@ -69,6 +69,7 @@ extern dummy_int_handler
 global int_handler
 extern task_resched_bsp
 extern task_resched
+extern task_trigger_resched
 global syscall_entry
 extern kbd_handler
 
@@ -233,7 +234,12 @@ ipi_resched:
 
     mov rdi, rsp
 
+    mov rax, qword [fs:0000]
+    test rax, rax
+    jz .is_bsp
     call task_resched
+  .is_bsp:
+    call task_trigger_resched
 
     ; ** EXECUTION SHOULD NEVER REACH THIS POINT **
   .halt:

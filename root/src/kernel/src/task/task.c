@@ -10,6 +10,8 @@
 #include <apic.h>
 #include <ipi.h>
 #include <fs.h>
+#include <time.h>
+#include <pit.h>
 
 #define SMP_TIMESLICE_MS 5
 
@@ -59,6 +61,22 @@ void init_sched(void) {
     return;
 }
 
+void yield(uint64_t ms) {
+    spinlock_acquire(&scheduler_lock);
+
+    uint64_t yield_target = (uptime_raw + (ms * (PIT_FREQUENCY / 1000))) + 1;
+
+    tid_t current_task = cpu_locals[current_cpu].current_task;
+    task_table[current_task]->yield_target = yield_target;
+
+    /* Send resched IPI to CPU 0 to trigger a reschedule */
+    lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[0].lapic_id) << 24);
+    lapic_write(APICREG_ICR0, IPI_RESCHED);
+
+    /* Paranoia: make sure the IPI goes through, 1ms should be more than plenty */
+    ksleep(1);
+}
+
 /* Search for a new task to run */
 static inline tid_t task_get_next(tid_t current_task) {
     if (current_task != -1) {
@@ -77,6 +95,9 @@ static inline tid_t task_get_next(tid_t current_task) {
         if (thread == EMPTY) {
             /* This is an empty thread, skip */
             goto skip;
+        }
+        if (thread->yield_target > uptime_raw) {
+            goto next;
         }
         if (!spinlock_test_and_acquire(&thread->lock)) {
             /* If unable to acquire the thread's lock, skip */
@@ -197,6 +218,18 @@ void task_resched_bsp(struct ctx_t *ctx) {
         return;
     }
 
+    spinlock_test_and_acquire(&switched_cpus);
+
+    for (int i = 1; i < smp_cpu_count; i++) {
+        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
+        lapic_write(APICREG_ICR0, IPI_RESCHED);
+    }
+
+    /* Call task_scheduler on the BSP */
+    task_resched(ctx);
+}
+
+void task_trigger_resched(struct ctx_t *ctx) {
     spinlock_test_and_acquire(&switched_cpus);
 
     for (int i = 1; i < smp_cpu_count; i++) {
