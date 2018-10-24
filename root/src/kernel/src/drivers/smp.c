@@ -36,10 +36,15 @@ struct tss_t {
     uint32_t iopb_offset;
 } __attribute__((packed));
 
-static size_t cpu_stack_top = KERNEL_PHYS_OFFSET + 0xeffff0;
-
 struct cpu_local_t cpu_locals[MAX_CPUS];
 static struct tss_t cpu_tss[MAX_CPUS] __attribute__((aligned(16)));
+
+struct stack_t {
+    uint8_t guard_page[PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+    uint8_t stack[CPU_STACK_SIZE] __attribute__((aligned(PAGE_SIZE)));
+};
+
+static struct stack_t cpu_stacks[MAX_CPUS] __attribute__((aligned(PAGE_SIZE)));
 
 static void ap_kernel_entry(void) {
     /* APs jump here after initialisation */
@@ -58,17 +63,20 @@ static void ap_kernel_entry(void) {
 }
 
 static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
+    /* Set up stack guard page */
+    unmap_page(&kernel_pagemap, (size_t)&cpu_stacks[cpu_number].guard_page[0]);
+
     /* Prepare CPU local */
     cpu_locals[cpu_number].cpu_number = cpu_number;
-    cpu_locals[cpu_number].kernel_stack = cpu_stack_top;
+    cpu_locals[cpu_number].kernel_stack = (size_t)&cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
     cpu_locals[cpu_number].current_process = -1;
     cpu_locals[cpu_number].current_thread = -1;
     cpu_locals[cpu_number].current_task = -1;
     cpu_locals[cpu_number].lapic_id = lapic_id;
 
     /* Prepare TSS */
-    cpu_tss[cpu_number].rsp0 = (uint64_t)cpu_stack_top;
-    cpu_tss[cpu_number].ist1 = (uint64_t)cpu_stack_top;
+    cpu_tss[cpu_number].rsp0 = (uint64_t)&cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
+    cpu_tss[cpu_number].ist1 = (uint64_t)&cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
 
     return;
 }
@@ -82,9 +90,10 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
 
     struct cpu_local_t *cpu_local = &cpu_locals[cpu_number];
     struct tss_t *tss = &cpu_tss[cpu_number];
+    uint8_t *stack = &cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
 
     void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pml4,
-                                (void *)cpu_stack_top, cpu_local, tss);
+                                              stack, cpu_local, tss);
 
     /* Send the INIT IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
@@ -98,7 +107,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     ksleep(1);
 
     if (smp_check_ap_flag()) {
-        goto success;
+        return 0;
     } else {
         /* Send the Startup IPI again */
         lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
@@ -106,14 +115,10 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
         /* wait 1s */
         ksleep(1000);
         if (smp_check_ap_flag())
-            goto success;
+            return 0;
         else
             return -1;
     }
-
-success:
-    cpu_stack_top -= CPU_STACK_SIZE;
-    return 0;
 }
 
 static void init_cpu0(void) {
@@ -123,8 +128,6 @@ static void init_cpu0(void) {
     struct tss_t *tss = &cpu_tss[0];
 
     smp_init_cpu0_local(cpu_local, tss);
-
-    cpu_stack_top -= CPU_STACK_SIZE;
 
     return;
 }

@@ -22,10 +22,6 @@
     asm volatile ("fxrstor [rbx];" : : "b" (PTR)); \
 })
 
-#define cr3_load(NEW_CR3) ({ \
-    asm volatile ("mov cr3, rax;" : : "a" (NEW_CR3)); \
-})
-
 struct ctx_t {
     uint64_t r15;
     uint64_t r14;
@@ -80,6 +76,8 @@ extern lock_t scheduler_lock;
 extern struct process_t **process_table;
 
 void init_sched(void);
+
+void yield(uint64_t);
 
 tid_t task_tcreate(pid_t, void *(*)(void *), void *);
 pid_t task_pcreate(struct pagemap_t *);

@@ -64,6 +64,12 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
     /* Set the entry as present and point it to the passed physical address */
     /* Also set the specified flags */
     pt[pt_entry] = (pt_entry_t)(phys_addr | flags);
+
+    if ((size_t)pagemap->pml4 == read_cr3()) {
+        // TODO: TLB shootdown
+        invlpg(virt_addr);
+    }
+
     spinlock_release(&pagemap->lock);
     return 0;
 
@@ -132,6 +138,11 @@ int unmap_page(struct pagemap_t *pagemap, size_t virt_addr) {
 
     /* Unmap entry */
     pt[pt_entry] = 0;
+
+    if ((size_t)pagemap->pml4 == read_cr3()) {
+        // TODO: TLB shootdown
+        invlpg(virt_addr);
+    }
 
     /* Free previous levels if empty */
     for (size_t i = 0; ; i++) {
@@ -213,6 +224,11 @@ int remap_page(struct pagemap_t *pagemap, size_t virt_addr, size_t flags) {
 
     /* Update flags */
     pt[pt_entry] = (pt[pt_entry] & 0xfffffffffffff000) | flags;
+
+    if ((size_t)pagemap->pml4 == read_cr3()) {
+        // TODO: TLB shootdown
+        invlpg(virt_addr);
+    }
 
     spinlock_release(&pagemap->lock);
     return 0;
