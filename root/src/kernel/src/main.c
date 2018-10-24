@@ -25,16 +25,6 @@
 #include <time.h>
 #include <kbd.h>
 
-void readline(int fd, char *str) {
-    for (size_t i = 0; ; i++) {
-        read(fd, &str[i], 1);
-        if (str[i] == '\n') {
-            str[i] = 0;
-            return;
-        }
-    }
-}
-
 void kmain_thread(void) {
     /* Execute a test process */
     spinlock_acquire(&scheduler_lock);
@@ -47,20 +37,6 @@ void kmain_thread(void) {
     spinlock_release(&scheduler_lock);
 
     kprint(KPRN_INFO, "kmain: End of init.");
-
-    int tty_fd = open("/dev/tty", 0, O_RDWR);
-
-    for (;;) {
-        char buf[256];
-        int core = current_cpu;
-        core += '0';
-        write(tty_fd, &core, 1);
-        write(tty_fd, ": qword> ", 9);
-        readline(tty_fd, buf);
-        write(tty_fd, buf, kstrlen(buf));
-    }
-
-    close(tty_fd);
 
     for (;;) asm volatile ("hlt;");
 }

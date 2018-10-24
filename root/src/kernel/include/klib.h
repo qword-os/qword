@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <task.h>
 
+#define KPRN_MAX_TYPE 3
+
 #define KPRN_INFO   0
 #define KPRN_WARN   1
 #define KPRN_ERR    2

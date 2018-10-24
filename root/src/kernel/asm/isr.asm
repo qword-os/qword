@@ -256,8 +256,16 @@ syscall_count equ ((syscall_table.end - syscall_table) / 8)
 
 align 16
 syscall_table:
-    extern test_syscall
-    dq test_syscall
+    extern syscall_debug_print
+    dq syscall_debug_print
+    extern syscall_open
+    dq syscall_open
+    extern syscall_close
+    dq syscall_close
+    extern syscall_read
+    dq syscall_read
+    extern syscall_write
+    dq syscall_write
     dq invalid_syscall
   .end:
 
