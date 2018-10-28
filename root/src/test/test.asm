@@ -16,6 +16,9 @@ _start:
     mov rsi, msg1
     mov rdx, msg1_len
     syscall
+    mov rax, 5          ; getauxval syscall
+    mov rdi, 10         ; 10 = AT_ENTRY (see src/interrupts/syscalls.c)
+    syscall
     jmp $
 
 section .data
