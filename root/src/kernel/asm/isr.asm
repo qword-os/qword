@@ -266,6 +266,8 @@ syscall_table:
     dq syscall_read
     extern syscall_write
     dq syscall_write
+    extern syscall_getauxval
+    dq syscall_getauxval
     dq invalid_syscall
   .end:
 

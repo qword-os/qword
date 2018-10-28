@@ -62,6 +62,13 @@ struct thread_t {
     uint8_t fxstate[512] __attribute__((aligned(16)));
 };
 
+struct auxval_t {
+    size_t at_entry;
+    size_t at_phdr;
+    size_t at_phent;
+    size_t at_phnum;
+};
+
 struct process_t {
     pid_t pid;
     int priority;
@@ -69,6 +76,7 @@ struct process_t {
     struct thread_t **threads;
     char *cwd;
     int *file_handles;
+    struct auxval_t auxval;
 };
 
 extern lock_t scheduler_lock;

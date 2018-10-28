@@ -11,6 +11,28 @@
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+#define AT_ENTRY 10
+#define AT_PHDR 20
+#define AT_PHENT 21
+#define AT_PHNUM 22
+
+int syscall_getauxval(struct ctx_t *ctx) {
+    pid_t proc = cpu_locals[current_cpu].current_process;
+
+    switch (ctx->rdi) {
+        case AT_ENTRY:
+            return process_table[proc]->auxval.at_entry;
+        case AT_PHDR:
+            return process_table[proc]->auxval.at_phdr;
+        case AT_PHENT:
+            return process_table[proc]->auxval.at_phent;
+        case AT_PHNUM:
+            return process_table[proc]->auxval.at_phnum;
+        default:
+            return -1;
+    }
+}
+
 int syscall_debug_print(struct ctx_t *ctx) {
     // rdi: print type
     // rsi: string

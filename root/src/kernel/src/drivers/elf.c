@@ -5,8 +5,10 @@
 #include <mm.h>
 #include <panic.h>
 
+#define PROCESS_IMAGE_PHDR_LOCATION     ((size_t)0x0000600000000000)
+
 /* Execute an ELF file given some file data */
-int elf_load(int fd, struct pagemap_t *pagemap, uint64_t *entry) {
+int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
     int ret = lseek(fd, 0, SEEK_SET);
     if (ret == -1) return -1;
 
@@ -38,6 +40,21 @@ int elf_load(int fd, struct pagemap_t *pagemap, uint64_t *entry) {
         kfree(phdr);
         return -1;
     }
+
+    /* Read phdr into address space */
+    size_t phdr_size_in_pages = (hdr.ph_num * sizeof(struct elf_phdr_t)) / PAGE_SIZE;
+    if ((hdr.ph_num * sizeof(struct elf_phdr_t)) % PAGE_SIZE) phdr_size_in_pages++;
+    void *phdr_phys_addr = pmm_alloc(phdr_size_in_pages);
+    void *phdr_virt_addr = phdr_phys_addr + MEM_PHYS_OFFSET;
+    kmemcpy(phdr_virt_addr, phdr, hdr.ph_num * sizeof(struct elf_phdr_t));
+    for (size_t i = 0; i < phdr_size_in_pages; i++) {
+        map_page(pagemap, (size_t)phdr_phys_addr + i * PAGE_SIZE,
+                 PROCESS_IMAGE_PHDR_LOCATION + i * PAGE_SIZE, 0x07);
+    }
+
+    auxval->at_phdr = PROCESS_IMAGE_PHDR_LOCATION;
+    auxval->at_phent = sizeof(struct elf_phdr_t);
+    auxval->at_phnum = hdr.ph_num;
 
     for (size_t i = 0; i < hdr.ph_num; i++) {
         if (phdr[i].p_type != PT_LOAD)
@@ -76,6 +93,6 @@ int elf_load(int fd, struct pagemap_t *pagemap, uint64_t *entry) {
 
     kfree(phdr);
 
-    *entry = hdr.entry;
+    auxval->at_entry = hdr.entry;
     return 0;
 }
