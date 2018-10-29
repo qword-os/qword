@@ -9,7 +9,7 @@ struct hba_port_t *hba_ports;
 
 void start_cmd(volatile struct hba_port_t *);
 void stop_cmd(volatile struct hba_port_t *);
-void kmemset64(void *ptr, int c, size_t count);
+void kmemset64(void *ptr, uint64_t c, size_t count);
 
 static int check_type(volatile struct hba_port_t *port) {
     uint32_t ssts = port->ssts;
@@ -77,10 +77,10 @@ int probe_port(volatile struct hba_mem_t *mem, size_t portno) {
 
 int ahci_init_ata(volatile struct hba_port_t *port, size_t portno) {
     port_rebase(port, portno);
-    //kprint(KPRN_DBG, "port rebase done, begin identify command");
-    //int ret = ahci_identify(port, 0xec);
-    //if (ret == -1)
-      //  return -1;
+    kprint(KPRN_DBG, "port rebase done, begin identify command");
+    int ret = ahci_identify(port, 0xec);
+    if (ret == -1)
+      return -1;
 
     return 0;
 }
@@ -101,7 +101,7 @@ void port_rebase(volatile struct hba_port_t *port, size_t portno) {
     port->clbu = 0;
     /* zero command list */
     kprint(KPRN_DBG, "zeroing command list");
-    kmemset64((void *)(((size_t)port->clb) + MEM_PHYS_OFFSET), 0, 1024);
+    kmemset64((void *)(((size_t)port->clb) + MEM_PHYS_OFFSET), 0, 128);
 
     /* calculate received fis base addr */
     kprint(KPRN_DBG, "calculating base of fis receive area");
@@ -110,7 +110,7 @@ void port_rebase(volatile struct hba_port_t *port, size_t portno) {
     port->fbu = 0;
     kprint(KPRN_DBG, "zeroing fis receive area");
     /* fis entry size = 256b per port */
-    kmemset64((void *)(((size_t)port->fb) + MEM_PHYS_OFFSET), 0, 256);
+    kmemset64((void *)(((size_t)port->fb) + MEM_PHYS_OFFSET), 0, 32);
 
     volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb + MEM_PHYS_OFFSET);
 
@@ -121,11 +121,8 @@ void port_rebase(volatile struct hba_port_t *port, size_t portno) {
         /* command table base addr = 40K + 8K * portno + header index * 256 */
         cmd_hdr[i].ctba = (ahci_base + (40 << 10) + (portno << 13) + (i << 8));
         cmd_hdr[i].ctbau = 0;
-        kmemset64((void *)(((size_t)cmd_hdr[i].ctba) + MEM_PHYS_OFFSET), 0, 256);
+        kmemset64((void *)(((size_t)cmd_hdr[i].ctba) + MEM_PHYS_OFFSET), 0, 32);
     }
-
-    /* restart command engine */
-    start_cmd(port);
 }
 
 int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
@@ -140,20 +137,21 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
         return -1;
     }
 
-    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_header_t *)(size_t)port->clb;
+    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb + MEM_PHYS_OFFSET);
     cmd_hdr += slot;
     cmd_hdr->cfl = sizeof(volatile struct fis_regh2d_t) / sizeof(uint32_t);
     cmd_hdr->w = 0;
     cmd_hdr->prdtl = 1;
 
-    volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(size_t)cmd_hdr->ctba;
-    kmemset((void *)cmdtbl, 0, sizeof(volatile struct hba_cmd_tbl_t));
+    volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(((size_t)cmd_hdr->ctba) + MEM_PHYS_OFFSET);
+
+    kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0, sizeof(volatile struct hba_cmd_tbl_t) / 8);
 
     cmdtbl->prdt_entry[0].dba = (uint32_t)dest;
     cmdtbl->prdt_entry[0].dbc = (512 | 1);
 
-    struct fis_regh2d_t *cmdfis = (struct fis_reg_h2d_t *)(size_t)cmdtbl->cfis;
-    kmemset(cmdfis, 0, sizeof(struct fis_regh2d_t));
+    struct fis_regh2d_t *cmdfis = (struct fis_regh2d_t *)(((size_t)cmdtbl->cfis));
+    kmemset64((void *)(((size_t)(void *)cmdtbl->cfis)), 0, sizeof(struct fis_regh2d_t) / 8);
 
     cmdfis->pmport = (uint8_t)(1 << 7);
     cmdfis->command = cmd;
@@ -162,7 +160,6 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
     cmdfis->counth = 0;
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
 
-    kprint(KPRN_DBG, "fis setup complete, waiting for a free port");
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) {
         spin++;
     }
@@ -173,10 +170,10 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
 
     port->ci = 1 << slot;
     start_cmd(port);
-
     for (;;) {
-        if ((port->ci & (1 << slot)) == 0)
+        if (!(port->ci & (1 << slot))) {
             break;
+        }
         /* check for task file error */
         if (port->is & (1 << 30)) {
             kprint(KPRN_DBG, "ahci: Disk read error in ahci_identify()");
@@ -192,13 +189,13 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
 
     stop_cmd(port);
 
-    kprint(KPRN_DBG, "identify successful");
+    kprint(KPRN_INFO, "identify successful");
 
     return 0;
 }
 
 void start_cmd(volatile struct hba_port_t *port) {
-    while (port->cmd & HBA_PxCMD_ST);
+    while (port->cmd & HBA_PxCMD_CR);
 
     port->cmd |= HBA_PxCMD_FRE;
     port->cmd |= HBA_PxCMD_ST;
@@ -208,12 +205,10 @@ void start_cmd(volatile struct hba_port_t *port) {
 
 int find_cmdslot(volatile struct hba_port_t *port) {
     uint32_t slots = (port->sact | port->ci);
-    for (int i = 0; i < slots; i++) {
-        if (!(slots & 1)) {
+    for (int i = 0; i < 32; i++) {
+        if (!(slots & (1 << i))) {
             return i;
         }
-
-        slots >>= 1;
     }
 
     return -1;
@@ -231,11 +226,11 @@ void stop_cmd(volatile struct hba_port_t *port) {
     return;
 }
 
-void kmemset64(void *ptr, int c, size_t count) {
-    uint64_t *p = ptr, *end = p + count;
+void kmemset64(void *ptr, uint64_t c, size_t count) {
+    uint64_t *p = ptr;
 
-    for (; p != end; p++) {
-        *p = (uint64_t)c;
+    for (size_t i = 0; i < count; i++) {
+        p[i] = c;
     }
 
     return;

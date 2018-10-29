@@ -72,9 +72,9 @@ struct hba_prdtl_t {
 };
 
 struct hba_cmd_tbl_t {
-    uint8_t  cfis[64];
-    uint8_t  acmd[16];
-    uint8_t  rsv[48];
+    uint8_t cfis[64];
+    uint8_t acmd[16];
+    uint8_t rsv[48];
     struct hba_prdtl_t prdt_entry[1];
 };
 
