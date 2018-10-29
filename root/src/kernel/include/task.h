@@ -8,7 +8,7 @@
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
-#define MAX_TASKS (MAX_PROCESSES)
+#define MAX_TASKS (MAX_PROCESSES*16)
 #define MAX_FILE_HANDLES 256
 
 #define CURRENT_PROCESS cpu_locals[current_cpu].current_process
@@ -20,10 +20,6 @@
 
 #define fxrstor(PTR) ({ \
     asm volatile ("fxrstor [rbx];" : : "b" (PTR)); \
-})
-
-#define cr3_load(NEW_CR3) ({ \
-    asm volatile ("mov cr3, rax;" : : "a" (NEW_CR3)); \
 })
 
 struct ctx_t {
@@ -58,13 +54,19 @@ struct thread_t {
     tid_t tid;
     pid_t process;
     lock_t lock;
-    int status;
-    int priority;
+    uint64_t yield_target;
     int active_on_cpu;
     size_t kstack;
     size_t ustack;
     struct ctx_t ctx;
     uint8_t fxstate[512] __attribute__((aligned(16)));
+};
+
+struct auxval_t {
+    size_t at_entry;
+    size_t at_phdr;
+    size_t at_phent;
+    size_t at_phnum;
 };
 
 struct process_t {
@@ -74,6 +76,7 @@ struct process_t {
     struct thread_t **threads;
     char *cwd;
     int *file_handles;
+    struct auxval_t auxval;
 };
 
 extern lock_t scheduler_lock;
@@ -81,6 +84,8 @@ extern lock_t scheduler_lock;
 extern struct process_t **process_table;
 
 void init_sched(void);
+
+void yield(uint64_t);
 
 tid_t task_tcreate(pid_t, void *(*)(void *), void *);
 pid_t task_pcreate(struct pagemap_t *);

@@ -69,6 +69,7 @@ extern dummy_int_handler
 global int_handler
 extern task_resched_bsp
 extern task_resched
+extern task_trigger_resched
 global syscall_entry
 extern kbd_handler
 
@@ -233,7 +234,12 @@ ipi_resched:
 
     mov rdi, rsp
 
+    mov rax, qword [fs:0000]
+    test rax, rax
+    jz .is_bsp
     call task_resched
+  .is_bsp:
+    call task_trigger_resched
 
     ; ** EXECUTION SHOULD NEVER REACH THIS POINT **
   .halt:
@@ -250,8 +256,18 @@ syscall_count equ ((syscall_table.end - syscall_table) / 8)
 
 align 16
 syscall_table:
-    extern test_syscall
-    dq test_syscall
+    extern syscall_debug_print
+    dq syscall_debug_print
+    extern syscall_open
+    dq syscall_open
+    extern syscall_close
+    dq syscall_close
+    extern syscall_read
+    dq syscall_read
+    extern syscall_write
+    dq syscall_write
+    extern syscall_getauxval
+    dq syscall_getauxval
     dq invalid_syscall
   .end:
 

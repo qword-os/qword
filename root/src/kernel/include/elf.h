@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <task.h>
 #include <mm.h>
 
 #define PT_LOAD     0x00000001
@@ -58,6 +59,6 @@ struct elf_shdr_t {
     uint64_t sh_entsize;
 };
 
-int elf_load(int, struct pagemap_t *, uint64_t *);
+int elf_load(int, struct pagemap_t *, struct auxval_t *);
 
 #endif
