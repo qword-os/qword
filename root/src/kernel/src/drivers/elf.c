@@ -42,8 +42,8 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
     }
 
     /* Read phdr into address space */
-    size_t phdr_size_in_pages = (hdr.ph_num * sizeof(struct elf_phdr_t)) / PAGE_SIZE;
-    if ((hdr.ph_num * sizeof(struct elf_phdr_t)) % PAGE_SIZE) phdr_size_in_pages++;
+    size_t phdr_size_in_pages = (hdr.ph_num * sizeof(struct elf_phdr_t) + (PAGE_SIZE - 1))
+            / PAGE_SIZE;
     void *phdr_phys_addr = pmm_alloc(phdr_size_in_pages);
     void *phdr_virt_addr = phdr_phys_addr + MEM_PHYS_OFFSET;
     kmemcpy(phdr_virt_addr, phdr, hdr.ph_num * sizeof(struct elf_phdr_t));
@@ -60,8 +60,7 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
         if (phdr[i].p_type != PT_LOAD)
             continue;
 
-        size_t page_count = phdr[i].p_memsz / 0x1000;
-        if (phdr[i].p_memsz % 0x1000) page_count++;
+        size_t page_count = (phdr[i].p_memsz + (PAGE_SIZE - 1)) / PAGE_SIZE;
 
         /* Allocate space */
         void *addr = pmm_alloc(page_count);
@@ -71,12 +70,13 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
         }
 
         for (size_t j = 0; j < page_count; j++) {
-            size_t virt = phdr[i].p_vaddr + (j * 0x1000);
-            size_t phys = (size_t)addr + (j * 0x1000);
+            size_t virt = phdr[i].p_vaddr + (j * PAGE_SIZE);
+            size_t phys = (size_t)addr + (j * PAGE_SIZE);
             map_page(pagemap, phys, virt, 0x07);
         }
 
-        void *buf = (void *)((size_t)addr + MEM_PHYS_OFFSET);
+        char *buf = (char *)((size_t)addr + MEM_PHYS_OFFSET);
+        kmemset(buf, 0, page_count * PAGE_SIZE);
 
         ret = lseek(fd, phdr[i].p_offset, SEEK_SET);
         if (ret == -1) {
@@ -84,7 +84,7 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
             return -1;
         }
 
-        ret = read(fd, buf, phdr[i].p_filesz);
+        ret = read(fd, buf + (phdr[i].p_vaddr & (PAGE_SIZE - 1)), phdr[i].p_filesz);
         if (ret == -1) {
             kfree(phdr);
             return -1;
