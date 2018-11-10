@@ -7,6 +7,7 @@
 #include <mm.h>
 
 #define PT_LOAD     0x00000001
+#define PT_INTERP   0x00000003
 
 #define ABI_SYSV 0x00
 #define ARCH_X86_64 0x3e
@@ -59,6 +60,6 @@ struct elf_shdr_t {
     uint64_t sh_entsize;
 };
 
-int elf_load(int, struct pagemap_t *, struct auxval_t *);
+int elf_load(int, struct pagemap_t *, size_t, struct auxval_t *, char **);
 
 #endif

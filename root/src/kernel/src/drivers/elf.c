@@ -7,8 +7,12 @@
 
 #define PROCESS_IMAGE_PHDR_LOCATION     ((size_t)0x0000600000000000)
 
-/* Execute an ELF file given some file data */
-int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
+/* Execute an ELF file given some file data
+   out_ld_path: If non-null, returns path of the dynamic linker as kalloc()ed string */
+int elf_load(int fd, struct pagemap_t *pagemap, size_t base, struct auxval_t *auxval,
+        char **out_ld_path) {
+    char *ld_path = NULL;
+
     int ret = lseek(fd, 0, SEEK_SET);
     if (ret == -1) return -1;
 
@@ -49,15 +53,39 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
     kmemcpy(phdr_virt_addr, phdr, hdr.ph_num * sizeof(struct elf_phdr_t));
     for (size_t i = 0; i < phdr_size_in_pages; i++) {
         map_page(pagemap, (size_t)phdr_phys_addr + i * PAGE_SIZE,
-                 PROCESS_IMAGE_PHDR_LOCATION + i * PAGE_SIZE, 0x07);
+                 base + PROCESS_IMAGE_PHDR_LOCATION + i * PAGE_SIZE, 0x07);
     }
 
-    auxval->at_phdr = PROCESS_IMAGE_PHDR_LOCATION;
+    auxval->at_phdr = base + PROCESS_IMAGE_PHDR_LOCATION;
     auxval->at_phent = sizeof(struct elf_phdr_t);
     auxval->at_phnum = hdr.ph_num;
 
     for (size_t i = 0; i < hdr.ph_num; i++) {
-        if (phdr[i].p_type != PT_LOAD)
+        if (phdr[i].p_type == PT_INTERP) {
+            if (!out_ld_path)
+                continue;
+
+            ld_path = kalloc(phdr[i].p_filesz + 1);
+            if (!ld_path) {
+                kfree(phdr);
+                return -1;
+            }
+
+            ret = lseek(fd, phdr[i].p_offset, SEEK_SET);
+            if (ret == -1) {
+                kfree(phdr);
+                kfree(ld_path);
+                return -1;
+            }
+
+            ret = read(fd, ld_path, phdr[i].p_filesz);
+            if (ret == -1) {
+                kfree(phdr);
+                kfree(ld_path);
+                return -1;
+            }
+            ld_path[phdr[i].p_filesz] = 0;
+        } else if (phdr[i].p_type != PT_LOAD)
             continue;
 
         size_t page_count = (phdr[i].p_memsz + (PAGE_SIZE - 1)) / PAGE_SIZE;
@@ -66,11 +94,12 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
         void *addr = pmm_alloc(page_count);
         if (!addr) {
             kfree(phdr);
+            kfree(ld_path);
             return -1;
         }
 
         for (size_t j = 0; j < page_count; j++) {
-            size_t virt = phdr[i].p_vaddr + (j * PAGE_SIZE);
+            size_t virt = base + phdr[i].p_vaddr + (j * PAGE_SIZE);
             size_t phys = (size_t)addr + (j * PAGE_SIZE);
             map_page(pagemap, phys, virt, 0x07);
         }
@@ -81,18 +110,22 @@ int elf_load(int fd, struct pagemap_t *pagemap, struct auxval_t *auxval) {
         ret = lseek(fd, phdr[i].p_offset, SEEK_SET);
         if (ret == -1) {
             kfree(phdr);
+            kfree(ld_path);
             return -1;
         }
 
         ret = read(fd, buf + (phdr[i].p_vaddr & (PAGE_SIZE - 1)), phdr[i].p_filesz);
         if (ret == -1) {
             kfree(phdr);
+            kfree(ld_path);
             return -1;
         }
     }
 
     kfree(phdr);
 
-    auxval->at_entry = hdr.entry;
+    auxval->at_entry = base + hdr.entry;
+    if (out_ld_path)
+        *out_ld_path = ld_path;
     return 0;
 }
