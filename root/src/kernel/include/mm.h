@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <lock.h>
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE ((size_t)4096)
 
 #define PAGE_TABLE_ENTRIES 512
 #define KERNEL_PHYS_OFFSET ((size_t)0xffffffffc0000000)
