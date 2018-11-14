@@ -257,17 +257,19 @@ syscall_count equ ((syscall_table.end - syscall_table) / 8)
 align 16
 syscall_table:
     extern syscall_debug_print
-    dq syscall_debug_print
+    dq syscall_debug_print ;0
     extern syscall_open
-    dq syscall_open
+    dq syscall_open ;1
     extern syscall_close
-    dq syscall_close
+    dq syscall_close ;2
     extern syscall_read
-    dq syscall_read
+    dq syscall_read ;3
     extern syscall_write
-    dq syscall_write
+    dq syscall_write ;4
     extern syscall_getauxval
-    dq syscall_getauxval
+    dq syscall_getauxval ;5
+    extern syscall_alloc_at
+    dq syscall_alloc_at ;6
     dq invalid_syscall
   .end:
 

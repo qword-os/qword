@@ -28,12 +28,12 @@
 void kmain_thread(void) {
     /* Execute a test process */
     spinlock_acquire(&scheduler_lock);
+    kexec("/bin/test", 0, 0);/*
     kexec("/bin/test", 0, 0);
     kexec("/bin/test", 0, 0);
     kexec("/bin/test", 0, 0);
     kexec("/bin/test", 0, 0);
-    kexec("/bin/test", 0, 0);
-    kexec("/bin/test", 0, 0);
+    kexec("/bin/test", 0, 0);*/
     spinlock_release(&scheduler_lock);
 
     kprint(KPRN_INFO, "kmain: End of init.");

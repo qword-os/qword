@@ -241,6 +241,8 @@ void task_trigger_resched(struct ctx_t *ctx) {
     task_resched(ctx);
 }
 
+#define BASE_BRK_LOCATION ((size_t)0x0000780000000000)
+
 /* Create process */
 /* Returns process ID, -1 on failure */
 pid_t task_pcreate(struct pagemap_t *pagemap) {
@@ -283,6 +285,8 @@ found_new_pid:
     for (size_t i = 256; i < 512; i++) {
         pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
     }
+
+    new_process->cur_brk = BASE_BRK_LOCATION;
 
     new_process->pagemap = pagemap;
     new_process->pid = new_pid;

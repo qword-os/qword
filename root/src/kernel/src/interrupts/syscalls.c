@@ -6,10 +6,38 @@
 #include <lock.h>
 #include <fs.h>
 #include <task.h>
+#include <mm.h>
 
 /* Prototype syscall: int syscall_name(struct ctx_t *ctx) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
+
+void *syscall_alloc_at(struct ctx_t *ctx) {
+    // rdi: virtual address / 0 for sbrk-like allocation
+    // rsi: page count
+
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+
+    struct process_t *process = process_table[current_process];
+
+    size_t base_address;
+    if (ctx->rdi) {
+        base_address = ctx->rdi;
+    } else {
+        base_address = process->cur_brk;
+        process->cur_brk += ctx->rsi * PAGE_SIZE;
+    }
+
+    for (size_t i = 0; i < ctx->rsi; i++) {
+        void *ptr = pmm_alloc(1);
+        if (!ptr)
+            return (void *)0;
+        if (map_page(process->pagemap, ptr, base_address + i * PAGE_SIZE, 0x07))
+            return (void *)0;
+    }
+
+    return (void *)base_address;
+}
 
 #define AT_ENTRY 10
 #define AT_PHDR 20

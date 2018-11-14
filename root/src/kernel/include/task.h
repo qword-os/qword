@@ -76,6 +76,7 @@ struct process_t {
     struct thread_t **threads;
     char *cwd;
     int *file_handles;
+    size_t cur_brk;
     struct auxval_t auxval;
 };
 

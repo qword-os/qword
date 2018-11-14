@@ -19,6 +19,21 @@ _start:
     mov rax, 5          ; getauxval syscall
     mov rdi, 10         ; 10 = AT_ENTRY (see src/interrupts/syscalls.c)
     syscall
+    mov rax, 6          ; alloc_at syscall
+    mov rdi, 0          ; no specific address
+    mov rsi, 16         ; 16 pages
+    syscall
+    mov r8, rax
+    mov rax, 6          ; alloc_at syscall
+    mov rdi, 0          ; no specific address
+    mov rsi, 16         ; 16 pages
+    syscall
+    mov r9, rax
+    mov rax, 6          ; alloc_at syscall
+    mov rdi, 0xdead0000 ; allocate at 0xdead0000
+    mov rsi, 8          ; 8 pages
+    syscall
+    mov r10, rax
     jmp $
 
 section .data
