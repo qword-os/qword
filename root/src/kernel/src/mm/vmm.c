@@ -275,8 +275,13 @@ void init_vmm(void) {
 
     /* Map the rest according to e820 into the higher half */
     for (size_t i = 0; e820_map[i].type; i++) {
-        for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
-            size_t addr = e820_map[i].base + j * PAGE_SIZE;
+        size_t aligned_base = e820_map[i].base - (e820_map[i].base % PAGE_SIZE);
+        size_t aligned_length = (e820_map[i].length / PAGE_SIZE) * PAGE_SIZE;
+        if (e820_map[i].length % PAGE_SIZE) aligned_length += PAGE_SIZE;
+        if (e820_map[i].base % PAGE_SIZE) aligned_length += PAGE_SIZE;
+
+        for (size_t j = 0; j * PAGE_SIZE < aligned_length; j++) {
+            size_t addr = aligned_base + j * PAGE_SIZE;
 
             /* Skip over first 4 GiB */
             if (addr < 0x100000000)

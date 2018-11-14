@@ -5,19 +5,25 @@
 #include <lock.h>
 #include <e820.h>
 
-#define MBITMAP_FULL ((0x4000000 / PAGE_SIZE) / 32)
-#define BASE (0x1000000 / PAGE_SIZE)
+#define MEMORY_BASE 0x1000000
+#define BITMAP_BASE (MEMORY_BASE / PAGE_SIZE)
 
-static volatile size_t bitmap_full = MBITMAP_FULL;
+#define BMREALLOC_STEP 1
+
 static volatile uint32_t *mem_bitmap;
-static volatile uint32_t initial_bitmap[MBITMAP_FULL];
+static volatile uint32_t initial_bitmap[] = { 0xfffffffe };
 static volatile uint32_t *tmp_bitmap;
+
+/* 32 entries because initial_bitmap is a single dword */
+static size_t bitmap_entries = 32;
 
 /* A core wishing to modify the PMM bitmap must first acquire this lock,
  * to ensure other cores cannot simultaneously modify the bitmap */
 static lock_t pmm_lock = 1;
 
 static inline int read_bitmap(size_t i) {
+    i -= BITMAP_BASE;
+
     size_t which_entry = i / 32;
     size_t offset = i % 32;
 
@@ -25,6 +31,8 @@ static inline int read_bitmap(size_t i) {
 }
 
 static inline void write_bitmap(size_t i, int val) {
+    i -= BITMAP_BASE;
+
     size_t which_entry = i / 32;
     size_t offset = i % 32;
 
@@ -36,59 +44,70 @@ static inline void write_bitmap(size_t i, int val) {
     return;
 }
 
-static void bm_realloc(void) {
-    if (!(tmp_bitmap = kalloc((bitmap_full + 2048) * sizeof(uint32_t)))) {
-        kprint(KPRN_ERR, "kalloc failure in bm_realloc(). Halted.");
-        for (;;);
-    }
-
-    kmemcpy((void *)tmp_bitmap, (void *)mem_bitmap, bitmap_full * sizeof(uint32_t));
-    for (size_t i = bitmap_full; i < bitmap_full + 2048; i++) {
-        tmp_bitmap[i] = 0xffffffff;
-    }
-
-    bitmap_full += 2048;
-
-    volatile uint32_t *tmp = tmp_bitmap;
-    tmp_bitmap = mem_bitmap;
-    mem_bitmap = tmp;
-
-    kfree((void *)tmp_bitmap);
-
-    return;
-}
-
 /* Populate bitmap using e820 data. */
 void init_pmm(void) {
-    for (size_t i = 0; i < bitmap_full; i++) {
-        initial_bitmap[i] = 0;
-    }
-
     mem_bitmap = initial_bitmap;
-    if (!(tmp_bitmap = kalloc(bitmap_full * sizeof(uint32_t)))) {
-        kprint(KPRN_ERR, "kalloc failure in init_pmm(). Halted.");
+    if (!(tmp_bitmap = pmm_alloc(BMREALLOC_STEP))) {
+        kprint(KPRN_ERR, "pmm_alloc failure in init_pmm(). Halted.");
         for (;;);
     }
 
-    for (size_t i = 0; i < bitmap_full; i++)
-        tmp_bitmap[i] = initial_bitmap[i];
+    tmp_bitmap = (uint32_t *)((size_t)tmp_bitmap + MEM_PHYS_OFFSET);
+
+    for (size_t i = 0; i < (BMREALLOC_STEP * PAGE_SIZE) / sizeof(uint32_t); i++)
+        tmp_bitmap[i] = 0xffffffff;
+
     mem_bitmap = tmp_bitmap;
+
+    bitmap_entries = ((PAGE_SIZE / sizeof(uint32_t)) * 32) * BMREALLOC_STEP;
+
+    kprint(KPRN_INFO, "pmm: Mapping memory as specified by the e820...");
 
     /* For each region specified by the e820, iterate over each page which
        fits in that region and if the region type indicates the area itself
        is usable, write that page as free in the bitmap. Otherwise, mark the page as used. */
     for (size_t i = 0; e820_map[i].type; i++) {
-        for (size_t j = 0; j * PAGE_SIZE < e820_map[i].length; j++) {
-            size_t addr = e820_map[i].base + j * PAGE_SIZE;
+        size_t aligned_base;
+        if (e820_map[i].base % PAGE_SIZE)
+            aligned_base = e820_map[i].base + (PAGE_SIZE - (e820_map[i].base % PAGE_SIZE));
+        else
+            aligned_base = e820_map[i].base;
+        size_t aligned_length = (e820_map[i].length / PAGE_SIZE) * PAGE_SIZE;
+        if ((e820_map[i].base % PAGE_SIZE) && aligned_length) aligned_length -= PAGE_SIZE;
 
-            /* FIXME: assume the first 32 MiB of memory to be free and usable */
-            if (addr < 0x2000000)
-                continue;
+        for (size_t j = 0; j * PAGE_SIZE < aligned_length; j++) {
+            size_t addr = aligned_base + j * PAGE_SIZE;
 
             size_t page = addr / PAGE_SIZE;
 
-            while (page >= bitmap_full * 32)
-                bm_realloc();
+            if (addr < (MEMORY_BASE + PAGE_SIZE /* bitmap */))
+                continue;
+
+            if (addr >= (MEMORY_BASE + bitmap_entries * PAGE_SIZE)) {
+                /* Reallocate bitmap */
+                size_t cur_bitmap_size_in_pages = ((bitmap_entries / 32) * sizeof(uint32_t)) / PAGE_SIZE;
+                size_t new_bitmap_size_in_pages = cur_bitmap_size_in_pages + BMREALLOC_STEP;
+                if (!(tmp_bitmap = pmm_alloc(new_bitmap_size_in_pages))) {
+                    kprint(KPRN_ERR, "pmm_alloc failure in init_pmm(). Halted.");
+                    for (;;);
+                }
+                tmp_bitmap = (uint32_t *)((size_t)tmp_bitmap + MEM_PHYS_OFFSET);
+                /* Copy over previous bitmap */
+                for (size_t i = 0;
+                     i < (cur_bitmap_size_in_pages * PAGE_SIZE) / sizeof(uint32_t);
+                     i++)
+                    tmp_bitmap[i] = mem_bitmap[i];
+                /* Fill in the rest */
+                for (size_t i = (cur_bitmap_size_in_pages * PAGE_SIZE) / sizeof(uint32_t);
+                     i < (new_bitmap_size_in_pages * PAGE_SIZE) / sizeof(uint32_t);
+                     i++)
+                    tmp_bitmap[i] = 0xffffffff;
+                bitmap_entries += ((PAGE_SIZE / sizeof(uint32_t)) * 32) * BMREALLOC_STEP;
+                uint32_t *old_bitmap = (uint32_t *)((size_t)mem_bitmap - MEM_PHYS_OFFSET);
+                mem_bitmap = tmp_bitmap;
+                pmm_free(old_bitmap, cur_bitmap_size_in_pages);
+            }
+
             if (e820_map[i].type == 1)
                 write_bitmap(page, 0);
             else
@@ -108,7 +127,7 @@ void *pmm_alloc(size_t pg_count) {
     size_t i;
     size_t start;
 
-    for (i = BASE; i < bitmap_full * 32; i++) {
+    for (i = BITMAP_BASE; i < BITMAP_BASE + bitmap_entries; i++) {
         if (!read_bitmap(i))
             counter++;
         else
