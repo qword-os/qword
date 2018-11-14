@@ -54,11 +54,11 @@ smp_check_ap_flag:
     ret
 
 smp_init_cpu0_local:
-    ; Load FS with the CPU local struct base address
+    ; Load GS with the CPU local struct base address
     mov ax, 0x1b
     mov fs, ax
     mov gs, ax
-    mov rcx, 0xc0000100
+    mov rcx, 0xc0000101
     mov eax, edi
     shr rdi, 32
     mov edx, edi

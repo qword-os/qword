@@ -68,8 +68,8 @@ rdmsr
 mov edx, 0x0105     ; write-protect and write-combining
 wrmsr
 
-; Load FS with the CPU local struct base address
-mov rcx, 0xc0000100
+; Load GS with the CPU local struct base address
+mov rcx, 0xc0000101
 mov eax, dword [0x560]
 mov edx, dword [0x560+4]
 wrmsr

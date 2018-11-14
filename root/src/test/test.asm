@@ -34,6 +34,9 @@ _start:
     mov rsi, 8          ; 8 pages
     syscall
     mov r10, rax
+    mov rax, 7          ; set_fs_base syscall
+    mov rdi, 0x123deadbeef ; set to 0x123deadbeef
+    syscall
     jmp $
 
 section .data

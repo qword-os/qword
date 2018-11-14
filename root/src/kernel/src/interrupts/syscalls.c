@@ -12,6 +12,19 @@
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_set_fs_base(struct ctx_t *ctx) {
+    // rdi: new fs base
+
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+
+    struct thread_t *thread = task_table[current_task];
+
+    thread->fs_base = ctx->rdi;
+    load_fs_base(ctx->rdi);
+
+    return 0;
+}
+
 void *syscall_alloc_at(struct ctx_t *ctx) {
     // rdi: virtual address / 0 for sbrk-like allocation
     // rsi: page count
@@ -32,7 +45,7 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
         void *ptr = pmm_alloc(1);
         if (!ptr)
             return (void *)0;
-        if (map_page(process->pagemap, ptr, base_address + i * PAGE_SIZE, 0x07))
+        if (map_page(process->pagemap, (size_t)ptr, base_address + i * PAGE_SIZE, 0x07))
             return (void *)0;
     }
 

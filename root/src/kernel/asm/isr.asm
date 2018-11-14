@@ -222,7 +222,7 @@ irq0_handler:
     iretq
 
 ipi_abortexec:
-    mov rsp, qword [fs:0008]
+    mov rsp, qword [gs:0008]
     call lapic_eoi
     sti
   .wait:
@@ -234,7 +234,7 @@ ipi_resched:
 
     mov rdi, rsp
 
-    mov rax, qword [fs:0000]
+    mov rax, qword [gs:0000]
     test rax, rax
     jz .is_bsp
     call task_resched
@@ -270,14 +270,16 @@ syscall_table:
     dq syscall_getauxval ;5
     extern syscall_alloc_at
     dq syscall_alloc_at ;6
+    extern syscall_set_fs_base
+    dq syscall_set_fs_base ;7
     dq invalid_syscall
   .end:
 
 section .text
 
 syscall_entry:
-    mov qword [fs:0024], rsp ; save the user stack
-    mov rsp, qword [fs:0016] ; switch to the kernel space stack for the thread
+    mov qword [gs:0024], rsp ; save the user stack
+    mov rsp, qword [gs:0016] ; switch to the kernel space stack for the thread
 
     pusham
 
@@ -291,7 +293,7 @@ syscall_entry:
   .out:
     popams
 
-    mov rsp, qword [fs:0024] ; restore the user stack
+    mov rsp, qword [gs:0024] ; restore the user stack
 
     o64 sysret
 

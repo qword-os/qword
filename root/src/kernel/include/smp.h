@@ -9,7 +9,7 @@
 
 #define current_cpu ({ \
     int cpu_number; \
-    asm volatile ("mov rax, qword ptr fs:[0]" : "=a" (cpu_number)); \
+    asm volatile ("mov rax, qword ptr gs:[0]" : "=a" (cpu_number)); \
     cpu_number; \
 })
 

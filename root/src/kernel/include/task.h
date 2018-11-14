@@ -22,6 +22,19 @@
     asm volatile ("fxrstor [rbx];" : : "b" (PTR)); \
 })
 
+#define load_fs_base(PTR) ({ \
+    asm volatile ( \
+        "mov rcx, 0xc0000100;" \
+        "mov eax, edx;" \
+        "shr rdx, 32;" \
+        "mov edx, edx;" \
+        "wrmsr;" \
+        : \
+        : "d" (PTR) \
+        : "rax", "rcx" \
+    ); \
+})
+
 struct ctx_t {
     uint64_t r15;
     uint64_t r14;
@@ -58,6 +71,7 @@ struct thread_t {
     int active_on_cpu;
     size_t kstack;
     size_t ustack;
+    size_t fs_base;
     struct ctx_t ctx;
     uint8_t fxstate[512] __attribute__((aligned(16)));
 };
@@ -83,6 +97,7 @@ struct process_t {
 extern lock_t scheduler_lock;
 
 extern struct process_t **process_table;
+extern struct thread_t **task_table;
 
 void init_sched(void);
 

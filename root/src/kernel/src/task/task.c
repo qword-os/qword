@@ -140,7 +140,7 @@ __attribute__((noinline)) static void idle(void) {
         "je 1f;"
         "mov cr3, rax;"
         "1: "
-        "mov rsp, qword ptr fs:[8];"
+        "mov rsp, qword ptr gs:[8];"
         "call _idle;"
         :
         : "a" ((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET)
@@ -186,6 +186,9 @@ void task_resched(struct ctx_t *ctx) {
 
     /* Restore FPU context */
     fxrstor(&thread->fxstate);
+
+    /* Restore thread FS base */
+    load_fs_base(thread->fs_base);
 
     spinlock_inc(&switched_cpus);
     while (spinlock_read(&switched_cpus) < smp_cpu_count);
@@ -419,6 +422,8 @@ found_new_task_id:;
     new_thread->ctx.rdi = (size_t)arg;
 
     kmemcpy(new_thread->fxstate, default_fxstate, 512);
+
+    new_thread->fs_base = 0;
 
     new_thread->tid = new_tid;
     new_thread->process = pid;
