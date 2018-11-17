@@ -8,6 +8,7 @@
 
 #define PT_LOAD     0x00000001
 #define PT_INTERP   0x00000003
+#define PT_PHDR     0x00000006
 
 #define ABI_SYSV 0x00
 #define ARCH_X86_64 0x3e
