@@ -46,9 +46,9 @@ struct hba_mem_t {
 };
 
 struct hba_cmd_hdr_t {
-    uint8_t cfl:5;		    
-    uint8_t a:1;		
-    uint8_t w:1;		
+    uint8_t cfl:5;
+    uint8_t a:1;
+    uint8_t w:1;
     uint8_t p:1;
     uint8_t r:1;
     uint8_t b:1;
@@ -89,9 +89,9 @@ struct hba_fis_t {
     uint8_t pad2[4];
 
     uint8_t sdbfis[8];
-    
+
     uint8_t ufis[64];
-    uint8_t rsv[0x60];
+    uint8_t rsv[96];
 };
 
 #endif

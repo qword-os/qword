@@ -44,17 +44,17 @@ void init_ahci(void) {
     if (!ret) kprint(KPRN_INFO, "ahci: Found AHCI controller");
 
     ahci_base = (size_t)pci_read_device(&device, 0x24);
-    kprint(KPRN_DBG, "ahci: ABAR at %x", ahci_base);
+    kprint(KPRN_INFO, "ahci: ABAR at %x", ahci_base);
     volatile struct hba_mem_t *mem = (volatile struct hba_mem_t *)(ahci_base + MEM_PHYS_OFFSET);
 
     for (size_t i = 0; i < 32; i++) {
         int ret = probe_port(mem, i);
         switch (ret) {
             case AHCI_DEV_SATA:
-                kprint(KPRN_DBG, "found sata device at port index %u", i);
+                kprint(KPRN_INFO, "ahci: Found sata device at port index %u", i);
                 ret = ahci_init_ata(&mem->ports[i], i);
                 if (ret == -1)
-                    kprint(KPRN_DBG, "failed to initialise sata device at index %u", i);
+                    kprint(KPRN_WARN, "failed to initialise sata device at index %u", i);
                 continue;
             case AHCI_DEV_SATAPI:
                 ret = ahci_init_atapi(&mem->ports[i], i);
@@ -77,7 +77,6 @@ int probe_port(volatile struct hba_mem_t *mem, size_t portno) {
 
 int ahci_init_ata(volatile struct hba_port_t *port, size_t portno) {
     port_rebase(port, portno);
-    kprint(KPRN_DBG, "port rebase done, begin identify command");
     int ret = ahci_identify(port, 0xec);
     if (ret == -1)
       return -1;
@@ -91,73 +90,78 @@ int ahci_init_atapi(volatile struct hba_port_t *port, size_t portno) {
     return 0;
 }
 
-/* Reconfigure the memory areas for a given port */
+/* Allocate space for command lists, tables etc for a given port */
 void port_rebase(volatile struct hba_port_t *port, size_t portno) {
-    kprint(KPRN_DBG, "stopping command engine");
-
-    /* calculate base of the command list */
-    kprint(KPRN_DBG, "calculating base of command list");
-    port->clb = (ahci_base + (portno << 10));
+    /* allocate an area for the command list */
+    port->clb = (uint32_t)(size_t)pmm_alloc(1);
     port->clbu = 0;
-    /* zero command list */
-    kprint(KPRN_DBG, "zeroing command list");
-    kmemset64((void *)(((size_t)port->clb) + MEM_PHYS_OFFSET), 0, 128);
 
-    /* calculate received fis base addr */
-    kprint(KPRN_DBG, "calculating base of fis receive area");
-    port->fb  = (ahci_base + (32 << 10) + (portno << 8));
-    kprint(KPRN_DBG, "fb = %x", (size_t)(void *)port->fb);
+    /* Reserve some memory for the hba fis receive area and setup values */
+    struct hba_fis_t *hba_fis = pmm_alloc(1);
+
+    /* set fis types in fis receive area */
+    hba_fis->dsfis.fis_type = FIS_TYPE_DMA_SETUP;
+    hba_fis->psfis.fis_type = FIS_TYPE_PIO_SETUP;
+    hba_fis->rfis.fis_type = FIS_TYPE_REG_D2H;
+    hba_fis->sdbfis[0] = FIS_TYPE_DEV_BITS;
+
+    /* Set the address that received FISes will be copied to */
+    port->fb  = (uint32_t)(size_t)hba_fis;
     port->fbu = 0;
-    kprint(KPRN_DBG, "zeroing fis receive area");
-    /* fis entry size = 256b per port */
-    kmemset64((void *)(((size_t)port->fb) + MEM_PHYS_OFFSET), 0, 32);
 
-    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb + MEM_PHYS_OFFSET);
+    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb);
 
-    kprint(KPRN_DBG, "setting up command tables");
     for (size_t i = 0; i < 32; i++) {
         cmd_hdr[i].prdtl = 8;
 
         /* command table base addr = 40K + 8K * portno + header index * 256 */
-        cmd_hdr[i].ctba = (ahci_base + (40 << 10) + (portno << 13) + (i << 8));
+        cmd_hdr[i].ctba = (uint32_t)(size_t)pmm_alloc(1);
         cmd_hdr[i].ctbau = 0;
-        kmemset64((void *)(((size_t)cmd_hdr[i].ctba) + MEM_PHYS_OFFSET), 0, 32);
     }
+
+    return;
 }
 
 int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
-    uint16_t dest[256];
+    uint16_t *dest = pmm_alloc(1);
+    kmemset(dest, 0, 512);
+
     int spin = 0;
 
-    port->is = (uint32_t)-1;
+    port->is = port->is;
+    port->serr = port->serr;
 
     int slot = find_cmdslot(port);
     if (slot == -1) {
-        kprint(KPRN_DBG, "failed to find command slot");
+        kprint(KPRN_WARN, "ahci: failed to find command slot for identify command");
         return -1;
     }
 
-    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb + MEM_PHYS_OFFSET);
+    volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)((size_t)port->clb);
+
+    /* Setup command header */
     cmd_hdr += slot;
     cmd_hdr->cfl = sizeof(volatile struct fis_regh2d_t) / sizeof(uint32_t);
     cmd_hdr->w = 0;
     cmd_hdr->prdtl = 1;
 
-    volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(((size_t)cmd_hdr->ctba) + MEM_PHYS_OFFSET);
+    /* construct a command table and populate it */
+    volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(
+            ((size_t)cmd_hdr->ctba));
+    kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
+            sizeof(volatile struct hba_cmd_tbl_t) / 8);
 
-    kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0, sizeof(volatile struct hba_cmd_tbl_t) / 8);
-
-    cmdtbl->prdt_entry[0].dba = (uint32_t)dest;
-    cmdtbl->prdt_entry[0].dbc = (512 | 1);
+    cmdtbl->prdt_entry[0].dba = (uint32_t)(size_t)dest;
+    cmdtbl->prdt_entry[0].dbc = 511;
+    cmdtbl->prdt_entry[0].i = 1;
 
     struct fis_regh2d_t *cmdfis = (struct fis_regh2d_t *)(((size_t)cmdtbl->cfis));
     kmemset64((void *)(((size_t)(void *)cmdtbl->cfis)), 0, sizeof(struct fis_regh2d_t) / 8);
 
-    cmdfis->pmport = (uint8_t)(1 << 7);
     cmdfis->command = cmd;
+    cmdfis->c = 1;
     cmdfis->device = 0;
-    cmdfis->countl = 1;
-    cmdfis->counth = 0;
+    cmdfis->pmport = 0;
     cmdfis->fis_type = FIS_TYPE_REG_H2D;
 
     while ((port->tfd & (ATA_DEV_BUSY | ATA_DEV_DRQ)) && spin < 1000000) {
@@ -168,33 +172,73 @@ int ahci_identify(volatile struct hba_port_t *port, uint8_t cmd) {
         kprint(KPRN_WARN, "ahci: Port hung");
     }
 
-    port->ci = 1 << slot;
     start_cmd(port);
+    port->ci = 1 << slot;
+
     for (;;) {
         if (!(port->ci & (1 << slot))) {
             break;
         }
         /* check for task file error */
         if (port->is & (1 << 30)) {
-            kprint(KPRN_DBG, "ahci: Disk read error in ahci_identify()");
+            kprint(KPRN_WARN, "ahci: Disk read error in ahci_identify()");
             return -1;
         }
     }
 
-    /* Check again for task file error */
     if (port->is & (1 << 30)) {
-        kprint(KPRN_DBG, "ahci: Disk read error in ahci_identify()");
+        kprint(KPRN_WARN, "ahci: Disk read error in ahci_identify()");
         return -1;
     }
 
     stop_cmd(port);
 
-    kprint(KPRN_INFO, "identify successful");
+    /* parse the identify data */
+    char *serial = kalloc(20);
+    size_t i = 0;
+
+    for (size_t j = 10; j < 20; j++) {
+        uint16_t d = dest[j];
+        char a = (char)((uint8_t)(d >> 8));
+        if (a != '\0') {
+            serial[i++] = a;
+        }
+
+        char b  = (char)(uint8_t)d;
+        if (b != '\0') {
+            serial[i++] = a;
+        }
+    }
+
+    char *model = kalloc(20);
+    i = 0;
+
+    for (size_t j = 27; j < 47; j++) {
+        uint16_t d = dest[j];
+        char a = (char)((uint8_t)(d >> 8));
+        if (a != '\0') {
+            model[i] = a;
+            i++;
+        }
+
+        char b  = (char)(uint8_t)d;
+        if (b != '\0') {
+            model[i] = b;
+            i++;
+        }
+    }
+
+    kprint(KPRN_INFO, "ahci: Disk serial no. is %s", serial);
+    kprint(KPRN_INFO, "ahci: Sector count = %u", *((uint64_t *)&dest[100]));
+    kprint(KPRN_INFO, "ahci: Disk model is %s", model);
+    kprint(KPRN_INFO, "ahci: Identify successful");
 
     return 0;
 }
 
 void start_cmd(volatile struct hba_port_t *port) {
+    port->cmd &= ~HBA_PxCMD_ST;
+
     while (port->cmd & HBA_PxCMD_CR);
 
     port->cmd |= HBA_PxCMD_FRE;
