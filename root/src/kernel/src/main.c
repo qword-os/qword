@@ -96,8 +96,8 @@ void kmain(void) {
     mount("devfs", "/dev", "devfs", 0, 0);
 
     /* Mount /dev/hda on / */
-    mount("/dev/hda", "/", "echfs", 0, 0);
-    mount("/dev/hdb", "/iso", "iso9660", 0, 0);
+    if (mount("/dev/hda", "/", "echfs", 0, 0))
+        mount("/dev/hda", "/", "iso9660", 0, 0);
 
     /* Initialise scheduler */
     init_sched();
