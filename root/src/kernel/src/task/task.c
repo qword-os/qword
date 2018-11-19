@@ -337,7 +337,7 @@ int task_tkill(pid_t pid, tid_t tid) {
 
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
-tid_t task_tcreate(pid_t pid, void *(*entry)(void *), void *arg) {
+tid_t task_tcreate(pid_t pid, enum tcreate_abi abi, const void *opaque_data) {
     /* Search for free thread ID in the process */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
@@ -375,24 +375,45 @@ found_new_task_id:;
 
     /* Set up a user stack for the thread */
     if (1) {
+        char *stack_pm = pmm_alloc(STACK_SIZE / PAGE_SIZE);
+        if (!stack_pm) {
+            kfree(process_table[pid]->threads[new_tid]);
+            process_table[pid]->threads[new_tid] = EMPTY;
+            return -1;
+        }
+
+        /* Initialize the stack state according to ELF ABI */
+        size_t *sbase = (size_t *)(stack_pm + STACK_SIZE + MEM_PHYS_OFFSET);
+        size_t *sp = sbase;
+        if (abi == tcreate_elf_exec) {
+            const struct tcreate_elf_exec_data *data = opaque_data;
+            /* Some care needs to be taken to keep the stack 16-byte aligned;
+               especially if this code is extended. */
+            *(--sp) = 0;
+
+            *(--sp) = 0; *(--sp) = 0; /* Zero auxiliary vector entry */
+            sp -= 2; *sp = AT_ENTRY;    *(sp + 1) = data->auxval->at_entry;
+            sp -= 2; *sp = AT_PHDR;     *(sp + 1) = data->auxval->at_phdr;
+            sp -= 2; *sp = AT_PHENT;    *(sp + 1) = data->auxval->at_phent;
+            sp -= 2; *sp = AT_PHNUM;    *(sp + 1) = data->auxval->at_phnum;
+            *(--sp) = 0; /* Marker for end of environ */
+            *(--sp) = 0; /* Marker for end of argv */
+            *(--sp) = 0; /* argc */
+        }
+
+        /* Map the stack */
         size_t stack_guardpage = STACK_LOCATION_TOP -
                                  (STACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
         size_t stack_bottom = stack_guardpage + PAGE_SIZE;
         for (size_t i = 0; i < STACK_SIZE / PAGE_SIZE; i++) {
-            void *ptr = pmm_alloc(1);
-            if (!ptr) {
-                kfree(process_table[pid]->threads[new_tid]);
-                process_table[pid]->threads[new_tid] = EMPTY;
-                return -1;
-            }
             map_page(process_table[pid]->pagemap,
-                     (size_t)ptr,
+                     (size_t)(stack_pm + (i * PAGE_SIZE)),
                      (size_t)(stack_bottom + (i * PAGE_SIZE)),
                      pid ? 0x07 : 0x03);
         }
         /* Add a guard page */
         unmap_page(process_table[pid]->pagemap, stack_guardpage);
-        new_thread->ctx.rsp = stack_bottom + STACK_SIZE;
+        new_thread->ctx.rsp = stack_bottom + STACK_SIZE - ((sbase - sp) * sizeof(size_t));
     }
 
     /* Set up a kernel stack for the thread */
@@ -417,9 +438,16 @@ found_new_task_id:;
         new_thread->kstack = kstack_bottom + KSTACK_SIZE;
     }
 
-    /* Set instruction pointer to entry point, and set first argument to arg */
-    new_thread->ctx.rip = (size_t)entry;
-    new_thread->ctx.rdi = (size_t)arg;
+    /* Set instruction pointer to entry point */
+    if (abi == tcreate_fn_call) {
+        const struct tcreate_fn_call_data *data = opaque_data;
+        new_thread->ctx.rip = (size_t)data->fn;
+        new_thread->ctx.rdi = (size_t)data->arg;
+    } else {
+        PANIC_UNLESS(abi == tcreate_elf_exec);
+        const struct tcreate_elf_exec_data *data = opaque_data;
+        new_thread->ctx.rip = (size_t)data->entry;
+    }
 
     kmemcpy(new_thread->fxstate, default_fxstate, 512);
 

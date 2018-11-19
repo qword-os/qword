@@ -52,11 +52,6 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
     return (void *)base_address;
 }
 
-#define AT_ENTRY 10
-#define AT_PHDR 20
-#define AT_PHENT 21
-#define AT_PHNUM 22
-
 int syscall_getauxval(struct ctx_t *ctx) {
     pid_t proc = cpu_locals[current_cpu].current_process;
 
