@@ -108,8 +108,8 @@ struct primary_descriptor_t {
 }__attribute__((packed));
 
 struct path_result_t {
-    struct directory_entry_t *target;
-    struct directory_entry_t *parent;
+    struct directory_entry_t target;
+    struct directory_entry_t parent;
     int failure;
     int not_found;
 };
@@ -165,7 +165,7 @@ static uint8_t rd_byte(int handle, uint64_t location) {
 
 static int next_sector(int location) {
     return (location + 2047) & ~2047;
-} 
+}
 
 static int get_cache(struct mount_t *mount, uint32_t block) {
     int num = 0;
@@ -180,8 +180,7 @@ static int get_cache(struct mount_t *mount, uint32_t block) {
     if (!cache) {
         mount->cache = krealloc(mount->cache, sizeof(struct cached_block_t) *
                 mount->cache_i);
-        num = mount->cache_i;
-        mount->cache_i++;
+        num = mount->cache_i++;
         mount->cache[num].block = block;
         mount->cache[num].ready = 0;
         mount->cache[num].cache = NULL;
@@ -195,9 +194,10 @@ static int cache_block(struct mount_t *mount, uint32_t block) {
     struct cached_block_t *cache = &mount->cache[cache_index];
     if (cache->ready)
         return cache_index;
-    
+
+    int loc = cache->block * mount->block_size;
     cache->cache = kalloc(mount->block_size);
-    lseek(mount->device, cache->block * mount->block_size, SEEK_SET);
+    lseek(mount->device, loc, SEEK_SET);
     read(mount->device, cache->cache, mount->block_size);
     return cache_index;
 }
@@ -209,20 +209,21 @@ static struct directory_result_t load_dir(struct mount_t *mount,
       result.failure = 1;
       return result;
     }
+    int loc = dir->extent_location.little;
     result.entries = kalloc(dir->extent_length.little);
-    
+
     int num_blocks = dir->extent_length.little / mount->block_size;
     if (dir->extent_length.little % mount->block_size)
         num_blocks++;
 
-    int cache_index = cache_block(mount, dir->extent_location.little);
+    int cache_index = cache_block(mount, loc);
     struct cached_block_t *cache = &mount->cache[cache_index];
 
     int count = 0;
     uint8_t length = 0;
     int curr_block = 0;
     for (uint32_t pos = 0; pos < dir->extent_length.little; pos += length) {
-        length = (uint8_t)cache->cache[pos % mount->block_size];
+        length = (uint8_t)cache->cache[pos];
 
         if (length == 0) {
             if (curr_block >= num_blocks)
@@ -262,11 +263,12 @@ static int create_handle(struct handle_t handle) {
 static struct path_result_t resolve_path(struct mount_t *mount,
         const char *path, int type) {
     struct path_result_t result = {0};
-    
+
     if (*path == '/') path++;
 
     struct directory_entry_t *entry = NULL;
-    struct directory_result_t current_dir = load_dir(mount, &mount->root_entry);
+    struct directory_result_t current_dir = {0};
+    kmemcpy(&result.target, &mount->root_entry, sizeof(struct directory_entry_t));
     do {
         const char *seg = path;
         path = kstrchrnul(path, '/');
@@ -280,30 +282,62 @@ static struct path_result_t resolve_path(struct mount_t *mount,
             seg_length = 1;
         }
 
-        if (result.target) {
+        if (seg[seg_length - 1] == '/')
+            seg_length--;
+
+        if (current_dir.entries)
             kfree(current_dir.entries);
-            current_dir = load_dir(mount, result.target);
-        }
+        current_dir = load_dir(mount, &result.target);
 
         int found = 0;
         int pos = 0;
         for (int i = 0; i < current_dir.num_entries; i++) {
             entry = (struct directory_entry_t *)(current_dir.entries + pos);
 
-            char lower_name[seg_length];
-            for(size_t j = 0; j < seg_length; j++)
-                lower_name[j] = ktolower(entry->name[j]);
+            unsigned char* sysarea = ((unsigned char*)entry) + sizeof(struct directory_entry_t) + entry->name_length;
+            int sysarea_len = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
+            if ((entry->name_length & 0x1) == 0) {
+                sysarea++;
+                sysarea_len--;
+            }
 
-            if (seg_length > entry->name_length)
+            int rrnamelen = 0;
+            while ((sysarea_len >= 4) && ((sysarea[3] == 1) || (sysarea[2] == 2))) {
+                if (sysarea[0] == 'N' && sysarea[1] == 'M') {
+                    rrnamelen = sysarea[2] - 5;
+                    break;
+                }
+                sysarea_len -= sysarea[2];
+                sysarea += sysarea[2];
+            }
+
+            char *lower_name;
+            int name_length = 0;
+            if (rrnamelen) {
+                /* rock ridge naming scheme */
+                name_length = rrnamelen;
+                lower_name = kalloc(name_length);
+                kmemcpy(lower_name, sysarea + 5, name_length);
+                lower_name[name_length] = '\0';
+            } else {
+                name_length = entry->name_length;
+                lower_name = kalloc(name_length);
+                for(size_t j = 0; j < seg_length; j++)
+                    lower_name[j] = ktolower(entry->name[j]);
+            }
+
+            if (seg_length != name_length)
                 goto out;
             if (kstrncmp(seg, lower_name, seg_length) != 0)
                 goto out;
-            if (entry->name_length > seg_length && entry->name[seg_length]
+            if (!rrnamelen && entry->name[name_length]
                     != ';')
                 goto out;
+            kfree(lower_name);
             found = 1;
             break;
 out:
+            kfree(lower_name);
             pos += entry->length;
         }
 
@@ -313,11 +347,11 @@ out:
         }
 
         result.parent = result.target;
-        result.target = entry;
+        kmemcpy(&result.target, entry, sizeof(struct directory_entry_t));
     } while(*path);
 
 
-    if (!(result.target->flags & FILE_FLAG_DIR) && type == DIR_TYPE)
+    if (!(result.target.flags & FILE_FLAG_DIR) && type == DIR_TYPE)
       result.failure = 1;
     return result;
 }
@@ -325,7 +359,7 @@ out:
 static int iso9660_open(const char *path, int flags, int mode, int mount) {
     struct path_result_t result = resolve_path(&mounts[mount], path,
             FILE_TYPE);
-    
+
     if (result.failure || result.not_found)
         return -1;
 
@@ -335,11 +369,11 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
     handle.flags = flags;
     handle.mode = mode;
     handle.mount = mount;
-    handle.end = result.target->extent_length.little;
+    handle.end = result.target.extent_length.little;
     if (flags & O_APPEND)
         handle.begin = handle.end;
     else
-        handle.begin = result.target->extent_location.little;
+        handle.begin = result.target.extent_location.little;
     handle.offset = 0;
     return create_handle(handle);
 }
@@ -359,7 +393,7 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     int num_blocks = count / mount->block_size;
     if (count % mount->block_size)
         num_blocks++;
-    
+
     int i = handle_s->offset / mount->block_size;
     for (; i < num_blocks; i++) {
         int cache = cache_block(mount, handle_s->begin + i);
