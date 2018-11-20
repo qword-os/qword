@@ -464,7 +464,16 @@ static int iso9660_mount(const char *source) {
     return mount_i++;
 }
 
-static int iso9660_close(int fd) { return 1; }
+static int iso9660_close(int handle) {
+    if (!handle)
+        return -1;
+    if (handle > handle_i)
+        return -1;
+    if (handles[handle].free)
+        return -1;
+    handles[handle].free = 1;
+    return 0;
+}
 
 void init_iso9660(void) {
     struct fs_t iso9660 = {0};
