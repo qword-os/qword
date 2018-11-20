@@ -196,7 +196,6 @@ static int cache_block(struct mount_t *mount, uint32_t block) {
         return cache_index;
 
     int loc = cache->block * mount->block_size;
-    kprint(KPRN_DBG, "READING LOCATION: %x", loc);
     cache->cache = kalloc(mount->block_size);
     lseek(mount->device, loc, SEEK_SET);
     read(mount->device, cache->cache, mount->block_size);
@@ -399,7 +398,6 @@ static int iso9660_read(int handle, void *buf, size_t count) {
         int cache = cache_block(mount, (handle_s->begin + (handle_s->offset/mount->block_size)));
         if (cache == -1)
             return -1;
-        kprint(KPRN_DBG, "cache = %u, cache[] = %x", cache, mount->cache[cache].cache[0x7f2]);
         kmemcpy(buf, mount->cache[cache].cache + (handle_s->offset %
                     mount->block_size), count);
         handle_s->offset += count;

@@ -178,12 +178,10 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
             buf += BYTES_PER_SECT - initial_offset;
         } else if (i == sect_count - 1) {
             /* last sector */
-            kprint(KPRN_DBG, "Last sector offset 0x1f2: %x", devices[drive].cache[slot].cache[0x1f2]);
             kmemcpy(buf, devices[drive].cache[slot].cache, final_offset);
             /* no need to do anything, just leave */
             break;
         } else {
-            //kprint(KPRN_DBG, "i: %u, ata byte: %x", i, devices[drive].cache[slot].cache[0x0]);
             kmemcpy(buf, devices[drive].cache[slot].cache, BYTES_PER_SECT);
             buf += BYTES_PER_SECT;
         }
