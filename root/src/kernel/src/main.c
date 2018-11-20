@@ -81,9 +81,9 @@ void kmain(void) {
     init_smp();
 
     /* Initialise device drivers */
-    init_ata();
     init_pci();
     init_ahci();
+    init_ata();
     init_kbd();
 
     /* Initialise Virtual Filesystem */
