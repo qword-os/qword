@@ -87,10 +87,13 @@ int elf_load(int fd, struct pagemap_t *pagemap, size_t base, struct auxval_t *au
             return -1;
         }
 
+        size_t pf = 0x05;
+        if(phdr[i].p_flags & PF_W)
+            pf |= 0x02;
         for (size_t j = 0; j < page_count; j++) {
             size_t virt = base + phdr[i].p_vaddr + (j * PAGE_SIZE);
             size_t phys = (size_t)addr + (j * PAGE_SIZE);
-            map_page(pagemap, phys, virt, 0x07);
+            map_page(pagemap, phys, virt, pf);
         }
 
         char *buf = (char *)((size_t)addr + MEM_PHYS_OFFSET);
