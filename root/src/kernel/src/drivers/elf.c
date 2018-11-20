@@ -96,9 +96,6 @@ int elf_load(int fd, struct pagemap_t *pagemap, size_t base, struct auxval_t *au
             map_page(pagemap, phys, virt, pf);
         }
 
-        char *buf = (char *)((size_t)addr + MEM_PHYS_OFFSET);
-        kmemset(buf, 0, page_count * PAGE_SIZE);
-
         ret = lseek(fd, phdr[i].p_offset, SEEK_SET);
         if (ret == -1) {
             kfree(phdr);
@@ -106,6 +103,9 @@ int elf_load(int fd, struct pagemap_t *pagemap, size_t base, struct auxval_t *au
             return -1;
         }
 
+        /* Segments need to be cleared to zero; however, pmm_alloc() already returns
+           zeroed pages. Thus we just need to read the file contents. */
+        char *buf = (char *)((size_t)addr + MEM_PHYS_OFFSET);
         ret = read(fd, buf + (phdr[i].p_vaddr & (PAGE_SIZE - 1)), phdr[i].p_filesz);
         if (ret == -1) {
             kfree(phdr);
