@@ -37,6 +37,10 @@ struct elf_hdr_t {
     uint16_t shstrndx;
 };
 
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
+
 struct elf_phdr_t {
     uint32_t p_type;
     uint32_t p_flags;
