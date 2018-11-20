@@ -99,6 +99,14 @@ void kmain(void) {
     if (mount("/dev/hda", "/", "echfs", 0, 0))
         mount("/dev/hda", "/", "iso9660", 0, 0);
 
+    int fd = open("/bin/ld.so", O_RDONLY, 0);
+    char buf[10] = {0};
+    lseek(fd, 0x7FF0, SEEK_SET);
+    int bytes = read(fd, buf, 10);
+    kprint(KPRN_DBG, "read: %u", bytes);
+    for (int i = 0; i < 10; i++)
+        kprint(KPRN_DBG, "%x", buf[i]);
+
     /* Initialise scheduler */
     init_sched();
 

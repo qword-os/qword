@@ -196,6 +196,7 @@ static int cache_block(struct mount_t *mount, uint32_t block) {
         return cache_index;
 
     int loc = cache->block * mount->block_size;
+    kprint(KPRN_DBG, "READING LOCATION: %x", loc);
     cache->cache = kalloc(mount->block_size);
     lseek(mount->device, loc, SEEK_SET);
     read(mount->device, cache->cache, mount->block_size);
@@ -394,11 +395,11 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     if (count % mount->block_size)
         num_blocks++;
 
-    int i = handle_s->offset / mount->block_size;
-    for (; i < num_blocks; i++) {
-        int cache = cache_block(mount, handle_s->begin + i);
+    for (int i = 0; i < num_blocks; i++) {
+        int cache = cache_block(mount, (handle_s->begin + (handle_s->offset/mount->block_size)));
         if (cache == -1)
             return -1;
+        kprint(KPRN_DBG, "cache = %u, cache[] = %x", cache, mount->cache[cache].cache[0x7f2]);
         kmemcpy(buf, mount->cache[cache].cache + (handle_s->offset %
                     mount->block_size), count);
         handle_s->offset += count;
@@ -465,6 +466,8 @@ static int iso9660_mount(const char *source) {
     return mount_i++;
 }
 
+static int iso9660_close(int fd) { return 1; }
+
 void init_iso9660(void) {
     struct fs_t iso9660 = {0};
 
@@ -474,6 +477,7 @@ void init_iso9660(void) {
     iso9660.read = iso9660_read;
     iso9660.lseek = iso9660_seek;
     iso9660.fstat = iso9660_fstat;
+    iso9660.close = iso9660_close;
 
     vfs_install_fs(iso9660);
 }
