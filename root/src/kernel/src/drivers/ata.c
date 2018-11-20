@@ -381,11 +381,10 @@ success:
     for (int i = 0; i < 256; i++)
         dev->identify[i] = port_in_w(dev->data_port);
 
-    dev->prdt_cache = kalloc(BYTES_PER_SECT);
-    dev->prdt_cache[0] = 'A';
-    dev->prdt = kalloc(sizeof(struct prdt_t));
-    dev->prdt_phys = (uint32_t)dev->prdt + MEM_PHYS_OFFSET;
-    dev->prdt->buffer_phys = (uint32_t)dev->prdt_cache + MEM_PHYS_OFFSET;
+    dev->prdt_cache = pmm_alloc(1);
+    dev->prdt = pmm_alloc(1);
+    dev->prdt_phys = (uint32_t)dev->prdt;
+    dev->prdt->buffer_phys = (uint32_t)dev->prdt_cache;
     dev->prdt->transfer_size = BYTES_PER_SECT;
     dev->prdt->mark_end = 0x8000;
     dev->cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));
@@ -430,7 +429,7 @@ static int ata_read28(int disk, uint32_t sector, uint8_t *buffer) {
         status = port_in_b(devices[disk].command_port);
     port_out_b(dev->bmr_command, 0);
 
-    if (status & 0x01 || port_in_b(dev->bmr_status) & 0x02) {
+    if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error reading sector %u on drive %u", sector, disk);
         return -1;
     }
