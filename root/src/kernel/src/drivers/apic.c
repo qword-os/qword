@@ -124,7 +124,6 @@ void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t api
 
     /* Set target APIC ID */
     redirect |= ((uint64_t)apic) << 56;
-    kprint(KPRN_DBG, "redirect = %u", redirect);
     uint32_t ioredtbl = (gsi - madt_io_apics[io_apic]->gsib) * 2 + 16;
 
     io_apic_write(io_apic, ioredtbl + 0, (uint32_t)redirect);

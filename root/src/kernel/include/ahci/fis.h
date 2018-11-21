@@ -10,8 +10,8 @@ enum fis_type {
     FIS_TYPE_DMA_ACT	= 0x39,
     FIS_TYPE_DMA_SETUP	= 0x41,
     FIS_TYPE_DATA		= 0x46,
-    FIS_TYPE_BIST		= 0x58,    
-    FIS_TYPE_PIO_SETUP	= 0x5F,	
+    FIS_TYPE_BIST		= 0x58,
+    FIS_TYPE_PIO_SETUP	= 0x5F,
     FIS_TYPE_DEV_BITS	= 0xA1,
 };
 

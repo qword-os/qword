@@ -285,6 +285,16 @@ void *kmemset(void *s, int c, size_t count) {
     return s;
 }
 
+void *kmemset64(void *ptr, uint64_t c, size_t count) {
+    uint64_t *p = ptr;
+
+    for (size_t i = 0; i < count; i++) {
+        p[i] = c;
+    }
+
+    return ptr;
+}
+
 void *kmemmove(void *dest, const void *src, size_t count) {
     size_t i = 0;
 
