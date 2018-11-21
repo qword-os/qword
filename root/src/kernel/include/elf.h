@@ -8,6 +8,7 @@
 
 #define PT_LOAD     0x00000001
 #define PT_INTERP   0x00000003
+#define PT_PHDR     0x00000006
 
 #define ABI_SYSV 0x00
 #define ARCH_X86_64 0x3e
@@ -35,6 +36,10 @@ struct elf_hdr_t {
     uint16_t sh_num;
     uint16_t shstrndx;
 };
+
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
 
 struct elf_phdr_t {
     uint32_t p_type;

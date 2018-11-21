@@ -25,16 +25,11 @@
 #include <time.h>
 #include <kbd.h>
 
-void kmain_thread(void) {
+void kmain_thread(void *arg) {
+    (void)arg;
+
     /* Execute a test process */
-    spinlock_acquire(&scheduler_lock);
-    kexec("/bin/test", 0, 0);/*
     kexec("/bin/test", 0, 0);
-    kexec("/bin/test", 0, 0);
-    kexec("/bin/test", 0, 0);
-    kexec("/bin/test", 0, 0);
-    kexec("/bin/test", 0, 0);*/
-    spinlock_release(&scheduler_lock);
 
     kprint(KPRN_INFO, "kmain: End of init.");
 
@@ -79,9 +74,9 @@ void kmain(void) {
     init_smp();
 
     /* Initialise device drivers */
-    init_ata();
     init_pci();
     init_ahci();
+    init_ata();
     init_kbd();
 
     /* Initialise Virtual Filesystem */
@@ -96,17 +91,17 @@ void kmain(void) {
     mount("devfs", "/dev", "devfs", 0, 0);
 
     /* Mount /dev/hda on / */
-    mount("/dev/hda", "/", "echfs", 0, 0);
-    mount("/dev/hdb", "/iso", "iso9660", 0, 0);
+    if (mount("/dev/hda", "/", "echfs", 0, 0))
+        mount("/dev/hda", "/", "iso9660", 0, 0);
 
     /* Initialise scheduler */
     init_sched();
 
-    /* Start a main kernel thread which will take over when the scheduler is running */
-    task_tcreate(0, (void *)kmain_thread, 0);
-
     /* Unlock the scheduler for the first time */
     spinlock_release(&scheduler_lock);
+
+    /* Start a main kernel thread which will take over when the scheduler is running */
+    task_tcreate(0, tcreate_fn_call, TCREATE_FN_CALL_DATA(kmain_thread, 0));
 
     /*** DO NOT ADD ANYTHING TO THIS FUNCTION AFTER THIS POINT, ADD TO kmain_thread
          INSTEAD! ***/

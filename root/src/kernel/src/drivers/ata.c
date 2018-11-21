@@ -5,7 +5,9 @@
 #include <cio.h>
 #include <klib.h>
 #include <dev.h>
+#include <pci.h>
 #include <ata.h>
+#include <mm.h>
 
 #define DEVICE_COUNT 4
 #define BYTES_PER_SECT 512
@@ -21,6 +23,12 @@ typedef struct {
     uint64_t sector;
     int status;
 } cached_sector_t;
+
+struct prdt_t {
+    uint32_t buffer_phys;
+    uint16_t transfer_size;
+    uint16_t mark_end;
+}__attribute((packed))__;
 
 typedef struct {
     int exists;
@@ -42,6 +50,14 @@ typedef struct {
     uint64_t sector_count;
     uint16_t bytes_per_sector;
 
+    uint32_t bar4;
+    uint32_t bmr_command;
+    uint32_t bmr_status;
+    uint32_t bmr_prdt;
+    struct prdt_t *prdt;
+    uint32_t prdt_phys;
+    uint8_t *prdt_cache;
+
     cached_sector_t *cache;
 } ata_device;
 
@@ -60,8 +76,9 @@ static const int max_ports = 4;
 
 static int ata_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ata_write(int drive, const void *buf, uint64_t loc, size_t count);
-static ata_device init_ata_device(uint16_t port_base, int master);
-static void ata_identify(ata_device* dev);
+static ata_device init_ata_device(uint16_t port_base, int master,
+        struct pci_device_t *pci);
+static void ata_identify(ata_device* dev, struct pci_device_t *pci);
 static int ata_read28(int disk, uint32_t sector, uint8_t *buffer);
 static int ata_read48(int disk, uint64_t sector, uint8_t *buffer);
 static int ata_write28(int disk, uint32_t sector, uint8_t *buffer);
@@ -135,7 +152,7 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
 
     uint64_t cur_sect = loc / BYTES_PER_SECT;
     uint16_t initial_offset = loc % BYTES_PER_SECT;
-    uint16_t final_offset = (count % BYTES_PER_SECT) + initial_offset;
+    uint16_t final_offset = count - ((sect_count - 1) * BYTES_PER_SECT);
 
     if (final_offset >= BYTES_PER_SECT) {
         sect_count++;
@@ -247,11 +264,19 @@ static int ata_flush1(int device) {
 void init_ata(void) {
     kprint(KPRN_INFO, "ata: Initialising ata device driver...");
 
+    struct pci_device_t pci_device = {0};
+    int ret = pci_get_device(&pci_device, 0x1, 0x1);
+    if (ret) {
+        kprint(KPRN_ERR, "ata: could not find pci device!");
+        return;
+    }
+
     int j = 0;
     int master = 1;
     for (int i = 0; i < DEVICE_COUNT; i++) {
         if (j >= max_ports) return;
-        while (!(devices[i] = init_ata_device(ata_ports[j], master)).exists) {
+        while (!(devices[i] = init_ata_device(ata_ports[j], master,
+                        &pci_device)).exists) {
             j++;
             if (j >= max_ports) return;
             if (j % 2) master = 0;
@@ -268,7 +293,8 @@ void init_ata(void) {
     return;
 }
 
-static ata_device init_ata_device(uint16_t port_base, int master) {
+static ata_device init_ata_device(uint16_t port_base, int master,
+        struct pci_device_t *pci) {
     ata_device dev;
 
     dev.data_port = port_base;
@@ -283,16 +309,22 @@ static ata_device init_ata_device(uint16_t port_base, int master) {
     dev.exists = 0;
     dev.master = master;
 
+    dev.bar4 = pci_read_device(pci, 0x20);
+    if (dev.bar4 & 0x1)
+        dev.bar4 &= 0xFFFFFFFC;
+    dev.bmr_command = dev.bar4;
+    dev.bmr_status = dev.bar4 + 0x2;
+    dev.bmr_prdt = dev.bar4 + 0x4;
+
     dev.bytes_per_sector = 512;
 
-    dev.cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));
-
-    ata_identify(&dev);
+    ata_identify(&dev, pci);
 
     return dev;
 }
 
-static void ata_identify(ata_device* dev) {
+static void ata_identify(ata_device* dev, struct pci_device_t *pci) {
+    uint32_t cmd_register = 0;
     if (dev->master)
         port_out_b(dev->device_port, 0xa0);
     else
@@ -342,10 +374,24 @@ static void ata_identify(ata_device* dev) {
     return;
 
 success:
+
     kprint(KPRN_INFO, "ata: Storing IDENTIFY info...");
     for (int i = 0; i < 256; i++)
         dev->identify[i] = port_in_w(dev->data_port);
 
+    dev->prdt_cache = pmm_alloc(1);
+    dev->prdt = pmm_alloc(1);
+    dev->prdt_phys = (uint32_t)dev->prdt;
+    dev->prdt->buffer_phys = (uint32_t)dev->prdt_cache;
+    dev->prdt->transfer_size = BYTES_PER_SECT;
+    dev->prdt->mark_end = 0x8000;
+    dev->cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));
+
+    cmd_register = pci_read_device(pci, 0x4);
+    if (!(cmd_register & (1 << 2))) {
+        cmd_register |= (1 << 2);
+        pci_write_device(pci, 0x4, cmd_register);
+    }
     kmemcpy(&dev->sector_count, &dev->identify[100], sizeof(uint64_t));
     kprint(KPRN_INFO, "ata: Sector count: %u", dev->sector_count);
 
@@ -357,6 +403,11 @@ success:
 }
 
 static int ata_read28(int disk, uint32_t sector, uint8_t *buffer) {
+    ata_device *dev = &devices[disk];
+    port_out_b(dev->bmr_command, 0);
+    port_out_d(dev->bmr_prdt, dev->prdt_phys);
+    uint8_t bmr_status = port_in_b(dev->bmr_status);
+    port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
     if (devices[disk].master)
         port_out_b(devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
     else
@@ -367,30 +418,30 @@ static int ata_read28(int disk, uint32_t sector, uint8_t *buffer) {
     port_out_b(devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
     port_out_b(devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
 
-    port_out_b(devices[disk].command_port, 0x20); // read command
+    port_out_b(devices[disk].command_port, 0xC8); // READ_DMA command
+    port_out_b(dev->bmr_command, 0x8 | 0x1);
 
     uint8_t status = port_in_b(devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
         status = port_in_b(devices[disk].command_port);
+    port_out_b(dev->bmr_command, 0);
 
     if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error reading sector %u on drive %u", sector, disk);
         return -1;
     }
 
-    for (int i = 0; i < 256; i++) {
-        uint16_t wdata = port_in_w(devices[disk].data_port);
-
-        int c = i * 2;
-        buffer[c] = wdata & 0xFF;
-        buffer[c + 1] = (wdata >> 8) & 0xFF;
-    }
-
+    kmemcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
     return 0;
 }
 
 static int ata_read48(int disk, uint64_t sector, uint8_t *buffer) {
+    ata_device *dev = &devices[disk];
+    port_out_b(dev->bmr_command, 0);
+    port_out_d(dev->bmr_prdt, dev->prdt_phys);
+    uint8_t bmr_status = port_in_b(dev->bmr_status);
+    port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
     if (devices[disk].master)
         port_out_b(devices[disk].device_port, 0x40);
     else
@@ -405,59 +456,55 @@ static int ata_read48(int disk, uint64_t sector, uint8_t *buffer) {
     port_out_b(devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
     port_out_b(devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
 
-    port_out_b(devices[disk].command_port, 0x24); // read command
+    port_out_b(devices[disk].command_port, 0x25); // READ_DMA command
+    port_out_b(dev->bmr_command, 0x8 | 0x1);
 
     uint8_t status = port_in_b(devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
         status = port_in_b(devices[disk].command_port);
+    port_out_b(dev->bmr_command, 0);
 
     if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error reading sector %U on drive %u", sector, disk);
         return -1;
     }
 
-    for (int i = 0; i < 256; i++) {
-        uint16_t wdata = port_in_w(devices[disk].data_port);
-
-        int c = i * 2;
-        buffer[c] = wdata & 0xFF;
-        buffer[c + 1] = (wdata >> 8) & 0xFF;
-    }
-
+    kmemcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
     return 0;
 }
 
 static int ata_write28(int disk, uint32_t sector, uint8_t *buffer) {
+    ata_device *dev = &devices[disk];
+    port_out_b(dev->bmr_command, 0);
+    port_out_d(dev->bmr_prdt, dev->prdt_phys);
+    uint8_t bmr_status = port_in_b(dev->bmr_status);
+    port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
     if (devices[disk].master)
         port_out_b(devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
     else
         port_out_b(devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
+
+    /* copy buffer to dma area */
+    kmemcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
 
     port_out_b(devices[disk].sector_count_port, 1);
     port_out_b(devices[disk].lba_low_port, sector & 0x000000FF);
     port_out_b(devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
     port_out_b(devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
 
-    /* Write command */
-    port_out_b(devices[disk].command_port, 0x30);
+    port_out_b(devices[disk].command_port, 0xCA); // WRITE_DMA command
+    port_out_b(dev->bmr_command, 0x1);
 
     uint8_t status = port_in_b(devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
         status = port_in_b(devices[disk].command_port);
+    port_out_b(dev->bmr_command, 0);
 
     if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error writing sector %u on drive %u", sector, disk);
         return -1;
-    }
-
-    for (int i = 0; i < 256; i ++) {
-        int c = i * 2;
-
-        uint16_t wdata = (buffer[c + 1] << 8) | buffer[c];
-
-        port_out_w(devices[disk].data_port, wdata);
     }
 
     ata_flush(disk);
@@ -466,10 +513,18 @@ static int ata_write28(int disk, uint32_t sector, uint8_t *buffer) {
 }
 
 static int ata_write48(int disk, uint64_t sector, uint8_t *buffer) {
+    ata_device *dev = &devices[disk];
+    port_out_b(dev->bmr_command, 0);
+    port_out_d(dev->bmr_prdt, dev->prdt_phys);
+    uint8_t bmr_status = port_in_b(dev->bmr_status);
+    port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
     if (devices[disk].master)
         port_out_b(devices[disk].device_port, 0x40);
     else
         port_out_b(devices[disk].device_port, 0x50);
+
+    /* copy buffer to dma area */
+    kmemcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
 
     /* Sector count high byte */
     port_out_b(devices[disk].sector_count_port, 0);
@@ -482,25 +537,19 @@ static int ata_write48(int disk, uint64_t sector, uint8_t *buffer) {
     port_out_b(devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
     port_out_b(devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
 
-    /* EXT write command */
-    port_out_b(devices[disk].command_port, 0x34);
+    port_out_b(devices[disk].command_port, 0x35); // WRITE_DMA command
+    port_out_b(dev->bmr_command, 0x1);
 
     uint8_t status = port_in_b(devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
         status = port_in_b(devices[disk].command_port);
+    port_out_b(dev->bmr_command, 0);
+
 
     if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error writing sector %U on drive %u", sector, disk);
         return -1;
-    }
-
-    for (int i = 0; i < 256; i ++) {
-        int c = i * 2;
-
-        uint16_t wdata = (buffer[c + 1] << 8) | buffer[c];
-
-        port_out_w(devices[disk].data_port, wdata);
     }
 
     ata_flush_ext(disk);
