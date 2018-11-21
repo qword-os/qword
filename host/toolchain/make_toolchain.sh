@@ -52,6 +52,7 @@ cd build-binutils
 make
 make install
 
+mkdir -p "$PREFIX/usr/include"
 cd ../gcc-$GCCVERSION
 patch -p1 < ../../gcc-$GCCVERSION.patch
 contrib/download_prerequisites

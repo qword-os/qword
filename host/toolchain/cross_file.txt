@@ -1,8 +1,8 @@
 [binaries]
-c = 'gcc'
-cpp = 'g++'
-ar = 'ar'
-strip = 'strip'
+c = 'x86_64-qword-gcc'
+cpp = 'x86_64-qword-g++'
+ar = 'x86_64-qword-ar'
+strip = 'x86_64-qword-strip'
 pkgconfig = 'pkg-config'
 
 [properties]
