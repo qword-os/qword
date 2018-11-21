@@ -4,6 +4,7 @@
 /**/*.tar.gz
 /qword.iso
 /qword.img
+/test.img
 /**/*.o
 /**/*.bin
 /bochsout.txt
