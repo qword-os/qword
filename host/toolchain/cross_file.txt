@@ -1,0 +1,15 @@
+[binaries]
+c = 'gcc'
+cpp = 'g++'
+ar = 'ar'
+strip = 'strip'
+pkgconfig = 'pkg-config'
+
+[properties]
+root = '@@sysroot@@'
+
+[host_machine]
+system = 'qword'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'

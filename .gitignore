@@ -10,3 +10,5 @@
 /bochsout.txt
 /bx_enh_dbg.ini
 /host/echfs-utils/echfs-utils
+/host/toolchain/build-toolchain
+/host/toolchain/sysroot
