@@ -16,6 +16,8 @@ if [ -z "$MAKEFLAGS" ]; then
 	MAKEFLAGS="-j `grep -c ^processor /proc/cpuinfo`"
 fi
 
+export MAKEFLAGS
+
 echo "Prefix: $PREFIX"
 echo "Target: $TARGET"
 echo "GCC version: $GCCVERSION"
@@ -30,17 +32,6 @@ export PATH="$PREFIX/bin:$PATH"
 
 mkdir -p build-toolchain
 cd build-toolchain
-
-git clone https://github.com/managarm/mlibc.git || true
-cd mlibc
-rm -rf build
-mkdir -p build
-cd build
-sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
-meson .. --prefix=/usr --libdir=lib --cross-file cross_file.txt
-ninja
-DESTDIR="$PREFIX" ninja install
-cd ../..
 
 rm -rf gcc-$GCCVERSION binutils-$BINUTILSVERSION build-gcc build-binutils
 if [ ! -f binutils-$BINUTILSVERSION.tar.gz ]; then
@@ -69,8 +60,22 @@ mkdir build-gcc
 cd build-gcc
 ../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
 make all-gcc
-#make all-target-libgcc
 make install-gcc
+cd ..
+
+git clone https://github.com/managarm/mlibc.git || true
+cd mlibc
+rm -rf build
+mkdir -p build
+cd build
+sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
+meson .. --prefix=/usr --libdir=lib --cross-file cross_file.txt
+ninja
+DESTDIR="$PREFIX" ninja install
+cd ../..
+
+#cd build-gcc
+#make all-target-libgcc
 #make install-target-libgcc
 
 exit 0
