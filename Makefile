@@ -11,7 +11,6 @@ iso: all
 	grub-mkrescue -o qword.iso root
 
 img: all
-	touch test.img
 	cp root/src/qloader/qloader.bin ./qword.img
 	dd bs=32768 count=32768 if=/dev/zero >> ./qword.img
 	truncate --size=-4096 ./qword.img
@@ -49,4 +48,3 @@ run-img-kvm-singlecore:
 clean:
 	$(MAKE) clean -C root/src
 	rm -f qword.iso qword.img
-	rm -f test.img

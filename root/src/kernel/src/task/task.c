@@ -249,19 +249,21 @@ void task_trigger_resched(struct ctx_t *ctx) {
 /* Create process */
 /* Returns process ID, -1 on failure */
 pid_t task_pcreate(struct pagemap_t *pagemap) {
+    spinlock_acquire(&scheduler_lock);
+
     /* Search for free process ID */
     pid_t new_pid;
     for (new_pid = 0; new_pid < MAX_PROCESSES - 1; new_pid++) {
         if (!process_table[new_pid] || process_table[new_pid] == (void *)(-1))
             goto found_new_pid;
     }
-    return -1;
+    goto err;
 
 found_new_pid:
     /* Try to make space for this new task */
     if ((process_table[new_pid] = kalloc(sizeof(struct process_t))) == 0) {
         process_table[new_pid] = EMPTY;
-        return -1;
+        goto err;
     }
 
     struct process_t *new_process = process_table[new_pid];
@@ -269,14 +271,14 @@ found_new_pid:
     if ((new_process->threads = kalloc(MAX_THREADS * sizeof(struct thread_t *))) == 0) {
         kfree(new_process);
         process_table[new_pid] = EMPTY;
-        return -1;
+        goto err;
     }
 
     if ((new_process->file_handles = kalloc(MAX_FILE_HANDLES * sizeof(int))) == 0) {
         kfree(new_process->threads);
         kfree(new_process);
         process_table[new_pid] = EMPTY;
-        return -1;
+        goto err;
     }
 
     /* Initially, mark all file handles as unused */
@@ -294,13 +296,21 @@ found_new_pid:
     new_process->pagemap = pagemap;
     new_process->pid = new_pid;
 
+    spinlock_release(&scheduler_lock);
     return new_pid;
+
+err:
+    spinlock_release(&scheduler_lock);
+    return -1;
 }
 
 /* Kill a thread in a given process */
 /* Return -1 on failure */
 int task_tkill(pid_t pid, tid_t tid) {
+    spinlock_acquire(&scheduler_lock);
+
     if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
+        spinlock_release(&scheduler_lock);
         return -1;
     }
 
@@ -318,13 +328,12 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     task_count--;
 
-    if (active_on_cpu != -1) {
-        cpu_locals[active_on_cpu].current_process = -1;
-        cpu_locals[active_on_cpu].current_thread = -1;
-        if (active_on_cpu == current_cpu) {
-            panic("thread killing self isn't allowed", 0, 0);
-        }
-    }
+    /* Send resched IPI to CPU 0 to trigger a reschedule */
+    lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[0].lapic_id) << 24);
+    lapic_write(APICREG_ICR0, IPI_RESCHED);
+
+    /* Paranoia: make sure the IPI goes through, 1ms should be more than plenty */
+    ksleep(1);
 
     return 0;
 }
@@ -338,13 +347,15 @@ int task_tkill(pid_t pid, tid_t tid) {
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
 tid_t task_tcreate(pid_t pid, enum tcreate_abi abi, const void *opaque_data) {
+    spinlock_acquire(&scheduler_lock);
+
     /* Search for free thread ID in the process */
     tid_t new_tid;
     for (new_tid = 0; new_tid < MAX_THREADS; new_tid++) {
         if (!process_table[pid]->threads[new_tid] || process_table[pid]->threads[new_tid] == (void *)(-1))
             goto found_new_tid;
     }
-    return -1;
+    goto err;
 found_new_tid:;
 
     /* Search for free global task ID */
@@ -353,13 +364,13 @@ found_new_tid:;
         if (!task_table[new_task_id] || task_table[new_tid] == (void *)(-1))
             goto found_new_task_id;
     }
-    return -1;
+    goto err;
 found_new_task_id:;
 
     /* Try to make space for this new thread */
     struct thread_t *new_thread;
     if ((new_thread = kalloc(sizeof(struct thread_t))) == 0) {
-        return -1;
+        goto err;
     }
 
     process_table[pid]->threads[new_tid] = new_thread;
@@ -379,7 +390,7 @@ found_new_task_id:;
         if (!stack_pm) {
             kfree(process_table[pid]->threads[new_tid]);
             process_table[pid]->threads[new_tid] = EMPTY;
-            return -1;
+            goto err;
         }
 
         /* Initialize the stack state according to ELF ABI */
@@ -426,7 +437,7 @@ found_new_task_id:;
             if (!ptr) {
                 kfree(process_table[pid]->threads[new_tid]);
                 process_table[pid]->threads[new_tid] = EMPTY;
-                return -1;
+                goto err;
             }
             map_page(process_table[pid]->pagemap,
                      (size_t)ptr,
@@ -459,5 +470,10 @@ found_new_task_id:;
 
     task_count++;
 
+    spinlock_release(&scheduler_lock);
     return new_tid;
+
+err:
+    spinlock_release(&scheduler_lock);
+    return -1;
 }
