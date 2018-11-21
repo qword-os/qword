@@ -134,6 +134,20 @@ int syscall_close(struct ctx_t *ctx) {
     return 0;
 }
 
+int syscall_lseek(struct ctx_t *ctx) {
+    // rdi: fd
+    // rsi: offset
+    // rdx: type
+
+    // TODO lock this stuff properly
+
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+
+    struct process_t *process = process_table[current_process];
+
+    return lseek(process->file_handles[ctx->rdi], ctx->rsi, ctx->rdx);
+}
+
 int syscall_read(struct ctx_t *ctx) {
     // rdi: fd
     // rsi: buf
