@@ -62,21 +62,13 @@ cd build-gcc
 ../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
 make all-gcc
 make install-gcc
-cd ..
-
-git clone https://github.com/managarm/mlibc.git || true
-cd mlibc
-rm -rf build
-mkdir -p build
-cd build
-sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
-meson .. --prefix=/usr --libdir=lib --cross-file cross_file.txt
-ninja
-DESTDIR="$PREFIX" ninja install
 cd ../..
 
-#cd build-gcc
-#make all-target-libgcc
-#make install-target-libgcc
+./make_mlibc.sh
+
+cd build-toolchain
+cd build-gcc
+make all-target-libgcc
+make install-target-libgcc
 
 exit 0

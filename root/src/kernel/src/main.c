@@ -29,7 +29,7 @@ void kmain_thread(void *arg) {
     (void)arg;
 
     /* Execute a test process */
-    kexec("/bin/test", 0, 0);
+    kexec("/bin/hello", 0, 0);
 
     kprint(KPRN_INFO, "kmain: End of init.");
 

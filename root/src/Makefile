@@ -15,6 +15,8 @@ all:
 	@# Build test userland program
 	$(MAKE) -C test
 	$(MAKE) PREFIX=$(PREFIX) install -C test
+	$(MAKE) -C hello
+	$(MAKE) PREFIX=$(PREFIX) install -C hello
 
 	@# Future targets are going to be added here
 

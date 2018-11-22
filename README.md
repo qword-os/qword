@@ -18,13 +18,15 @@
 In order to build qword, make sure to have the following installed:
 - bash
 - make
+- meson
+- ninja
 - GCC and binutils
 - nasm
 - QEMU (to test it)
 
 On Debian and Ubuntu, these packages can be installed with:
 ```bash
-sudo apt-get install build-essential nasm qemu-system-x86
+sudo apt-get install build-essential meson nasm qemu-system-x86
 ```
 
 ## Building
@@ -39,6 +41,9 @@ make
 sudo make install
 # Else specify a PREFIX variable if you want to install it elsewhere
 make PREFIX=<myprefix> install
+# Now build the toolchain (this step will take a while)
+cd ../toolchain
+./make_toolchain.sh
 # Go back to the root of the tree
 cd ../..
 # Now to build qword itself

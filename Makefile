@@ -1,3 +1,5 @@
+PATH := $(shell pwd)/host/toolchain/sysroot/bin:$(PATH)
+
 MAKE = make
 
 PREFIX = $(shell pwd)/root

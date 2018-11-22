@@ -45,9 +45,9 @@ diff -urN a/gcc/config/qword.h b/gcc/config/qword.h
 +#define GNU_USER_LINK_EMULATION64 "elf_x86_64"
 +#define GNU_USER_LINK_EMULATIONX32 "elf32_x86_64"
 +
-+#define GNU_USER_DYNAMIC_LINKER32 "/lib/i386-qword/rtdl.so"
-+#define GNU_USER_DYNAMIC_LINKER64 "/lib/x86_64-qword/rtdl.so"
-+#define GNU_USER_DYNAMIC_LINKERX32 "/lib/x86_64-qword-x32/rtdl.so"
++#define GNU_USER_DYNAMIC_LINKER32 "/lib/ld_i386.so"
++#define GNU_USER_DYNAMIC_LINKER64 "/lib/ld.so"
++#define GNU_USER_DYNAMIC_LINKERX32 "/lib/ld32.so"
 +
 +#undef TARGET_OS_CPP_BUILTINS
 +#define TARGET_OS_CPP_BUILTINS() \

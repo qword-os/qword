@@ -1,5 +1,5 @@
 AS=nasm
-CC=gcc
+CC=x86_64-qword-gcc
 PREFIX=/usr/local
 
 .PHONY: all install clean

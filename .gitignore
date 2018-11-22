@@ -1,5 +1,7 @@
 /root/bin
+/root/lib
 /root/src/test/test
+/root/src/hello/hello
 /**/*.tar.bz2
 /**/*.tar.gz
 /qword.iso
