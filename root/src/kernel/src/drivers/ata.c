@@ -379,10 +379,10 @@ success:
     for (int i = 0; i < 256; i++)
         dev->identify[i] = port_in_w(dev->data_port);
 
-    dev->prdt_cache = pmm_alloc(1);
-    dev->prdt = pmm_alloc(1);
-    dev->prdt_phys = (uint32_t)dev->prdt;
-    dev->prdt->buffer_phys = (uint32_t)dev->prdt_cache;
+    dev->prdt_phys = (uint32_t)(size_t)pmm_alloc(1);
+    dev->prdt = (struct prdt_t *)((size_t)dev->prdt_phys + MEM_PHYS_OFFSET);
+    dev->prdt->buffer_phys = (uint32_t)(size_t)pmm_alloc(1);
+    dev->prdt_cache = (uint8_t *)((size_t)dev->prdt->buffer_phys + MEM_PHYS_OFFSET);
     dev->prdt->transfer_size = BYTES_PER_SECT;
     dev->prdt->mark_end = 0x8000;
     dev->cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));
