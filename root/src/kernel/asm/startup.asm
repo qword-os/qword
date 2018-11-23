@@ -23,24 +23,11 @@ section .bss
 
 cmdline resb 2048
 
-section .data
-
-calls:
-    .clearscreen        dq clearscreen - kernel_phys_offset
-    .check_cpuid        dq check_cpuid - kernel_phys_offset
-    .check_long_mode    dq check_long_mode - kernel_phys_offset
-    .paging_init        dq paging_init - kernel_phys_offset
-
 section .text
 bits 32
 
 _start:
     mov esp, 0xeffff0
-
-    ; mask the PIC right away
-    mov al, 0xff
-    out 0x21, al
-    out 0xa1, al
 
     ; zero out bss
     mov edi, sections_bss
@@ -54,21 +41,19 @@ _start:
     mov ecx, 2047
   .cpycmdline:
     lodsb
+    stosb
     test al, al
     jz near .cpycmdline_out
-    stosb
     dec ecx
     jnz near .cpycmdline
   .cpycmdline_out:
-    xor al, al
-    stosb
 
-    call [(calls.clearscreen) - kernel_phys_offset]
+    call near clearscreen
 
-    call [(calls.check_cpuid) - kernel_phys_offset]
-    call [(calls.check_long_mode) - kernel_phys_offset]
+    call near check_cpuid
+    call near check_long_mode
 
-    call [(calls.paging_init) - kernel_phys_offset]
+    call near paging_init
 
     lgdt [gdt_ptr_lowerhalf - kernel_phys_offset]
 
@@ -90,9 +75,8 @@ _start:
   .higher_half:
     mov rsp, kernel_phys_offset + 0xeffff0
 
-    lgdt [gdt_ptr - kernel_phys_offset]
+    lgdt [gdt_ptr]
 
-    xor rbp, rbp
     call kmain
 
 .halt:

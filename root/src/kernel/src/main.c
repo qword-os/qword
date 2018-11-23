@@ -24,6 +24,7 @@
 #include <ahci.h>
 #include <time.h>
 #include <kbd.h>
+#include <irq.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -64,6 +65,9 @@ void kmain(void) {
     /* Early inits */
     init_vbe();
     init_vbe_tty();
+
+    /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
+    flush_irqs();
     init_acpi();
     init_pic();
 
