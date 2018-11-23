@@ -7,7 +7,8 @@
 #include <elf.h>
 
 /* TODO expand this to be like execve */
-pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
+pid_t kexec(const char *filename, const char *argv[], const char *envp[],
+        const char *stdin, const char *stdout, const char *stderr) {
     int ret;
     size_t entry;
 
@@ -79,6 +80,10 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[]) {
     if (new_pid == (pid_t)(-1)) return -1;
 
     process_table[new_pid]->auxval = auxval;
+
+    process_table[new_pid]->file_handles[0] = open(stdin, 0, 0);
+    process_table[new_pid]->file_handles[1] = open(stdout, 0, 0);
+    process_table[new_pid]->file_handles[2] = open(stderr, 0, 0);
 
     /* Create main thread */
     tid_t new_thread = task_tcreate(new_pid, tcreate_elf_exec,

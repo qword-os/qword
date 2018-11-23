@@ -31,10 +31,10 @@ static int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
 static int tty_read(int magic, void *data, uint64_t loc, size_t count) {
     spinlock_acquire(&tty_io_lock);
 
-    kbd_read(data, count);
+    int res = (int)kbd_read(data, count);
 
     spinlock_release(&tty_io_lock);
-    return (int)count;
+    return res;
 }
 
 /* Stub for now */
