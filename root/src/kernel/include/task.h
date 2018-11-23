@@ -93,7 +93,7 @@ struct process_t {
     int priority;
     struct pagemap_t *pagemap;
     struct thread_t **threads;
-    char *cwd;
+    char cwd[2048];
     int *file_handles;
     size_t cur_brk;
     struct auxval_t auxval;

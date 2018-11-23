@@ -291,6 +291,8 @@ found_new_pid:
         pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
     }
 
+    kstrcpy(new_process->cwd, "/");
+
     new_process->cur_brk = BASE_BRK_LOCATION;
 
     new_process->pagemap = pagemap;

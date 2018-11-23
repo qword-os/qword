@@ -45,8 +45,10 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
         void *ptr = pmm_alloc(1);
         if (!ptr)
             return (void *)0;
-        if (map_page(process->pagemap, (size_t)ptr, base_address + i * PAGE_SIZE, 0x07))
+        if (map_page(process->pagemap, (size_t)ptr, base_address + i * PAGE_SIZE, 0x07)) {
+            pmm_free(ptr, 1);
             return (void *)0;
+        }
     }
 
     return (void *)base_address;
@@ -108,9 +110,11 @@ int syscall_open(struct ctx_t *ctx) {
 
     //TODO:privilege_check_string((const char *)ctx->rdi);
 
-    int fd = open((const char *)ctx->rdi, ctx->rsi, ctx->rdx);
-    if (fd == -1)
-        return -1;
+    char abs_path[2048];
+    vfs_get_absolute_path(abs_path, (const char *)ctx->rdi, process->cwd);
+    int fd = open(abs_path, ctx->rsi, ctx->rdx);
+    if (fd < 0)
+        return fd;
 
     process->file_handles[local_fd] = fd;
 
@@ -126,8 +130,12 @@ int syscall_close(struct ctx_t *ctx) {
 
     struct process_t *process = process_table[current_process];
 
-    if (close(process->file_handles[ctx->rdi]) == -1)
+    if (process->file_handles[ctx->rdi] == -1)
         return -1;
+
+    int ret = close(process->file_handles[ctx->rdi]);
+    if (ret < 0)
+        return ret;
 
     process->file_handles[ctx->rdi] = -1;
 
@@ -144,6 +152,9 @@ int syscall_lseek(struct ctx_t *ctx) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
     struct process_t *process = process_table[current_process];
+
+    if (process->file_handles[ctx->rdi] == -1)
+        return -1;
 
     return lseek(process->file_handles[ctx->rdi], ctx->rsi, ctx->rdx);
 }

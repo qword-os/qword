@@ -79,6 +79,32 @@ static void kputs(const char *string) {
     return;
 }
 
+static void kprn_i(int64_t x) {
+    int i;
+    char buf[21] = {0};
+
+    if (!x) {
+        kputchar('0');
+        return;
+    }
+
+    int sign = x < 0;
+    if (sign) x = -x;
+
+    for (i = 19; x; i--) {
+        buf[i] = (x % 10) + 0x30;
+        x = x / 10;
+    }
+    if (sign)
+        buf[i] = '-';
+    else
+        i++;
+
+    kputs(buf + i);
+
+    return;
+}
+
 static void kprn_ui(uint64_t x) {
     int i;
     char buf[21] = {0};
@@ -126,14 +152,7 @@ static void kprn_x(uint64_t x) {
 
 static lock_t kprint_lock = 1;
 
-void kprint(int type, const char *fmt, ...) {
-    spinlock_acquire(&kprint_lock);
-
-    va_list args;
-
-    va_start(args, fmt);
-
-    /* print timestamp */
+static void print_timestamp(int type) {
     kputs("["); kprn_ui(uptime_sec); kputs(".");
     kprn_ui(uptime_raw); kputs("] ");
 
@@ -147,20 +166,33 @@ void kprint(int type, const char *fmt, ...) {
         case KPRN_ERR:
             kputs("\e[31mERROR\e[37m: ");
             break;
+        default:
         case KPRN_DBG:
             kputs("\e[36mDEBUG\e[37m: ");
             break;
-        default:
-            goto out;
     }
+}
+
+void kprint(int type, const char *fmt, ...) {
+    spinlock_acquire(&kprint_lock);
+
+    va_list args;
+
+    va_start(args, fmt);
+
+    print_timestamp(type);
 
     char *str;
 
     for (;;) {
         char c;
 
-        while (*fmt && *fmt != '%')
-            kputchar(*(fmt++));
+        while (*fmt && *fmt != '%') {
+            kputchar(*fmt);
+            if (*fmt == '\n')
+                print_timestamp(type);
+            fmt++;
+        }
         if (!*fmt++) {
             va_end(args);
             kputchar('\n');
@@ -173,6 +205,12 @@ void kprint(int type, const char *fmt, ...) {
                     kputs("(null)");
                 else
                     kputs(str);
+                break;
+            case 'd':
+                kprn_i((int64_t)va_arg(args, int));
+                break;
+            case 'D':
+                kprn_i((int64_t)va_arg(args, int64_t));
                 break;
             case 'u':
                 kprn_ui((uint64_t)va_arg(args, unsigned int));
