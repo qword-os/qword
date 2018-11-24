@@ -22,7 +22,7 @@ img: all
 QEMU_FLAGS := $(QEMU_FLAGS) \
 	-m 2G \
 	-net none \
-	-serial stdio \
+	-debugcon stdio \
 	-d cpu_reset
 
 run: run-img

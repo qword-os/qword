@@ -1,4 +1,4 @@
-PREFIX = 
+PREFIX =
 
 DEBUG = vga
 
@@ -23,10 +23,10 @@ CHARDFLAGS := \
 
 ifeq ($(DEBUG), vga)
 CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_
-else ifeq ($(DEBUG), serial)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_SERIAL_
+else ifeq ($(DEBUG), qemu)
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_QEMU_
 else ifeq ($(DEBUG), both)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_SERIAL_
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_QEMU_
 else
 $(error variable DEBUG invalid)
 endif

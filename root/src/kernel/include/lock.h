@@ -2,6 +2,7 @@
 #define __LOCK_H__
 
 #include <stdint.h>
+#include <qemu.h>
 
 typedef volatile int64_t lock_t;
 
@@ -25,16 +26,29 @@ typedef volatile int64_t lock_t;
 })
 
 #define spinlock_acquire(lock) ({ \
+    uint64_t deadlock = 0xffffff; \
     asm volatile ( \
         "xor eax, eax;" \
         "1: " \
         "lock xchg rax, qword ptr ds:[rbx];" \
         "test rax, rax;" \
-        "jz 1b;" \
-        : \
-        : "b" (lock) \
+        "jnz 2f;" \
+        "dec ecx;" \
+        "jnz 1b;" \
+        /* deadlock */ \
+        "2: " \
+        : "=c" (deadlock) \
+        : "b" (lock), "c" (deadlock) \
         : "rax" \
     ); \
+    if (!deadlock) { \
+        qemu_debug_puts("\ndeadlock at: spinlock_acquire(" #lock ")\n"); \
+        qemu_debug_puts("file: " __FILE__ "\n"); \
+        qemu_debug_puts("function: "); \
+        qemu_debug_puts(__func__); \
+        qemu_debug_puts("\n"); \
+        for (;;); \
+    } \
 })
 
 #define spinlock_test_and_acquire(lock) ({ \

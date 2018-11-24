@@ -10,30 +10,31 @@
 #include <dev.h>
 #include <lock.h>
 
-/* TODO: handle multiple ttys */
 static int use_vbe = 0;
 
-static lock_t tty_io_lock = 1;
+void tty_putchar(char c) {
+    tty_write(0, &c, 0, 1);
+}
 
-static int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
-    spinlock_acquire(&tty_io_lock);
-
+int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
     char *buf = (char *)data;
 
-    for (size_t i = 0; i < count; i++) {
-        tty_putchar(buf[i]);
+    if (use_vbe) {
+        if (!vbe_available || !vbe_tty_available) {
+            text_write(buf, count);
+        } else {
+            vbe_tty_write(buf, count);
+        }
+    } else {
+        text_write(buf, count);
     }
 
-    spinlock_release(&tty_io_lock);
     return (int)count;
 }
 
-static int tty_read(int magic, void *data, uint64_t loc, size_t count) {
-    spinlock_acquire(&tty_io_lock);
-
+int tty_read(int magic, void *data, uint64_t loc, size_t count) {
     int res = (int)kbd_read(data, count);
 
-    spinlock_release(&tty_io_lock);
     return res;
 }
 
@@ -60,20 +61,6 @@ void init_tty(void) {
     dev_t dev = device_add("tty", 0xdead, 0, &tty_read, &tty_write, &tty_flush);
     if (dev == -1) {
         return;
-    }
-
-    return;
-}
-
-void tty_putchar(char c) {
-    if (use_vbe) {
-        if (!vbe_available || !vbe_tty_available) {
-            text_putchar(c);
-        } else {
-            vbe_tty_putchar(c);
-        }
-    } else {
-        text_putchar(c);
     }
 
     return;

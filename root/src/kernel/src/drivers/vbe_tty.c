@@ -36,6 +36,8 @@ static int cols;
 
 uint8_t vga_font[16 * 256];
 
+static void vbe_tty_putchar(char c);
+
 static void plot_px(int x, int y, uint32_t hex) {
     size_t fb_i = x + (vbe_pitch / sizeof(uint32_t)) * y;
 
@@ -84,16 +86,13 @@ static void draw_cursor(void) {
     return;
 }
 
-void vbe_tty_refresh(void) {
-    spinlock_acquire(&vbe_tty_lock);
-
+static void vbe_tty_refresh(void) {
     /* interpret the grid and print the chars */
     for (size_t i = 0; i < (size_t)(rows * cols); i++) {
         plot_char_grid(grid[i], i % cols, i / cols, gridfg[i], gridbg[i]);
     }
     draw_cursor();
 
-    spinlock_release(&vbe_tty_lock);
     return;
 }
 
@@ -115,9 +114,7 @@ static void scroll(void) {
     return;
 }
 
-void vbe_tty_clear(void) {
-    spinlock_acquire(&vbe_tty_lock);
-
+static void vbe_tty_clear(void) {
     for (size_t i = 0; i < (size_t)(rows * cols); i++) {
         grid[i] = ' ';
         gridbg[i] = text_bg_col;
@@ -127,7 +124,6 @@ void vbe_tty_clear(void) {
     cursor_x = 0;
     cursor_y = 0;
 
-    spinlock_release(&vbe_tty_lock);
     vbe_tty_refresh();
 
     return;
@@ -144,19 +140,23 @@ static void vbe_tty_clear_no_move(void) {
     return;
 }
 
-void vbe_tty_enable_cursor(void) {
-    spinlock_acquire(&vbe_tty_lock);
+static void vbe_tty_enable_cursor(void) {
     cursor_status = 1;
     draw_cursor();
-    spinlock_release(&vbe_tty_lock);
     return;
 }
 
-void vbe_tty_disable_cursor(void) {
-    spinlock_acquire(&vbe_tty_lock);
+static void vbe_tty_disable_cursor(void) {
     cursor_status = 0;
     clear_cursor();
-    spinlock_release(&vbe_tty_lock);
+    return;
+}
+
+static void vbe_tty_set_cursor_pos(int x, int y) {
+    clear_cursor();
+    cursor_x = x;
+    cursor_y = y;
+    draw_cursor();
     return;
 }
 
@@ -187,7 +187,7 @@ static void sgr(void) {
 }
 
 static void escape_parse(char c) {
-    
+
     if (c >= '0' && c <= '9') {
         *esc_value *= 10;
         *esc_value += c - '0';
@@ -283,17 +283,19 @@ static void escape_parse(char c) {
     return;
 }
 
-static lock_t vbe_tty_putchar_lock = 1;
+void vbe_tty_write(const char *buf, size_t count) {
+    spinlock_acquire(&vbe_tty_lock);
+    for (size_t i = 0; i < count; i++)
+        vbe_tty_putchar(buf[i]);
+    spinlock_release(&vbe_tty_lock);
+}
 
-void vbe_tty_putchar(char c) {
+static void vbe_tty_putchar(char c) {
     if (!vbe_tty_available || !vbe_available)
         return;
 
-    spinlock_acquire(&vbe_tty_putchar_lock);
-
     if (escape) {
         escape_parse(c);
-        spinlock_release(&vbe_tty_putchar_lock);
         return;
     }
     switch (c) {
@@ -336,17 +338,6 @@ void vbe_tty_putchar(char c) {
             draw_cursor();
     }
 
-    spinlock_release(&vbe_tty_putchar_lock);
-    return;
-}
-
-void vbe_tty_set_cursor_pos(int x, int y) {
-    spinlock_acquire(&vbe_tty_lock);
-    clear_cursor();
-    cursor_x = x;
-    cursor_y = y;
-    draw_cursor();
-    spinlock_release(&vbe_tty_lock);
     return;
 }
 

@@ -42,7 +42,6 @@ void kmain_thread(void *arg) {
 void kmain(void) {
     init_idt();
 
-    init_com1();
     init_vga_textmode();
 
     init_tty();

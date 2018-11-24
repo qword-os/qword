@@ -9,6 +9,7 @@
 #define VD_ROWS 25
 
 static void escape_parse(char c);
+static void text_putchar(char c);
 
 static char *video_mem = (char *)(0xb8000 + MEM_PHYS_OFFSET);
 static size_t cursor_offset = 0;
@@ -22,19 +23,6 @@ static int *esc_value = &esc_value0;
 static int esc_default0 = 1;
 static int esc_default1 = 1;
 static int *esc_default = &esc_default0;
-
-void init_vga_textmode(void) {
-    port_out_b(0x3d4, 0x0a);
-    port_out_b(0x3d5, 0x20);
-    text_clear();
-    return;
-}
-
-void text_putstring(const char *str) {
-    for (size_t i = 0; str[i]; i++)
-        text_putchar(str[i]);
-    return;
-}
 
 static void clear_cursor(void) {
     video_mem[cursor_offset + 1] = text_palette;
@@ -60,7 +48,7 @@ static void scroll(void) {
     return;
 }
 
-void text_clear(void) {
+static void text_clear(void) {
     clear_cursor();
     for (size_t i = 0; i < VIDEO_BOTTOM; i += 2) {
         video_mem[i] = ' ';
@@ -81,19 +69,69 @@ static void text_clear_no_move(void) {
     return;
 }
 
-void text_enable_cursor(void) {
+void init_vga_textmode(void) {
+    port_out_b(0x3d4, 0x0a);
+    port_out_b(0x3d5, 0x20);
+    text_clear();
+    return;
+}
+
+static void text_enable_cursor(void) {
     cursor_status = 1;
     draw_cursor();
     return;
 }
 
-void text_disable_cursor(void) {
+static void text_disable_cursor(void) {
     cursor_status = 0;
     clear_cursor();
     return;
 }
 
-void text_putchar(char c) {
+static void text_set_cursor_palette(uint8_t c) {
+    cursor_palette = c;
+    draw_cursor();
+    return;
+}
+
+static uint8_t text_get_cursor_palette(void) {
+    return cursor_palette;
+}
+
+static void text_set_text_palette(uint8_t c) {
+    text_palette = c;
+    return;
+}
+
+static uint8_t text_get_text_palette(void) {
+    return text_palette;
+}
+
+static int text_get_cursor_pos_x(void) {
+    return (cursor_offset % VD_COLS) / 2;
+}
+
+static int text_get_cursor_pos_y(void) {
+    return cursor_offset / VD_COLS;
+}
+
+static void text_set_cursor_pos(int x, int y) {
+    clear_cursor();
+    cursor_offset = y * VD_COLS + x * 2;
+    draw_cursor();
+    return;
+}
+
+static lock_t text_write_lock = 1;
+
+void text_write(const char *buf, size_t count) {
+    spinlock_acquire(&text_write_lock);
+    for (size_t i = 0; i < count; i++)
+        text_putchar(buf[i]);
+    spinlock_release(&text_write_lock);
+}
+
+static void text_putchar(char c) {
     if (escape) {
         escape_parse(c);
         return;
@@ -156,7 +194,7 @@ static void sgr(void) {
 }
 
 static void escape_parse(char c) {
-    
+
     if (c >= '0' && c <= '9') {
         *esc_value *= 10;
         *esc_value += c - '0';
@@ -233,7 +271,7 @@ static void escape_parse(char c) {
             text_putchar('?');
             break;
     }
-    
+
     esc_value = &esc_value0;
     esc_value0 = 0;
     esc_value1 = 0;
@@ -242,39 +280,5 @@ static void escape_parse(char c) {
     esc_default1 = 1;
     escape = 0;
 
-    return;
-}
-
-void text_set_cursor_palette(uint8_t c) {
-    cursor_palette = c;
-    draw_cursor();
-    return;
-}
-
-uint8_t text_get_cursor_palette(void) {
-    return cursor_palette;
-}
-
-void text_set_text_palette(uint8_t c) {
-    text_palette = c;
-    return;
-}
-
-uint8_t text_get_text_palette(void) {
-    return text_palette;
-}
-
-int text_get_cursor_pos_x(void) {
-    return (cursor_offset % VD_COLS) / 2;
-}
-
-int text_get_cursor_pos_y(void) {
-    return cursor_offset / VD_COLS;
-}
-
-void text_set_cursor_pos(int x, int y) {
-    clear_cursor();
-    cursor_offset = y * VD_COLS + x * 2;
-    draw_cursor();
     return;
 }

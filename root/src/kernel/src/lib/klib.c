@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <lock.h>
 #include <klib.h>
-#include <serial.h>
+#include <qemu.h>
 #include <tty.h>
 #include <mm.h>
 #include <time.h>
@@ -59,23 +59,43 @@ size_t kstrlen(const char *str) {
     return len;
 }
 
-static void kputchar(char c) {
-    #ifdef _KERNEL_SERIAL_
-        com1_write(c);
-    #endif
-    #ifdef _KERNEL_VGA_
-        tty_putchar(c);
-    #endif
-    return;
-}
+#define KPRINT_BUF_MAX 1024
+
+static char kprint_buf[KPRINT_BUF_MAX] = {0};
+static size_t kprint_buf_i = 0;
 
 static void kputs(const char *string) {
     size_t i;
 
     for (i = 0; string[i]; i++) {
-        kputchar(string[i]);
+        if (kprint_buf_i == (KPRINT_BUF_MAX - 1))
+            break;
+        kprint_buf[kprint_buf_i++] = string[i];
     }
 
+    kprint_buf[kprint_buf_i] = 0;
+
+    return;
+}
+
+static void kputchar(char c) {
+    if (kprint_buf_i < (KPRINT_BUF_MAX - 1)) {
+        kprint_buf[kprint_buf_i++] = c;
+    }
+
+    kprint_buf[kprint_buf_i] = 0;
+
+    return;
+}
+
+static void kprint_buf_flush(void) {
+    #ifdef _KERNEL_QEMU_
+        qemu_debug_puts(kprint_buf);
+    #endif
+    #ifdef _KERNEL_VGA_
+        tty_write(0, kprint_buf, 0, kprint_buf_i);
+    #endif
+    kprint_buf_i = 0;
     return;
 }
 
@@ -235,6 +255,7 @@ void kprint(int type, const char *fmt, ...) {
     }
 
 out:
+    kprint_buf_flush();
     spinlock_release(&kprint_lock);
     return;
 }

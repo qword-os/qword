@@ -2,16 +2,12 @@
 #define __VBE_TTY_H__
 
 #include <stdint.h>
+#include <stddef.h>
 
 extern int vbe_tty_available;
 
 void init_vbe_tty(void);
-void vbe_tty_putchar(char);
-void vbe_tty_enable_cursor(void);
-void vbe_tty_disable_cursor(void);
-void vbe_tty_clear(void);
-void vbe_tty_set_cursor_pos(int, int);
-void vbe_tty_refresh(void);
+void vbe_tty_write(const char *, size_t);
 
 extern uint8_t vga_font[16 * 256];
 void dump_vga_font(uint8_t *);
