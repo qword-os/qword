@@ -296,7 +296,7 @@ int ahci_write(int magic, const void *buf, uint64_t loc, size_t count) {
     uint32_t sect_count = (uint32_t)((count + 511) / 512);
     uint64_t cur_sect = (loc + 511) / 512;
 
-    return ahci_rw(ahci_devices[magic].port, (uint32_t)cur_sect, (uint32_t)(cur_sect >> 32), sect_count, buf, 0);
+    return ahci_rw(ahci_devices[magic].port, (uint32_t)cur_sect, (uint32_t)(cur_sect >> 32), sect_count, buf, 1);
 }
 
 int ahci_flush(int blah) {
@@ -331,10 +331,18 @@ int ahci_rw(volatile struct hba_port_t *port,
             (size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET);
     kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
             sizeof(volatile struct hba_cmd_tbl_t) / 8);
-    for (size_t i = 0; i < cmd_hdr->prdtl - 1; i++) {
+    size_t i;
+    for (i = 0; i < cmd_hdr->prdtl - 1; i++) {
         cmdtbl->prdt_entry[i].dba = (uint32_t)(size_t)buf;
         cmdtbl->prdt_entry[i].dbc = 8 * 1024 - 1;
+        cmdtbl->prdt_entry[i].i = 0;
+        buf += 4096;
+        count -= 16;
     }
+
+    cmdtbl->prdt_entry[i].dba = (uint32_t)(size_t)buf;
+    cmdtbl->prdt_entry[i].dbc = (count * 512) - 1;
+    cmdtbl->prdt_entry[i].i = 0;
 
     struct fis_regh2d_t *cmdfis = (struct fis_regh2d_t *)((size_t)cmdtbl->cfis);
     kmemset64(cmdfis, 0, sizeof(struct fis_regh2d_t) / 8);
@@ -363,8 +371,9 @@ int ahci_rw(volatile struct hba_port_t *port,
         spin++;
     }
 
-    if (spin > 1000000) {
+    if (spin == 1000000) {
         kprint(KPRN_WARN, "ahci: Port hung");
+        return -1;
     }
 
     start_cmd(port);
@@ -388,5 +397,5 @@ int ahci_rw(volatile struct hba_port_t *port,
 
     stop_cmd(port);
 
-    return 0;
+    return (int)count;
 }
