@@ -1,10 +1,8 @@
-PREFIX = 
+PREFIX =
 
 DEBUG = vga
 
-TOOLCHAIN = 
-
-CC = $(TOOLCHAIN)gcc
+CC = x86_64-qword-gcc
 AS = nasm
 
 CFLAGS = -O2 -pipe -Wall -Wextra
@@ -25,10 +23,10 @@ CHARDFLAGS := \
 
 ifeq ($(DEBUG), vga)
 CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_
-else ifeq ($(DEBUG), serial)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_SERIAL_
+else ifeq ($(DEBUG), qemu)
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_QEMU_
 else ifeq ($(DEBUG), both)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_SERIAL_
+CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_QEMU_
 else
 $(error variable DEBUG invalid)
 endif
@@ -48,20 +46,16 @@ H_FILES := $(shell find ./include -type f -name '*.h')
 all: kernel.bin
 
 kernel.bin: $(BINS) $(OBJ) $(H_FILES)
-	@printf "  LD      $@\n"
-	@$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker.ld -o $@
+	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker.ld -o $@
 
 %.o: %.c
-	@printf "  CC      $@\n"
-	@$(CC) $(CFLAGS) $(CHARDFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(CHARDFLAGS) -c $< -o $@
 
 %.bin: %.real
-	@printf "  AS [r]  $@\n"
-	@$(AS) $< -f bin -o $@
+	$(AS) $< -f bin -o $@
 
 %.o: %.asm
-	@printf "  AS      $@\n"
-	@$(AS) $< -f elf64 -o $@
+	$(AS) $< -f elf64 -o $@
 
 install:
 	mkdir -p $(PREFIX)/boot

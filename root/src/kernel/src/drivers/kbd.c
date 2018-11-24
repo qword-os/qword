@@ -62,6 +62,8 @@ void init_kbd(void) {
 static lock_t kbd_read_lock = 1;
 
 int kbd_read(char *buf, size_t count) {
+    int wait = 1;
+
     while (!spinlock_test_and_acquire(&kbd_read_lock)) {
         yield(10);
     }
@@ -73,19 +75,23 @@ int kbd_read(char *buf, size_t count) {
             for (size_t j = 0; j < big_buf_i; j++) {
                 big_buf[j] = big_buf[j+1];
             }
+            wait = 0;
         } else {
-            /* wait to register new keypresses */
-            spinlock_release(&kbd_read_lock);
-            yield(10);
-            while (!spinlock_test_and_acquire(&kbd_read_lock)) {
+            if (wait) {
+                spinlock_release(&kbd_read_lock);
                 yield(10);
+                while (!spinlock_test_and_acquire(&kbd_read_lock)) {
+                    yield(10);
+                }
+            } else {
+                spinlock_release(&kbd_read_lock);
+                return (int)i;
             }
         }
     }
 
     spinlock_release(&kbd_read_lock);
-
-    return count;
+    return (int)count;
 }
 
 void kbd_handler(uint8_t input_byte) {

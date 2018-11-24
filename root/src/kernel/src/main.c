@@ -24,12 +24,14 @@
 #include <ahci.h>
 #include <time.h>
 #include <kbd.h>
+#include <irq.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
 
     /* Execute a test process */
-    kexec("/bin/test", 0, 0);
+    kexec("/bin/hello", 0, 0,
+          "/dev/tty", "/dev/tty", "/dev/tty");
 
     kprint(KPRN_INFO, "kmain: End of init.");
 
@@ -40,7 +42,6 @@ void kmain_thread(void *arg) {
 void kmain(void) {
     init_idt();
 
-    init_com1();
     init_vga_textmode();
 
     init_tty();
@@ -64,6 +65,9 @@ void kmain(void) {
     /* Early inits */
     init_vbe();
     init_vbe_tty();
+
+    /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
+    flush_irqs();
     init_acpi();
     init_pic();
 

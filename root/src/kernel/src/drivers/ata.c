@@ -1,5 +1,3 @@
-/* ATA PIO driver, by mintsuki. See https://wiki.osdev.org/ATA_PIO_Mode for reference */
-
 #include <stdint.h>
 #include <stddef.h>
 #include <cio.h>
@@ -28,7 +26,7 @@ struct prdt_t {
     uint32_t buffer_phys;
     uint16_t transfer_size;
     uint16_t mark_end;
-}__attribute((packed))__;
+} __attribute__((packed));
 
 typedef struct {
     int exists;
@@ -87,6 +85,8 @@ static int ata_flush(int disk);
 static int ata_flush_ext(int disk);
 
 static ata_device devices[DEVICE_COUNT];
+
+static lock_t ata_lock = 1;
 
 static int find_sect(int drive, uint64_t sect) {
     for (size_t i = 0; i < MAX_CACHED_SECTORS; i++)
@@ -147,6 +147,8 @@ notfnd:
 }
 
 static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
+    spinlock_acquire(&ata_lock);
+
     uint64_t sect_count = count / BYTES_PER_SECT;
     if (count % BYTES_PER_SECT) sect_count++;
 
@@ -154,18 +156,16 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
     uint16_t initial_offset = loc % BYTES_PER_SECT;
     uint16_t final_offset = count - ((sect_count - 1) * BYTES_PER_SECT);
 
-    if (final_offset >= BYTES_PER_SECT) {
-        sect_count++;
-        final_offset -= BYTES_PER_SECT;
-    }
-
     for (uint64_t i = 0; ; i++) {
         /* cache the sector */
         int slot = find_sect(drive, cur_sect);
-        if (slot == -1)
+        if (slot == -1) {
             slot = cache_sect(drive, cur_sect);
-        if (slot == -1)
-            return -1;
+            if (slot == -1) {
+                spinlock_release(&ata_lock);
+                return -1;
+            }
+        }
 
         if (i == 0) {
             /* first sector */
@@ -189,29 +189,30 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
         cur_sect++;
     }
 
+    spinlock_release(&ata_lock);
     return (int)count;
 }
 
 static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
+    spinlock_acquire(&ata_lock);
+
     uint64_t sect_count = count / BYTES_PER_SECT;
     if (count % BYTES_PER_SECT) sect_count++;
 
     uint64_t cur_sect = loc / BYTES_PER_SECT;
     uint16_t initial_offset = loc % BYTES_PER_SECT;
-    uint16_t final_offset = (count % BYTES_PER_SECT) + initial_offset;
-
-    if (final_offset >= BYTES_PER_SECT) {
-        sect_count++;
-        final_offset -= BYTES_PER_SECT;
-    }
+    uint16_t final_offset = count - ((sect_count - 1) * BYTES_PER_SECT);
 
     for (uint64_t i = 0; ; i++) {
         /* cache the sector */
         int slot = find_sect(drive, cur_sect);
-        if (slot == -1)
+        if (slot == -1) {
             slot = cache_sect(drive, cur_sect);
-        if (slot == -1)
-            return -1;
+            if (slot == -1) {
+                spinlock_release(&ata_lock);
+                return -1;
+            }
+        }
 
         if (i == 0) {
             /* first sector */
@@ -239,10 +240,13 @@ static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
         cur_sect++;
     }
 
+    spinlock_release(&ata_lock);
     return (int)count;
 }
 
 static int ata_flush1(int device) {
+    spinlock_acquire(&ata_lock);
+
     for (size_t i = 0; i < MAX_CACHED_SECTORS; i++) {
         if (devices[device].cache[i].status == CACHE_DIRTY) {
             int ret;
@@ -252,12 +256,16 @@ static int ata_flush1(int device) {
             else
                 ret = ata_write48(device, devices[device].cache[i].sector, devices[device].cache[i].cache);
 
-            if (ret == -1) return -1;
+            if (ret == -1) {
+                spinlock_release(&ata_lock);
+                return -1;
+            }
 
             devices[device].cache[i].status = CACHE_READY;
         }
     }
 
+    spinlock_release(&ata_lock);
     return 0;
 }
 
@@ -379,10 +387,10 @@ success:
     for (int i = 0; i < 256; i++)
         dev->identify[i] = port_in_w(dev->data_port);
 
-    dev->prdt_cache = pmm_alloc(1);
-    dev->prdt = pmm_alloc(1);
-    dev->prdt_phys = (uint32_t)dev->prdt;
-    dev->prdt->buffer_phys = (uint32_t)dev->prdt_cache;
+    dev->prdt_phys = (uint32_t)(size_t)pmm_alloc(1);
+    dev->prdt = (struct prdt_t *)((size_t)dev->prdt_phys + MEM_PHYS_OFFSET);
+    dev->prdt->buffer_phys = (uint32_t)(size_t)pmm_alloc(1);
+    dev->prdt_cache = (uint8_t *)((size_t)dev->prdt->buffer_phys + MEM_PHYS_OFFSET);
     dev->prdt->transfer_size = BYTES_PER_SECT;
     dev->prdt->mark_end = 0x8000;
     dev->cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));

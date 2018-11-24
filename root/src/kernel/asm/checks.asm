@@ -5,11 +5,6 @@ extern textmodeprint
 
 %define kernel_phys_offset 0xffffffffc0000000
 
-section .data
-
-calls:
-    .textmodeprint      dq textmodeprint - kernel_phys_offset
-
 section .text
 bits 32
 check_cpuid:
@@ -22,10 +17,10 @@ check_cpuid:
 
     ; Flip 21st bit, ID bit.
     xor eax, 1 << 21
-    
+
     push eax
     popfd
-    
+
     pushfd
     pop eax
 
@@ -37,7 +32,7 @@ check_cpuid:
     ret
 .no_cpuid:
     mov esi, .msg - kernel_phys_offset
-    call [(calls.textmodeprint) - kernel_phys_offset]
+    call near textmodeprint
 .halt:
     cli
     hlt
@@ -58,7 +53,7 @@ check_long_mode:
     ret
 .no_long_mode:
     mov esi, .no_lm_msg - kernel_phys_offset
-    call [(calls.textmodeprint) - kernel_phys_offset]
+    call near textmodeprint
 .halt:
     cli
     hlt

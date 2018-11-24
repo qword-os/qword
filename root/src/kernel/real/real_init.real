@@ -64,7 +64,9 @@ mov esp, 0xFFF0
 mov ebx, dword [arg]
 
 ; Call actual routine
+sti
 call 0x8000
+cli
 
 ; Load intermediate bootstrap GDT
 lgdt [gdt_ptr]

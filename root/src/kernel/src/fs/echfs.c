@@ -119,12 +119,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
 
     uint64_t cur_block = echfs_handles[handle].ptr / BYTES_PER_BLOCK;
     uint16_t initial_offset = echfs_handles[handle].ptr % BYTES_PER_BLOCK;
-    uint16_t final_offset = (count % BYTES_PER_BLOCK) + initial_offset;
-
-    if (final_offset >= BYTES_PER_BLOCK) {
-        block_count++;
-        final_offset -= BYTES_PER_BLOCK;
-    }
+    uint16_t final_offset = count - ((block_count - 1) * BYTES_PER_BLOCK);
 
     for (uint64_t i = 0; ; i++) {
         /* cache the block */

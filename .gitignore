@@ -1,5 +1,7 @@
 /root/bin
+/root/lib
 /root/src/test/test
+/root/src/hello/hello
 /**/*.tar.bz2
 /**/*.tar.gz
 /qword.iso
@@ -10,3 +12,5 @@
 /bochsout.txt
 /bx_enh_dbg.ini
 /host/echfs-utils/echfs-utils
+/host/toolchain/build-toolchain
+/host/toolchain/sysroot

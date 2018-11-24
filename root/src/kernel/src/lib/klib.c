@@ -3,7 +3,7 @@
 #include <stdarg.h>
 #include <lock.h>
 #include <klib.h>
-#include <serial.h>
+#include <qemu.h>
 #include <tty.h>
 #include <mm.h>
 #include <time.h>
@@ -59,22 +59,68 @@ size_t kstrlen(const char *str) {
     return len;
 }
 
-static void kputchar(char c) {
-    #ifdef _KERNEL_SERIAL_
-        com1_write(c);
-    #endif
-    #ifdef _KERNEL_VGA_
-        tty_putchar(c);
-    #endif
-    return;
-}
+#define KPRINT_BUF_MAX 1024
+
+static char kprint_buf[KPRINT_BUF_MAX] = {0};
+static size_t kprint_buf_i = 0;
 
 static void kputs(const char *string) {
     size_t i;
 
     for (i = 0; string[i]; i++) {
-        kputchar(string[i]);
+        if (kprint_buf_i == (KPRINT_BUF_MAX - 1))
+            break;
+        kprint_buf[kprint_buf_i++] = string[i];
     }
+
+    kprint_buf[kprint_buf_i] = 0;
+
+    return;
+}
+
+static void kputchar(char c) {
+    if (kprint_buf_i < (KPRINT_BUF_MAX - 1)) {
+        kprint_buf[kprint_buf_i++] = c;
+    }
+
+    kprint_buf[kprint_buf_i] = 0;
+
+    return;
+}
+
+static void kprint_buf_flush(void) {
+    #ifdef _KERNEL_QEMU_
+        qemu_debug_puts(kprint_buf);
+    #endif
+    #ifdef _KERNEL_VGA_
+        tty_write(0, kprint_buf, 0, kprint_buf_i);
+    #endif
+    kprint_buf_i = 0;
+    return;
+}
+
+static void kprn_i(int64_t x) {
+    int i;
+    char buf[21] = {0};
+
+    if (!x) {
+        kputchar('0');
+        return;
+    }
+
+    int sign = x < 0;
+    if (sign) x = -x;
+
+    for (i = 19; x; i--) {
+        buf[i] = (x % 10) + 0x30;
+        x = x / 10;
+    }
+    if (sign)
+        buf[i] = '-';
+    else
+        i++;
+
+    kputs(buf + i);
 
     return;
 }
@@ -126,14 +172,7 @@ static void kprn_x(uint64_t x) {
 
 static lock_t kprint_lock = 1;
 
-void kprint(int type, const char *fmt, ...) {
-    spinlock_acquire(&kprint_lock);
-
-    va_list args;
-
-    va_start(args, fmt);
-
-    /* print timestamp */
+static void print_timestamp(int type) {
     kputs("["); kprn_ui(uptime_sec); kputs(".");
     kprn_ui(uptime_raw); kputs("] ");
 
@@ -147,20 +186,33 @@ void kprint(int type, const char *fmt, ...) {
         case KPRN_ERR:
             kputs("\e[31mERROR\e[37m: ");
             break;
+        default:
         case KPRN_DBG:
             kputs("\e[36mDEBUG\e[37m: ");
             break;
-        default:
-            goto out;
     }
+}
+
+void kprint(int type, const char *fmt, ...) {
+    spinlock_acquire(&kprint_lock);
+
+    va_list args;
+
+    va_start(args, fmt);
+
+    print_timestamp(type);
 
     char *str;
 
     for (;;) {
         char c;
 
-        while (*fmt && *fmt != '%')
-            kputchar(*(fmt++));
+        while (*fmt && *fmt != '%') {
+            kputchar(*fmt);
+            if (*fmt == '\n')
+                print_timestamp(type);
+            fmt++;
+        }
         if (!*fmt++) {
             va_end(args);
             kputchar('\n');
@@ -173,6 +225,12 @@ void kprint(int type, const char *fmt, ...) {
                     kputs("(null)");
                 else
                     kputs(str);
+                break;
+            case 'd':
+                kprn_i((int64_t)va_arg(args, int));
+                break;
+            case 'D':
+                kprn_i((int64_t)va_arg(args, int64_t));
                 break;
             case 'u':
                 kprn_ui((uint64_t)va_arg(args, unsigned int));
@@ -197,6 +255,7 @@ void kprint(int type, const char *fmt, ...) {
     }
 
 out:
+    kprint_buf_flush();
     spinlock_release(&kprint_lock);
     return;
 }

@@ -1,0 +1,15 @@
+[binaries]
+c = 'x86_64-qword-gcc'
+cpp = 'x86_64-qword-g++'
+ar = 'x86_64-qword-ar'
+strip = 'x86_64-qword-strip'
+pkgconfig = 'pkg-config'
+
+[properties]
+root = '@@sysroot@@'
+
+[host_machine]
+system = 'qword'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'

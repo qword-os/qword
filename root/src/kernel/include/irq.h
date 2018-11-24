@@ -18,4 +18,6 @@ void apic_spurious_handler(void);
 
 void scheduler_ipi(void);
 
+void flush_irqs(void);
+
 #endif

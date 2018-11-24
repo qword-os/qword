@@ -272,6 +272,8 @@ syscall_table:
     dq syscall_alloc_at ;6
     extern syscall_set_fs_base
     dq syscall_set_fs_base ;7
+    extern syscall_lseek
+    dq syscall_lseek ;8
     dq invalid_syscall
   .end:
 

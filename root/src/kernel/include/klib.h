@@ -14,7 +14,8 @@
 
 #define EMPTY ((void *)(size_t)(-1))
 
-pid_t kexec(const char *, const char **, const char **);
+pid_t kexec(const char *, const char **, const char **,
+            const char *, const char *, const char *);
 
 int ktolower(int);
 char *kstrchrnul(const char *, int);
