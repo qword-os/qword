@@ -96,7 +96,11 @@ void init_ahci(void) {
     uint8_t class_mass_storage = 0x01;
     uint8_t subclass_serial_ata = 0x06;
     int ret = pci_get_device(&device, class_mass_storage, subclass_serial_ata);
-    if (!ret) kprint(KPRN_INFO, "ahci: Found AHCI controller");
+    if (ret == -1) {
+        kprint(KPRN_WARN, "ahci: Failed to find AHCI controller. SATA support unavailable");
+        return;
+    }
+    kprint(KPRN_INFO, "ahci: Found AHCI controller");
 
     ahci_base = (size_t)pci_read_device(&device, 0x24);
     kprint(KPRN_INFO, "ahci: ABAR at %x", ahci_base);

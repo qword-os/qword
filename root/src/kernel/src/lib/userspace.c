@@ -40,11 +40,6 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
         kprint(KPRN_DBG, "elf: Load of binary file %s failed.", filename);
         return -1;
     }
-    kprint(KPRN_DBG, "elf: %s successfully loaded.", filename);
-    kprint(KPRN_DBG, "AT_ENTRY: %X", auxval.at_entry);
-    kprint(KPRN_DBG, "AT_PHDR: %X", auxval.at_phdr);
-    kprint(KPRN_DBG, "AT_PHENT: %X", auxval.at_phent);
-    kprint(KPRN_DBG, "AT_PHNUM: %X", auxval.at_phnum);
 
     /* If requested: Load the dynamic linker */
     if (!ld_path) {
@@ -66,12 +61,6 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
             kprint(KPRN_DBG, "elf: Load of binary file %s failed.", filename);
             return -1;
         }
-        kprint(KPRN_DBG, "elf: Loading dynamic linker succeeded.");
-        kprint(KPRN_DBG, "AT_ENTRY: %X", ld_auxval.at_entry);
-        kprint(KPRN_DBG, "AT_PHDR: %X", ld_auxval.at_phdr);
-        kprint(KPRN_DBG, "AT_PHENT: %X", ld_auxval.at_phent);
-        kprint(KPRN_DBG, "AT_PHNUM: %X", ld_auxval.at_phnum);
-
         entry = ld_auxval.at_entry;
     }
 

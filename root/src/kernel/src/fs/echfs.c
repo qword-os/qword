@@ -479,15 +479,6 @@ static int echfs_mount(const char *source) {
     mounts[mounts_i].cached_files = 0;
     mounts[mounts_i].cached_files_ptr = 0;
 
-    kprint(KPRN_DBG, "echfs mounted with:");
-    kprint(KPRN_DBG, "blocks:        %U", mounts[mounts_i].blocks);
-    kprint(KPRN_DBG, "bytesperblock: %U", mounts[mounts_i].bytesperblock);
-    kprint(KPRN_DBG, "fatsize:       %U", mounts[mounts_i].fatsize);
-    kprint(KPRN_DBG, "fatstart:      %U", mounts[mounts_i].fatstart);
-    kprint(KPRN_DBG, "dirsize:       %U", mounts[mounts_i].dirsize);
-    kprint(KPRN_DBG, "dirstart:      %U", mounts[mounts_i].dirstart);
-    kprint(KPRN_DBG, "datastart:     %U", mounts[mounts_i].datastart);
-
     return mounts_i++;
 }
 
