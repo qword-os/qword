@@ -123,9 +123,9 @@ struct tcreate_elf_exec_data {
     const struct auxval_t *auxval;
 };
 
-#define TCREATE_FN_CALL_DATA(fn_, arg_) \
+#define tcreate_fn_call_data(fn_, arg_) \
     &((struct tcreate_fn_call_data){.fn=fn_, .arg=arg_})
-#define TCREATE_ELF_EXEC_DATA(entry_, auxval_) \
+#define tcreate_elf_exec_data(entry_, auxval_) \
     &((struct tcreate_elf_exec_data){.entry=entry_, .auxval=auxval_})
 
 tid_t task_tcreate(pid_t, enum tcreate_abi, const void *);

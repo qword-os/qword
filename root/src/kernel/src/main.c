@@ -105,7 +105,7 @@ void kmain(void) {
     spinlock_release(&scheduler_lock);
 
     /* Start a main kernel thread which will take over when the scheduler is running */
-    task_tcreate(0, tcreate_fn_call, TCREATE_FN_CALL_DATA(kmain_thread, 0));
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kmain_thread, 0));
 
     /*** DO NOT ADD ANYTHING TO THIS FUNCTION AFTER THIS POINT, ADD TO kmain_thread
          INSTEAD! ***/

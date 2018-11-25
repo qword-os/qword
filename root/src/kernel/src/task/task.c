@@ -457,7 +457,7 @@ found_new_task_id:;
         new_thread->ctx.rip = (size_t)data->fn;
         new_thread->ctx.rdi = (size_t)data->arg;
     } else {
-        PANIC_UNLESS(abi == tcreate_elf_exec);
+        panic_unless(abi == tcreate_elf_exec);
         const struct tcreate_elf_exec_data *data = opaque_data;
         new_thread->ctx.rip = (size_t)data->entry;
     }
