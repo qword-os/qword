@@ -452,6 +452,8 @@ static int echfs_fstat(int handle, struct stat *st) {
 static int echfs_mount(const char *source) {
     /* open device */
     int device = open(source, O_RDWR, 0);
+    if (device == -1)
+        return -1;
 
     /* verify signature */
     char signature[8];
