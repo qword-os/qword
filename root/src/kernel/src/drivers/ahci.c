@@ -291,13 +291,13 @@ int init_ahci_device(struct ahci_device_t *device,
     device->port = port;
     device->sector_count = *((uint64_t *)&dest[100]);
     ahci_devices[portno] = *device;
-    size_t ret = device_add(ahci_names[portno],
+    dev_t ret = device_add(ahci_names[portno],
                             portno,
                             (device->sector_count * 512),
                             &ahci_read,
                             &ahci_write,
                             &ahci_flush);
-    if (ret == (size_t)-1)
+    if (ret == ((dev_t)-1))
         return -1;
 
     kprint(KPRN_INFO, "ahci: Disk serial no. is %s", serial);
@@ -415,6 +415,9 @@ int ahci_read(int magic, void *buf, uint64_t loc, size_t count) {
     uint32_t sect_count  = (uint32_t)((count + 511) / 512);
     uint64_t cur_sect = (loc + 511) / 512;
 
+    if (!(ahci_devices[magic].exists))
+        return -1;
+
     return ahci_rw(ahci_devices[magic].port,
             (uint32_t)cur_sect, (cur_sect >> 32), sect_count, buf, 0);
 }
@@ -422,6 +425,8 @@ int ahci_read(int magic, void *buf, uint64_t loc, size_t count) {
 int ahci_write(int magic, const void *buf, uint64_t loc, size_t count) {
     uint32_t sect_count = (uint32_t)((count + 511) / 512);
     uint64_t cur_sect = (loc + 511) / 512;
+
+    if (!(ahci_devices[magic].exists));
 
     return ahci_rw(ahci_devices[magic].port,
             (uint32_t)cur_sect, (uint32_t)(cur_sect >> 32), sect_count, buf, 1);

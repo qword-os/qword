@@ -18,7 +18,7 @@ struct devfs_handle_t {
     lock_t lock;
 };
 
-static struct devfs_handle_t *devfs_handles = (struct devfs_handle_t *)0;
+struct devfs_handle_t *devfs_handles;
 static int devfs_handles_i = 0;
 
 static int devfs_create_handle(struct devfs_handle_t handle) {
@@ -32,11 +32,12 @@ static int devfs_create_handle(struct devfs_handle_t handle) {
     }
 
     devfs_handles = krealloc(devfs_handles, (devfs_handles_i + 1) * sizeof(struct devfs_handle_t));
-    handle_n = devfs_handles_i++;
-    
+    handle_n = devfs_handles_i;
+    devfs_handles_i++;
+
 load_handle:
     devfs_handles[handle_n] = handle;
-    
+
     return handle_n;
 }
 
@@ -74,7 +75,6 @@ static int devfs_open(char *path, int flags, int mode) {
     spinlock_acquire(&devfs_open_close_lock);
 
     dev_t device = device_find(path);
-
     if (device == (dev_t)(-1))
         goto fail;
 
@@ -169,13 +169,19 @@ success:
     spinlock_release(&devfs_handles[handle].lock);
     return devfs_handles[handle].ptr;
 
-fail:    
+fail:
     spinlock_release(&devfs_handles[handle].lock);
     return -1;
 }
 
 void init_devfs(void) {
     struct fs_t devfs = {0};
+    devfs_handles = kalloc(256 * sizeof(struct devfs_handle_t));
+    devfs_handles_i = 256;
+
+    for (size_t i = 0; i < 256; i++) {
+        devfs_handles[i].free = 1;
+    }
 
     kstrcpy(devfs.type, "devfs");
     devfs.read = devfs_read;
