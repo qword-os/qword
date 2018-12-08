@@ -3,7 +3,9 @@
 set -e
 set -x
 
+QWORD_BASE=$(realpath ../../..)
 QWORD_ROOT=$(realpath ../..)
+export PATH=$QWORD_BASE/host/toolchain/sysroot/bin:$PATH
 
 BASH_VERSION=4.4.18
 
