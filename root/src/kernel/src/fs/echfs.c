@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <klib.h>
 #include <fs.h>
+#include <lock.h>
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff
@@ -81,6 +82,8 @@ struct echfs_handle_t {
     struct cached_file_t *cached_file;
 };
 
+static lock_t echfs_lock = 1;
+
 static struct echfs_handle_t *echfs_handles;
 static int echfs_handles_i = 0;
 
@@ -107,6 +110,8 @@ static int cache_block(int handle, uint64_t block) {
 }
 
 static int echfs_read(int handle, void *buf, size_t count) {
+    spinlock_acquire(&echfs_lock);
+
     struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
 
     if ((size_t)echfs_handles[handle].ptr + count
@@ -149,6 +154,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
 
     echfs_handles[handle].ptr += count;
 
+    spinlock_release(&echfs_lock);
     return (int)count;
 }
 
@@ -335,6 +341,8 @@ next:
 }
 
 static int echfs_close(int handle) {
+    spinlock_acquire(&echfs_lock);
+
     if (handle < 0)
         goto fail;
 
@@ -346,16 +354,22 @@ static int echfs_close(int handle) {
 
     echfs_handles[handle].free = 1;
 
+    spinlock_release(&echfs_lock);
     return 0;
 
 fail:
+    spinlock_release(&echfs_lock);
     return -1;
 }
 
 static int echfs_open(const char *path, int flags, int mode, int mnt) {
+    spinlock_acquire(&echfs_lock);
+
     struct path_result_t path_result = path_resolver(&mounts[mnt], path, FILE_TYPE);
-    if (path_result.failure || path_result.not_found)
+    if (path_result.failure || path_result.not_found) {
+        spinlock_release(&echfs_lock);
         return -1;
+    }
 
     struct echfs_handle_t new_handle = {0};
     kstrcpy(new_handle.path, path);
@@ -408,52 +422,76 @@ search_out:
 
     new_handle.cached_file = &mounts[mnt].cached_files[cached_file];
 
-    return echfs_create_handle(new_handle);
+    int ret = echfs_create_handle(new_handle);
+    spinlock_release(&echfs_lock);
+    return ret;
 }
 
 static int echfs_lseek(int handle, off_t offset, int type) {
+    long ret;
+
     if (handle < 0)
         return -1;
 
-    if (handle >= echfs_handles_i)
-        return -1;
+    spinlock_acquire(&echfs_lock);
 
-    if (echfs_handles[handle].free)
+    if (handle >= echfs_handles_i) {
+        spinlock_release(&echfs_lock);
         return -1;
+    }
+
+    if (echfs_handles[handle].free) {
+        spinlock_release(&echfs_lock);
+        return -1;
+    }
 
     switch (type) {
         case SEEK_SET:
             if ((echfs_handles[handle].begin + offset) > echfs_handles[handle].end ||
                 (echfs_handles[handle].begin + offset) < echfs_handles[handle].begin) return -1;
             echfs_handles[handle].ptr = echfs_handles[handle].begin + offset;
-            return echfs_handles[handle].ptr;
+            ret = echfs_handles[handle].ptr;
+            spinlock_release(&echfs_lock);
+            return ret;
         case SEEK_END:
             if ((echfs_handles[handle].end + offset) > echfs_handles[handle].end ||
                 (echfs_handles[handle].end + offset) < echfs_handles[handle].begin) return -1;
             echfs_handles[handle].ptr = echfs_handles[handle].end + offset;
-            return echfs_handles[handle].ptr;
+            ret = echfs_handles[handle].ptr;
+            spinlock_release(&echfs_lock);
+            return ret;
         case SEEK_CUR:
             if ((echfs_handles[handle].ptr + offset) > echfs_handles[handle].end ||
                 (echfs_handles[handle].ptr + offset) < echfs_handles[handle].begin) return -1;
             echfs_handles[handle].ptr += offset;
-            return echfs_handles[handle].ptr;
+            ret = echfs_handles[handle].ptr;
+            spinlock_release(&echfs_lock);
+            return ret;
         default:
+            spinlock_release(&echfs_lock);
             return -1;
     }
 }
 
 /* TODO fix this, it's just a stub for size now */
 static int echfs_fstat(int handle, struct stat *st) {
+    spinlock_acquire(&echfs_lock);
+
     st->st_size = echfs_handles[handle].end;
 
+    spinlock_release(&echfs_lock);
     return 0;
 }
 
 static int echfs_mount(const char *source) {
+    spinlock_acquire(&echfs_lock);
+
     /* open device */
     int device = open(source, O_RDWR, 0);
-    if (device == -1)
+    if (device == -1) {
+        spinlock_release(&echfs_lock);
         return -1;
+    }
 
     /* verify signature */
     char signature[8];
@@ -462,6 +500,7 @@ static int echfs_mount(const char *source) {
     if (kstrncmp(signature, "_ECH_FS_", 8)) {
         kprint(KPRN_ERR, "echidnaFS signature invalid, mount failed!");
         close(device);
+        spinlock_release(&echfs_lock);
         return -1;
     }
 
@@ -481,7 +520,10 @@ static int echfs_mount(const char *source) {
     mounts[mounts_i].cached_files = 0;
     mounts[mounts_i].cached_files_ptr = 0;
 
-    return mounts_i++;
+    int ret = mounts_i++;
+
+    spinlock_release(&echfs_lock);
+    return ret;
 }
 
 void init_echfs(void) {

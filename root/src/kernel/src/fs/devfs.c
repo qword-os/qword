@@ -189,9 +189,10 @@ static int devfs_lseek(int handle, off_t offset, int type) {
             goto fail;
     }
 
-success:
+success:;
+    long ret = devfs_handles[handle].ptr;
     spinlock_release(&devfs_lock);
-    return devfs_handles[handle].ptr;
+    return ret;
 
 fail:
     spinlock_release(&devfs_lock);
