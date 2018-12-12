@@ -5,6 +5,8 @@
 #include <dev.h>
 #include <lock.h>
 
+#define DEVFS_HANDLES_STEP 1024
+
 struct devfs_handle_t {
     int free;
     char path[1024];
@@ -13,13 +15,15 @@ struct devfs_handle_t {
     long ptr;
     long begin;
     long end;
-    int isblock;
+    int is_stream;
     int device;
     lock_t lock;
 };
 
-struct devfs_handle_t *devfs_handles;
-static int devfs_handles_i = 0;
+static lock_t devfs_lock = 1;
+
+static struct devfs_handle_t *devfs_handles;
+static int devfs_handles_i;
 
 static int devfs_create_handle(struct devfs_handle_t handle) {
     int handle_n;
@@ -31,9 +35,15 @@ static int devfs_create_handle(struct devfs_handle_t handle) {
         }
     }
 
-    devfs_handles = krealloc(devfs_handles, (devfs_handles_i + 1) * sizeof(struct devfs_handle_t));
+    devfs_handles = krealloc(devfs_handles,
+        (devfs_handles_i + DEVFS_HANDLES_STEP) * sizeof(struct devfs_handle_t));
     handle_n = devfs_handles_i;
-    devfs_handles_i++;
+
+    for ( ;
+         devfs_handles_i < devfs_handles_i + DEVFS_HANDLES_STEP;
+         devfs_handles_i++) {
+        devfs_handles[devfs_handles_i].free = 1;
+    }
 
 load_handle:
     devfs_handles[handle_n] = handle;
@@ -42,26 +52,42 @@ load_handle:
 }
 
 static int devfs_write(int handle, const void *ptr, size_t len) {
+    spinlock_acquire(&devfs_lock);
     spinlock_acquire(&devfs_handles[handle].lock);
-    int ret = device_write(devfs_handles[handle].device, ptr, devfs_handles[handle].ptr, len);
+    struct devfs_handle_t dev = devfs_handles[handle];
+    spinlock_release(&devfs_lock);
+    int ret = device_write(dev.device, ptr, dev.ptr, len);
     if (ret == -1) {
+        spinlock_acquire(&devfs_lock);
         spinlock_release(&devfs_handles[handle].lock);
+        spinlock_release(&devfs_lock);
         return -1;
     }
-    devfs_handles[handle].ptr += ret;
+    dev.ptr += ret;
+    spinlock_acquire(&devfs_lock);
+    devfs_handles[handle] = dev;
     spinlock_release(&devfs_handles[handle].lock);
+    spinlock_release(&devfs_lock);
     return ret;
 }
 
 static int devfs_read(int handle, void *ptr, size_t len) {
+    spinlock_acquire(&devfs_lock);
     spinlock_acquire(&devfs_handles[handle].lock);
-    int ret = device_read(devfs_handles[handle].device, ptr, devfs_handles[handle].ptr, len);
+    struct devfs_handle_t dev = devfs_handles[handle];
+    spinlock_release(&devfs_lock);
+    int ret = device_read(dev.device, ptr, dev.ptr, len);
     if (ret == -1) {
+        spinlock_acquire(&devfs_lock);
         spinlock_release(&devfs_handles[handle].lock);
+        spinlock_release(&devfs_lock);
         return -1;
     }
-    devfs_handles[handle].ptr += ret;
+    dev.ptr += ret;
+    spinlock_acquire(&devfs_lock);
+    devfs_handles[handle] = dev;
     spinlock_release(&devfs_handles[handle].lock);
+    spinlock_release(&devfs_lock);
     return ret;
 }
 
@@ -69,10 +95,8 @@ static int devfs_mount(void) {
     return 0;
 }
 
-static lock_t devfs_open_close_lock = 1;
-
 static int devfs_open(char *path, int flags, int mode) {
-    spinlock_acquire(&devfs_open_close_lock);
+    spinlock_acquire(&devfs_lock);
 
     dev_t device = device_find(path);
     if (device == (dev_t)(-1))
@@ -92,7 +116,7 @@ static int devfs_open(char *path, int flags, int mode) {
     new_handle.mode = mode;
     new_handle.end = (long)device_size(device);
     if (!new_handle.end)
-        new_handle.isblock = 1;
+        new_handle.is_stream = 1;
     new_handle.ptr = 0;
     new_handle.begin = 0;
     new_handle.device = device;
@@ -100,16 +124,16 @@ static int devfs_open(char *path, int flags, int mode) {
     new_handle.lock = 1;
 
     int ret = devfs_create_handle(new_handle);
-    spinlock_release(&devfs_open_close_lock);
+    spinlock_release(&devfs_lock);
     return ret;
 
 fail:
-    spinlock_release(&devfs_open_close_lock);
+    spinlock_release(&devfs_lock);
     return -1;
 }
 
 static int devfs_close(int handle) {
-    spinlock_acquire(&devfs_open_close_lock);
+    spinlock_acquire(&devfs_lock);
 
     if (handle < 0)
         goto fail;
@@ -122,16 +146,16 @@ static int devfs_close(int handle) {
 
     devfs_handles[handle].free = 1;
 
-    spinlock_release(&devfs_open_close_lock);
+    spinlock_release(&devfs_lock);
     return 0;
 
 fail:
-    spinlock_release(&devfs_open_close_lock);
+    spinlock_release(&devfs_lock);
     return -1;
 }
 
 static int devfs_lseek(int handle, off_t offset, int type) {
-    spinlock_acquire(&devfs_handles[handle].lock);
+    spinlock_acquire(&devfs_lock);
 
     if (handle < 0)
         goto fail;
@@ -142,7 +166,7 @@ static int devfs_lseek(int handle, off_t offset, int type) {
     if (devfs_handles[handle].free)
         goto fail;
 
-    if (devfs_handles[handle].isblock)
+    if (devfs_handles[handle].is_stream)
         goto fail;
 
     switch (type) {
@@ -166,20 +190,20 @@ static int devfs_lseek(int handle, off_t offset, int type) {
     }
 
 success:
-    spinlock_release(&devfs_handles[handle].lock);
+    spinlock_release(&devfs_lock);
     return devfs_handles[handle].ptr;
 
 fail:
-    spinlock_release(&devfs_handles[handle].lock);
+    spinlock_release(&devfs_lock);
     return -1;
 }
 
 void init_devfs(void) {
     struct fs_t devfs = {0};
-    devfs_handles = kalloc(256 * sizeof(struct devfs_handle_t));
-    devfs_handles_i = 256;
+    devfs_handles = kalloc(DEVFS_HANDLES_STEP * sizeof(struct devfs_handle_t));
+    devfs_handles_i = DEVFS_HANDLES_STEP;
 
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < DEVFS_HANDLES_STEP; i++) {
         devfs_handles[i].free = 1;
     }
 

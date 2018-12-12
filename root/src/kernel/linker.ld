@@ -10,15 +10,15 @@ SECTIONS
     {
         sections_text = . - kernel_phys_offset;
         KEEP(*(.multiboot))
-        KEEP(*(.text))
+        KEEP(*(.text*))
         sections_text_end = . - kernel_phys_offset;
     }
 
     .data ALIGN(4K) :
     {
         sections_data = . - kernel_phys_offset;
-        KEEP(*(.data))
-        KEEP(*(.rodata))
+        KEEP(*(.data*))
+        KEEP(*(.rodata*))
         sections_data_end = . - kernel_phys_offset;
     }
 
@@ -26,7 +26,7 @@ SECTIONS
     {
         sections_bss = . - kernel_phys_offset;
         KEEP(*(COMMON))
-        KEEP(*(.bss))
+        KEEP(*(.bss*))
         sections_bss_end = . - kernel_phys_offset;
     }
 }
