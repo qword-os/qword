@@ -126,10 +126,10 @@ static int echfs_read(int handle, void *buf, size_t count) {
         cache_block(handle, block);
 
         uint64_t chunk = count - progress;
-        if (chunk > BYTES_PER_BLOCK)
-            chunk = BYTES_PER_BLOCK;
-
         uint64_t offset = (echfs_handles[handle].ptr + progress) % BYTES_PER_BLOCK;
+        if (chunk > BYTES_PER_BLOCK - offset)
+            chunk = BYTES_PER_BLOCK - offset;
+
         kmemcpy(buf + progress, &echfs_handles[handle].cached_file->cache[offset], chunk);
         progress += chunk;
     }
