@@ -119,37 +119,19 @@ static int echfs_read(int handle, void *buf, size_t count) {
         count -= ((size_t)echfs_handles[handle].ptr + count) - (size_t)echfs_handles[handle].end;
     }
 
-    uint64_t block_count = count / BYTES_PER_BLOCK;
-    if (count % BYTES_PER_BLOCK) block_count++;
-
-    uint64_t cur_block = echfs_handles[handle].ptr / BYTES_PER_BLOCK;
-    uint16_t initial_offset = echfs_handles[handle].ptr % BYTES_PER_BLOCK;
-    uint16_t final_offset = count - ((block_count - 1) * BYTES_PER_BLOCK);
-
-    for (uint64_t i = 0; ; i++) {
+    uint64_t progress = 0;
+    while (progress < count) {
         /* cache the block */
-        cache_block(handle, cur_block);
+        uint64_t block = (echfs_handles[handle].ptr + progress) / BYTES_PER_BLOCK;
+        cache_block(handle, block);
 
-        if (i == 0) {
-            /* first block */
-            if (i == block_count - 1) {
-                /* if it's also the last block */
-                kmemcpy(buf, &echfs_handles[handle].cached_file->cache[initial_offset], count);
-                break;
-            }
-            kmemcpy(buf, &echfs_handles[handle].cached_file->cache[initial_offset], BYTES_PER_BLOCK - initial_offset);
-            buf += BYTES_PER_BLOCK - initial_offset;
-        } else if (i == block_count - 1) {
-            /* last block */
-            kmemcpy(buf, echfs_handles[handle].cached_file->cache, final_offset);
-            /* no need to do anything, just leave */
-            break;
-        } else {
-            kmemcpy(buf, echfs_handles[handle].cached_file->cache, BYTES_PER_BLOCK);
-            buf += BYTES_PER_BLOCK;
-        }
+        uint64_t chunk = count - progress;
+        if (chunk > BYTES_PER_BLOCK)
+            chunk = BYTES_PER_BLOCK;
 
-        cur_block++;
+        uint64_t offset = (echfs_handles[handle].ptr + progress) % BYTES_PER_BLOCK;
+        kmemcpy(buf + progress, &echfs_handles[handle].cached_file->cache[offset], chunk);
+        progress += chunk;
     }
 
     echfs_handles[handle].ptr += count;
