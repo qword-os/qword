@@ -78,6 +78,20 @@ static void kputs(const char *string) {
     return;
 }
 
+static void knputs(const char *string, size_t len) {
+    size_t i;
+
+    for (i = 0; i < len; i++) {
+        if (kprint_buf_i == (KPRINT_BUF_MAX - 1))
+            break;
+        kprint_buf[kprint_buf_i++] = string[i];
+    }
+
+    kprint_buf[kprint_buf_i] = 0;
+
+    return;
+}
+
 static void kputchar(char c) {
     if (kprint_buf_i < (KPRINT_BUF_MAX - 1)) {
         kprint_buf[kprint_buf_i++] = c;
@@ -203,6 +217,7 @@ void kprint(int type, const char *fmt, ...) {
     print_timestamp(type);
 
     char *str;
+    size_t str_len;
 
     for (;;) {
         char c;
@@ -225,6 +240,11 @@ void kprint(int type, const char *fmt, ...) {
                     kputs("(null)");
                 else
                     kputs(str);
+                break;
+            case 'S':
+                str_len = va_arg(args, size_t);
+                str = (char *)va_arg(args, const char *);
+                knputs(str, str_len);
                 break;
             case 'd':
                 kprn_i((int64_t)va_arg(args, int));

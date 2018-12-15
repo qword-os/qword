@@ -149,44 +149,26 @@ notfnd:
 static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
     spinlock_acquire(&ata_lock);
 
-    uint64_t sect_count = count / BYTES_PER_SECT;
-    if (count % BYTES_PER_SECT) sect_count++;
-
-    uint64_t cur_sect = loc / BYTES_PER_SECT;
-    uint16_t initial_offset = loc % BYTES_PER_SECT;
-    uint16_t final_offset = count - ((sect_count - 1) * BYTES_PER_SECT);
-
-    for (uint64_t i = 0; ; i++) {
+    uint64_t progress = 0;
+    while (progress < count) {
         /* cache the sector */
-        int slot = find_sect(drive, cur_sect);
+        uint64_t sect = (loc + progress) / BYTES_PER_SECT;
+        int slot = find_sect(drive, sect);
         if (slot == -1) {
-            slot = cache_sect(drive, cur_sect);
+            slot = cache_sect(drive, sect);
             if (slot == -1) {
                 spinlock_release(&ata_lock);
                 return -1;
             }
         }
 
-        if (i == 0) {
-            /* first sector */
-            if (i == sect_count - 1) {
-                /* if it's also the last sector */
-                kmemcpy(buf, &devices[drive].cache[slot].cache[initial_offset], count);
-                break;
-            }
-            kmemcpy(buf, &devices[drive].cache[slot].cache[initial_offset], BYTES_PER_SECT - initial_offset);
-            buf += BYTES_PER_SECT - initial_offset;
-        } else if (i == sect_count - 1) {
-            /* last sector */
-            kmemcpy(buf, devices[drive].cache[slot].cache, final_offset);
-            /* no need to do anything, just leave */
-            break;
-        } else {
-            kmemcpy(buf, devices[drive].cache[slot].cache, BYTES_PER_SECT);
-            buf += BYTES_PER_SECT;
-        }
+        uint64_t chunk = count - progress;
+        uint64_t offset = (loc + progress) % BYTES_PER_SECT;
+        if (chunk > BYTES_PER_SECT - offset)
+            chunk = BYTES_PER_SECT - offset;
 
-        cur_sect++;
+        kmemcpy(buf + progress, &devices[drive].cache[slot].cache[offset], chunk);
+        progress += chunk;
     }
 
     spinlock_release(&ata_lock);
@@ -196,48 +178,27 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
 static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
     spinlock_acquire(&ata_lock);
 
-    uint64_t sect_count = count / BYTES_PER_SECT;
-    if (count % BYTES_PER_SECT) sect_count++;
-
-    uint64_t cur_sect = loc / BYTES_PER_SECT;
-    uint16_t initial_offset = loc % BYTES_PER_SECT;
-    uint16_t final_offset = count - ((sect_count - 1) * BYTES_PER_SECT);
-
-    for (uint64_t i = 0; ; i++) {
+    uint64_t progress = 0;
+    while (progress < count) {
         /* cache the sector */
-        int slot = find_sect(drive, cur_sect);
+        uint64_t sect = (loc + progress) / BYTES_PER_SECT;
+        int slot = find_sect(drive, sect);
         if (slot == -1) {
-            slot = cache_sect(drive, cur_sect);
+            slot = cache_sect(drive, sect);
             if (slot == -1) {
                 spinlock_release(&ata_lock);
                 return -1;
             }
         }
 
-        if (i == 0) {
-            /* first sector */
-            if (i == sect_count - 1) {
-                /* if it's also the last sector */
-                kmemcpy(&devices[drive].cache[slot].cache[initial_offset], buf, count);
-                devices[drive].cache[slot].status = CACHE_DIRTY;
-                break;
-            }
-            kmemcpy(&devices[drive].cache[slot].cache[initial_offset], buf, BYTES_PER_SECT - initial_offset);
-            devices[drive].cache[slot].status = CACHE_DIRTY;
-            buf += BYTES_PER_SECT - initial_offset;
-        } else if (i == sect_count - 1) {
-            /* last sector */
-            kmemcpy(devices[drive].cache[slot].cache, buf, final_offset);
-            devices[drive].cache[slot].status = CACHE_DIRTY;
-            /* no need to do anything, just leave */
-            break;
-        } else {
-            kmemcpy(devices[drive].cache[slot].cache, buf, BYTES_PER_SECT);
-            devices[drive].cache[slot].status = CACHE_DIRTY;
-            buf += BYTES_PER_SECT;
-        }
+        uint64_t chunk = count - progress;
+        uint64_t offset = (loc + progress) % BYTES_PER_SECT;
+        if (chunk > BYTES_PER_SECT - offset)
+            chunk = BYTES_PER_SECT - offset;
 
-        cur_sect++;
+        kmemcpy(&devices[drive].cache[slot].cache[offset], buf + progress, chunk);
+        devices[drive].cache[slot].status = CACHE_DIRTY;
+        progress += chunk;
     }
 
     spinlock_release(&ata_lock);
