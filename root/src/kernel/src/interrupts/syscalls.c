@@ -8,6 +8,14 @@
 #include <task.h>
 #include <mm.h>
 
+static inline int privilege_check(size_t base, size_t len) {
+    if ( base & (size_t)0x800000000000
+     || (base + len) & (size_t)0x800000000000)
+        return 1;
+    else
+        return 0;
+}
+
 /* Prototype syscall: int syscall_name(struct ctx_t *ctx) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
@@ -54,23 +62,6 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
     return (void *)base_address;
 }
 
-int syscall_getauxval(struct ctx_t *ctx) {
-    pid_t proc = cpu_locals[current_cpu].current_process;
-
-    switch (ctx->rdi) {
-        case AT_ENTRY:
-            return process_table[proc]->auxval.at_entry;
-        case AT_PHDR:
-            return process_table[proc]->auxval.at_phdr;
-        case AT_PHENT:
-            return process_table[proc]->auxval.at_phent;
-        case AT_PHNUM:
-            return process_table[proc]->auxval.at_phnum;
-        default:
-            return -1;
-    }
-}
-
 int syscall_debug_print(struct ctx_t *ctx) {
     // rdi: print type
     // rsi: string
@@ -80,7 +71,8 @@ int syscall_debug_print(struct ctx_t *ctx) {
         return -1;
 
     // Make sure we're not trying to print memory that doesn't belong to us
-    //TODO:privilege_check_string((const char *)ctx->rsi);
+    if (privilege_check(ctx->rsi, kstrlen((const char *)ctx->rsi)))
+        return -1;
 
     kprint(ctx->rdi, "[%u:%u:%u] %s",
            cpu_locals[current_cpu].current_process,
@@ -108,7 +100,8 @@ int syscall_open(struct ctx_t *ctx) {
         if (local_fd + 1 == MAX_FILE_HANDLES)
             return -1;
 
-    //TODO:privilege_check_string((const char *)ctx->rdi);
+    if (privilege_check(ctx->rdi, kstrlen((const char *)ctx->rdi)))
+        return -1;
 
     char abs_path[2048];
     vfs_get_absolute_path(abs_path, (const char *)ctx->rdi, process->cwd);
@@ -164,8 +157,6 @@ int syscall_read(struct ctx_t *ctx) {
     // rsi: buf
     // rdx: len
 
-    //TODO:privilege_check_buf((const void *)ctx->rsi, ctx->rdx);
-
     // TODO lock this stuff properly
 
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -173,6 +164,9 @@ int syscall_read(struct ctx_t *ctx) {
     struct process_t *process = process_table[current_process];
 
     if (process->file_handles[ctx->rdi] == -1)
+        return -1;
+
+    if (privilege_check(ctx->rsi, ctx->rdx))
         return -1;
 
     return read(process->file_handles[ctx->rdi], (void *)ctx->rsi, ctx->rdx);
@@ -183,8 +177,6 @@ int syscall_write(struct ctx_t *ctx) {
     // rsi: buf
     // rdx: len
 
-    //TODO:privilege_check_buf((const void *)ctx->rsi, ctx->rdx);
-
     // TODO lock this stuff properly
 
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -192,6 +184,9 @@ int syscall_write(struct ctx_t *ctx) {
     struct process_t *process = process_table[current_process];
 
     if (process->file_handles[ctx->rdi] == -1)
+        return -1;
+
+    if (privilege_check(ctx->rsi, ctx->rdx))
         return -1;
 
     return write(process->file_handles[ctx->rdi], (const void *)ctx->rsi, ctx->rdx);

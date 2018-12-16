@@ -266,8 +266,7 @@ syscall_table:
     dq syscall_read ;3
     extern syscall_write
     dq syscall_write ;4
-    extern syscall_getauxval
-    dq syscall_getauxval ;5
+    dq invalid_syscall ;5
     extern syscall_alloc_at
     dq syscall_alloc_at ;6
     extern syscall_set_fs_base
