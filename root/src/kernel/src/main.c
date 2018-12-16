@@ -30,7 +30,9 @@ void kmain_thread(void *arg) {
     (void)arg;
 
     /* Execute a test process */
-    kexec("/bin/hello", 0, 0,
+    const char *args[] = {"/bin/hello", "world", NULL};
+    const char *environ[] = {"FOO=BAR", NULL};
+    kexec("/bin/hello", args, environ,
           "/dev/tty", "/dev/tty", "/dev/tty");
 
     kprint(KPRN_INFO, "kmain: End of init.");

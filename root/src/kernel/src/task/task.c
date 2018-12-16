@@ -392,6 +392,12 @@ found_new_task_id:;
 
     /* Set up a user stack for the thread */
     if (1) {
+        /* Virtual addresses of the stack. */
+        size_t stack_guardpage = STACK_LOCATION_TOP -
+                                 (STACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
+        size_t stack_bottom = stack_guardpage + PAGE_SIZE;
+
+        /* Allocate physical memory for the stack and initialize it. */
         char *stack_pm = pmm_alloc(STACK_SIZE / PAGE_SIZE);
         if (!stack_pm) {
             kfree(process_table[pid]->threads[new_tid]);
@@ -399,29 +405,70 @@ found_new_task_id:;
             goto err;
         }
 
-        /* Initialize the stack state according to ELF ABI */
         size_t *sbase = (size_t *)(stack_pm + STACK_SIZE + MEM_PHYS_OFFSET);
-        size_t *sp = sbase;
+        panic_unless(!((size_t)sbase & 0xF) && "Stack base must be 16-byte aligned");
+
+        size_t *sp;
         if (abi == tcreate_elf_exec) {
             const struct tcreate_elf_exec_data *data = opaque_data;
-            /* Some care needs to be taken to keep the stack 16-byte aligned;
-               especially if this code is extended. */
-            *(--sp) = 0;
+
+            /* Push all strings onto the stack. */
+            char *strp = (char *)sbase;
+            size_t nenv = 0;
+            for (char **elem = data->envp; *elem; elem++) {
+                kprint(KPRN_INFO, "Push envp %s", *elem);
+                strp -= kstrlen(*elem) + 1;
+                kstrcpy(strp, *elem);
+                nenv++;
+            }
+            size_t nargs = 0;
+            for (char **elem = data->argv; *elem; elem++) {
+                kprint(KPRN_INFO, "Push argv %s", *elem);
+                strp -= kstrlen(*elem) + 1;
+                kstrcpy(strp, *elem);
+                nargs++;
+            }
+
+            /* Align strp to 16-byte so that the following calculation becomes easier. */
+            strp -= (size_t)strp & 0xF;
+
+            /* Make sure the *final* stack pointer is 16-byte aligned.
+                - The auxv takes a multiple of 16-bytes; ignore that.
+                - There are 2 markers that each take 8-byte; ignore that, too.
+                - Then, there is argc and (nargs + nenv)-many pointers to args/environ.
+                  Those are what we *really* care about. */
+            sp = (size_t *)strp;
+            if ((nargs + nenv + 1) & 1)
+                --sp;
 
             *(--sp) = 0; *(--sp) = 0; /* Zero auxiliary vector entry */
             sp -= 2; *sp = AT_ENTRY;    *(sp + 1) = data->auxval->at_entry;
             sp -= 2; *sp = AT_PHDR;     *(sp + 1) = data->auxval->at_phdr;
             sp -= 2; *sp = AT_PHENT;    *(sp + 1) = data->auxval->at_phent;
             sp -= 2; *sp = AT_PHNUM;    *(sp + 1) = data->auxval->at_phnum;
+
+            size_t sa = (size_t)(stack_bottom + STACK_SIZE);
             *(--sp) = 0; /* Marker for end of environ */
+            sp -= nenv;
+            for (size_t i = 0; i < nenv; i++) {
+                sa -= kstrlen(data->envp[i]) + 1;
+                sp[i] = sa;
+            }
+
             *(--sp) = 0; /* Marker for end of argv */
-            *(--sp) = 0; /* argc */
+            sp -= nargs;
+            for (size_t i = 0; i < nargs; i++) {
+                sa -= kstrlen(data->argv[i]) + 1;
+                sp[i] = sa;
+            }
+            *(--sp) = nargs; /* argc */
+        }else{
+            /* Do not push anything onto the stack. */
+            sp = sbase;
         }
+        panic_unless(!((size_t)sp & 0xF) && "Stack must be 16-byte aligned on x86_64");
 
         /* Map the stack */
-        size_t stack_guardpage = STACK_LOCATION_TOP -
-                                 (STACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
-        size_t stack_bottom = stack_guardpage + PAGE_SIZE;
         for (size_t i = 0; i < STACK_SIZE / PAGE_SIZE; i++) {
             map_page(process_table[pid]->pagemap,
                      (size_t)(stack_pm + (i * PAGE_SIZE)),

@@ -123,13 +123,15 @@ struct tcreate_fn_call_data{
 
 struct tcreate_elf_exec_data {
     void *entry;
+    const char **argv;
+    const char **envp;
     const struct auxval_t *auxval;
 };
 
 #define tcreate_fn_call_data(fn_, arg_) \
     &((struct tcreate_fn_call_data){.fn=fn_, .arg=arg_})
-#define tcreate_elf_exec_data(entry_, auxval_) \
-    &((struct tcreate_elf_exec_data){.entry=entry_, .auxval=auxval_})
+#define tcreate_elf_exec_data(entry_, argv_, envp_, auxval_) \
+    &((struct tcreate_elf_exec_data){.entry=entry_, .argv=argv_, .envp=envp_, .auxval=auxval_})
 
 tid_t task_tcreate(pid_t, enum tcreate_abi, const void *);
 pid_t task_pcreate(struct pagemap_t *);

@@ -76,7 +76,7 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
 
     /* Create main thread */
     tid_t new_thread = task_tcreate(new_pid, tcreate_elf_exec,
-            tcreate_elf_exec_data((void *)entry, &auxval));
+            tcreate_elf_exec_data((void *)entry, argv, envp, &auxval));
     if (new_thread == (tid_t)(-1)) return -1;
 
     return new_pid;
