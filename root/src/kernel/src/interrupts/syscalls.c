@@ -94,6 +94,10 @@ int syscall_debug_print(struct ctx_t *ctx) {
     return 0;
 }
 
+pid_t syscall_getpid(void) {
+    return cpu_locals[current_cpu].current_process;
+}
+
 int syscall_open(struct ctx_t *ctx) {
     // rdi: path
     // rsi: mode
