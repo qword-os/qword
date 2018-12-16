@@ -286,14 +286,18 @@ found_new_pid:
         process_table[new_pid]->file_handles[i] = -1;
     }
 
+    new_process->file_handles_lock = 1;
+
     /* Map the higher half into the process */
     for (size_t i = 256; i < 512; i++) {
         pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
     }
 
     kstrcpy(new_process->cwd, "/");
+    new_process->cwd_lock = 1;
 
     new_process->cur_brk = BASE_BRK_LOCATION;
+    new_process->cur_brk_lock = 1;
 
     new_process->pagemap = pagemap;
     new_process->pid = new_pid;

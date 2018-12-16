@@ -94,8 +94,11 @@ struct process_t {
     struct pagemap_t *pagemap;
     struct thread_t **threads;
     char cwd[2048];
+    lock_t cwd_lock;
     int *file_handles;
+    lock_t file_handles_lock;
     size_t cur_brk;
+    lock_t cur_brk_lock;
     struct auxval_t auxval;
 };
 

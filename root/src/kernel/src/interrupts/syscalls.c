@@ -23,12 +23,14 @@ static inline int privilege_check(size_t base, size_t len) {
 int syscall_set_fs_base(struct ctx_t *ctx) {
     // rdi: new fs base
 
+    spinlock_acquire(&scheduler_lock);
     pid_t current_task = cpu_locals[current_cpu].current_task;
-
     struct thread_t *thread = task_table[current_task];
 
     thread->fs_base = ctx->rdi;
     load_fs_base(ctx->rdi);
+
+    spinlock_release(&scheduler_lock);
 
     return 0;
 }
@@ -37,16 +39,25 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
     // rdi: virtual address / 0 for sbrk-like allocation
     // rsi: page count
 
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
 
     size_t base_address;
     if (ctx->rdi) {
         base_address = ctx->rdi;
+        if (privilege_check(base_address, ctx->rsi * PAGE_SIZE))
+            return (void *)0;
     } else {
+        spinlock_acquire(&process->cur_brk_lock);
         base_address = process->cur_brk;
+        if (privilege_check(base_address, ctx->rsi * PAGE_SIZE)) {
+            spinlock_release(&process->cur_brk_lock);
+            return (void *)0;
+        }
         process->cur_brk += ctx->rsi * PAGE_SIZE;
+        spinlock_release(&process->cur_brk_lock);
     }
 
     for (size_t i = 0; i < ctx->rsi; i++) {
@@ -88,50 +99,63 @@ int syscall_open(struct ctx_t *ctx) {
     // rsi: mode
     // rdx: perms
 
-    // TODO lock this stuff properly
-
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *process = process_table[current_process];
-
-    int local_fd;
-
-    for (local_fd = 0; process->file_handles[local_fd] != -1; local_fd++)
-        if (local_fd + 1 == MAX_FILE_HANDLES)
-            return -1;
+    spinlock_release(&scheduler_lock);
 
     if (privilege_check(ctx->rdi, kstrlen((const char *)ctx->rdi)))
         return -1;
 
+    spinlock_acquire(&process->file_handles_lock);
+
+    int local_fd;
+
+    for (local_fd = 0; process->file_handles[local_fd] != -1; local_fd++)
+        if (local_fd + 1 == MAX_FILE_HANDLES) {
+            spinlock_release(&process->file_handles_lock);
+            return -1;
+        }
+
     char abs_path[2048];
+    spinlock_acquire(&process->cwd_lock);
     vfs_get_absolute_path(abs_path, (const char *)ctx->rdi, process->cwd);
+    spinlock_release(&process->cwd_lock);
     int fd = open(abs_path, ctx->rsi, ctx->rdx);
-    if (fd < 0)
+    if (fd < 0) {
+        spinlock_release(&process->file_handles_lock);
         return fd;
+    }
 
     process->file_handles[local_fd] = fd;
 
+    spinlock_release(&process->file_handles_lock);
     return local_fd;
 }
 
 int syscall_close(struct ctx_t *ctx) {
     // rdi: fd
 
-    // TODO lock this stuff properly
-
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
 
-    if (process->file_handles[ctx->rdi] == -1)
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
         return -1;
+    }
 
     int ret = close(process->file_handles[ctx->rdi]);
-    if (ret < 0)
+    if (ret < 0) {
+        spinlock_release(&process->file_handles_lock);
         return ret;
+    }
 
     process->file_handles[ctx->rdi] = -1;
 
+    spinlock_release(&process->file_handles_lock);
     return 0;
 }
 
@@ -140,36 +164,60 @@ int syscall_lseek(struct ctx_t *ctx) {
     // rsi: offset
     // rdx: type
 
-    // TODO lock this stuff properly
-
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
 
-    if (process->file_handles[ctx->rdi] == -1)
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
         return -1;
+    }
 
-    return lseek(process->file_handles[ctx->rdi], ctx->rsi, ctx->rdx);
+    size_t ret = lseek(process->file_handles[ctx->rdi], ctx->rsi, ctx->rdx);
+
+    spinlock_release(&process->file_handles_lock);
+    return ret;
 }
+
+#define SYSCALL_IO_CAP 8192     // cap reads and writes at 8k at a time
 
 int syscall_read(struct ctx_t *ctx) {
     // rdi: fd
     // rsi: buf
     // rdx: len
 
-    // TODO lock this stuff properly
-
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
 
-    if (process->file_handles[ctx->rdi] == -1)
+    if (privilege_check(ctx->rsi, ctx->rdx)) {
         return -1;
+    }
 
-    if (privilege_check(ctx->rsi, ctx->rdx))
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
         return -1;
+    }
 
-    return read(process->file_handles[ctx->rdi], (void *)ctx->rsi, ctx->rdx);
+    size_t ptr = 0;
+    while (ptr < ctx->rdx) {
+        size_t step;
+        if (ptr + SYSCALL_IO_CAP > ctx->rdx)
+            step = ctx->rdx % SYSCALL_IO_CAP;
+        else
+            step = SYSCALL_IO_CAP;
+        size_t ret = read(process->file_handles[ctx->rdi], (void *)(ctx->rsi + ptr), step);
+        ptr += ret;
+        if (ret < step)
+            break;
+    }
+
+    spinlock_release(&process->file_handles_lock);
+    return ptr;
 }
 
 int syscall_write(struct ctx_t *ctx) {
@@ -177,17 +225,34 @@ int syscall_write(struct ctx_t *ctx) {
     // rsi: buf
     // rdx: len
 
-    // TODO lock this stuff properly
-
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
 
-    if (process->file_handles[ctx->rdi] == -1)
+    if (privilege_check(ctx->rsi, ctx->rdx)) {
         return -1;
+    }
 
-    if (privilege_check(ctx->rsi, ctx->rdx))
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
         return -1;
+    }
 
-    return write(process->file_handles[ctx->rdi], (const void *)ctx->rsi, ctx->rdx);
+    size_t ptr = 0;
+    while (ptr < ctx->rdx) {
+        size_t step;
+        if (ptr + SYSCALL_IO_CAP > ctx->rdx)
+            step = ctx->rdx % SYSCALL_IO_CAP;
+        else
+            step = SYSCALL_IO_CAP;
+        size_t ret = write(process->file_handles[ctx->rdi], (void *)(ctx->rsi + ptr), step);
+        ptr += ret;
+        if (ret < step)
+            break;
+    }
+
+    spinlock_release(&process->file_handles_lock);
+    return ptr;
 }
