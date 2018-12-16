@@ -185,6 +185,31 @@ int syscall_lseek(struct ctx_t *ctx) {
     return ret;
 }
 
+int syscall_fstat(struct ctx_t *ctx) {
+    // rdi: fd
+    // rsi: struct stat
+
+    if (privilege_check(ctx->rsi, sizeof(struct stat))) {
+        return -1;
+    }
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
+        return -1;
+    }
+
+    size_t ret = fstat(process->file_handles[ctx->rdi], (struct stat *)ctx->rsi);
+
+    spinlock_release(&process->file_handles_lock);
+    return ret;
+}
+
 #define SYSCALL_IO_CAP 8192     // cap reads and writes at 8k at a time
 
 int syscall_read(struct ctx_t *ctx) {

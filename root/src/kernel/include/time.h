@@ -4,6 +4,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
+typedef int64_t time_t;
+
+struct timespec {
+    time_t tv_sec;
+    long tv_nsec;
+};
+
 struct s_time_t {
     uint32_t seconds;
     uint32_t minutes;

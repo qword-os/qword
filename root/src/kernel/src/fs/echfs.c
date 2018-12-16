@@ -42,6 +42,7 @@ struct path_result_t {
     char name[FILENAME_LEN];
     int failure;
     int not_found;
+    uint8_t type;
 };
 
 struct cached_file_t {
@@ -72,6 +73,7 @@ static int mounts_i = 0;
 
 struct echfs_handle_t {
     int free;
+    uint8_t type;
     int mnt;
     char path[1024];
     int flags;
@@ -110,7 +112,30 @@ static int cache_block(int handle, uint64_t block) {
 }
 
 static int echfs_read(int handle, void *buf, size_t count) {
+    if (handle < 0) {
+        // TODO: should be EBADF
+        return -1;
+    }
+
     spinlock_acquire(&echfs_lock);
+
+    if (handle >= echfs_handles_i) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (echfs_handles[handle].free) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (echfs_handles[handle].type == DIRECTORY_TYPE) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EISDIR
+        return -1;
+    }
 
     struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
 
@@ -229,15 +254,17 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     return;
 }
 
-static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, uint8_t type) {
+static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, uint8_t *type) {
     struct entry_t entry;
     // returns unique entry #, SEARCH_FAILURE upon failure/not found
     for (uint64_t i = 0; ; i++) {
         entry = rd_entry(mnt, i);
         if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
         if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
-        if ((entry.parent_id == parent) && (entry.type == type) && (!kstrcmp(entry.name, name)))
+        if ((entry.parent_id == parent) && (!kstrcmp(entry.name, name))) {
+            *type = entry.type;
             return i;
+        }
     }
 }
 
@@ -255,7 +282,7 @@ static uint64_t get_free_id(struct mount_t *mnt) {
     return id;
 }
 
-static struct path_result_t path_resolver(struct mount_t *mnt, const char *path, uint8_t type) {
+static struct path_result_t path_resolver(struct mount_t *mnt, const char *path) {
     // returns a struct of useful info
     // failure flag set upon failure
     // not_found flag set upon not found
@@ -274,16 +301,13 @@ static struct path_result_t path_resolver(struct mount_t *mnt, const char *path,
     result.target = empty_entry;
     result.failure = 0;
     result.not_found = 0;
+    result.type = DIRECTORY_TYPE;
 
     parent.payload = ROOT_ID;
 
-    if ((type == DIRECTORY_TYPE) && !kstrcmp(path, "/")) {
+    if (!kstrcmp(path, "/")) {
         result.target.payload = ROOT_ID;
         return result; // exception for root
-    }
-    if ((type == FILE_TYPE) && !kstrcmp(path, "/")) {
-        result.failure = 1;
-        return result; // fail if looking for a file named "/"
     }
 
     if (*path == '/') path++;
@@ -300,14 +324,15 @@ next:
     path++;
 
     if (!last) {
-        uint64_t search_res = search(mnt, name, parent.payload, DIRECTORY_TYPE);
-        if (search_res == SEARCH_FAILURE) {
+        uint8_t type;
+        uint64_t search_res = search(mnt, name, parent.payload, &type);
+        if (search_res == SEARCH_FAILURE || type != DIRECTORY_TYPE) {
             result.failure = 1; // fail if search fails
             return result;
         }
         parent = rd_entry(mnt, search_res);
     } else {
-        uint64_t search_res = search(mnt, name, parent.payload, type);
+        uint64_t search_res = search(mnt, name, parent.payload, &result.type);
         if (search_res == SEARCH_FAILURE)
             result.not_found = 1;
         else {
@@ -347,27 +372,53 @@ fail:
 static int echfs_open(const char *path, int flags, int mode, int mnt) {
     spinlock_acquire(&echfs_lock);
 
-    struct path_result_t path_result = path_resolver(&mounts[mnt], path, FILE_TYPE);
-    if (path_result.failure || path_result.not_found) {
+    struct echfs_handle_t new_handle = {0};
+
+    struct path_result_t path_result = path_resolver(&mounts[mnt], path);
+
+    if (path_result.not_found) {
         spinlock_release(&echfs_lock);
+        // TODO: should be ENOENT
+        return -1;
+    } else if (path_result.failure) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be ENOTDIR
         return -1;
     }
 
-    struct echfs_handle_t new_handle = {0};
+    new_handle.type = path_result.type;
+
+    if (path_result.type == DIRECTORY_TYPE) {
+        // it's a directory
+        if (flags & O_WRONLY || flags & O_RDWR) {
+            spinlock_release(&echfs_lock);
+            // TODO: should be EISDIR
+            return -1;
+        }
+    }
+
     kstrcpy(new_handle.path, path);
     new_handle.flags = flags;
     new_handle.mode = mode;
-    new_handle.end = path_result.target.size;
 
-    if (flags & O_APPEND) {
-        new_handle.ptr = new_handle.end;
-        new_handle.begin = new_handle.end;
-    } else {
-        new_handle.ptr = 0;
-        new_handle.begin = 0;
+    if (path_result.type == FILE_TYPE) {
+        new_handle.end = path_result.target.size;
+        if (flags & O_APPEND) {
+            new_handle.ptr = new_handle.end;
+            new_handle.begin = new_handle.end;
+        } else {
+            new_handle.ptr = 0;
+            new_handle.begin = 0;
+        }
     }
 
     new_handle.mnt = mnt;
+
+    if (path_result.type == DIRECTORY_TYPE) {
+        int ret = echfs_create_handle(new_handle);
+        spinlock_release(&echfs_lock);
+        return ret;
+    }
 
     int cached_file;
 
@@ -412,18 +463,28 @@ search_out:
 static int echfs_lseek(int handle, off_t offset, int type) {
     long ret;
 
-    if (handle < 0)
+    if (handle < 0) {
+        // TODO: should be EBADF
         return -1;
+    }
 
     spinlock_acquire(&echfs_lock);
 
     if (handle >= echfs_handles_i) {
         spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
         return -1;
     }
 
     if (echfs_handles[handle].free) {
         spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (echfs_handles[handle].type == DIRECTORY_TYPE) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EISDIR
         return -1;
     }
 
@@ -451,15 +512,56 @@ static int echfs_lseek(int handle, off_t offset, int type) {
             return ret;
         default:
             spinlock_release(&echfs_lock);
+            // TODO; should be EINVAL
             return -1;
     }
 }
 
-/* TODO fix this, it's just a stub for size now */
 static int echfs_fstat(int handle, struct stat *st) {
+    if (handle < 0) {
+        // TODO: should be EBADF
+        return -1;
+    }
+
     spinlock_acquire(&echfs_lock);
 
+    if (handle >= echfs_handles_i) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (echfs_handles[handle].free) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    st->st_dev = mounts[echfs_handles[handle].mnt].device;
+    st->st_ino = echfs_handles[handle].cached_file->path_res.target_entry;
+    st->st_nlink = 1;
+    st->st_uid = echfs_handles[handle].cached_file->path_res.target.owner;
+    st->st_gid = echfs_handles[handle].cached_file->path_res.target.group;
+    st->st_rdev = 0;
     st->st_size = echfs_handles[handle].end;
+    st->st_blksize = 512;
+    st->st_blocks = (st->st_size + 512 - 1) / 512;
+    st->st_atim.tv_sec = echfs_handles[handle].cached_file->path_res.target.time;
+    st->st_atim.tv_nsec = st->st_atim.tv_sec * 1000000000;
+    st->st_mtim.tv_sec = echfs_handles[handle].cached_file->path_res.target.time;
+    st->st_mtim.tv_nsec = st->st_mtim.tv_sec * 1000000000;
+    st->st_ctim.tv_sec = echfs_handles[handle].cached_file->path_res.target.time;
+    st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+
+    st->st_mode = 0;
+    switch (echfs_handles[handle].type) {
+        case DIRECTORY_TYPE:
+            st->st_mode |= S_IFDIR;
+            break;
+        case FILE_TYPE:
+            st->st_mode |= S_IFREG;
+            break;
+    }
 
     spinlock_release(&echfs_lock);
     return 0;

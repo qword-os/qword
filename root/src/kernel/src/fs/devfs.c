@@ -199,6 +199,55 @@ fail:
     return -1;
 }
 
+int devfs_fstat(int handle, struct stat *st) {
+    if (handle < 0) {
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    spinlock_acquire(&devfs_lock);
+
+    if (handle >= devfs_handles_i) {
+        spinlock_release(&devfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (devfs_handles[handle].free) {
+        spinlock_release(&devfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    st->st_dev = 0;
+    st->st_ino = devfs_handles[handle].device;
+    st->st_nlink = 1;
+    st->st_uid = 0;
+    st->st_gid = 0;
+    st->st_rdev = 0;
+    if (!devfs_handles[handle].is_stream)
+        st->st_size = devfs_handles[handle].end;
+    else
+        st->st_size = 0;
+    st->st_blksize = 512;
+    st->st_blocks = (st->st_size + 512 - 1) / 512;
+    st->st_atim.tv_sec = 0;
+    st->st_atim.tv_nsec = 0;
+    st->st_mtim.tv_sec = 0;
+    st->st_mtim.tv_nsec = 0;
+    st->st_ctim.tv_sec = 0;
+    st->st_ctim.tv_nsec = 0;
+
+    st->st_mode = 0;
+    if (devfs_handles[handle].is_stream)
+        st->st_mode |= S_IFCHR;
+    else
+        st->st_mode |= S_IFBLK;
+
+    spinlock_release(&devfs_lock);
+    return 0;
+}
+
 void init_devfs(void) {
     struct fs_t devfs = {0};
     devfs_handles = kalloc(DEVFS_HANDLES_STEP * sizeof(struct devfs_handle_t));
@@ -215,6 +264,7 @@ void init_devfs(void) {
     devfs.open = (void *)devfs_open;
     devfs.close = devfs_close;
     devfs.lseek = devfs_lseek;
+    devfs.fstat = devfs_fstat;
 
     vfs_install_fs(devfs);
 }

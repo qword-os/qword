@@ -274,6 +274,8 @@ syscall_table:
     dq syscall_set_fs_base ;7
     extern syscall_lseek
     dq syscall_lseek ;8
+    extern syscall_fstat
+    dq syscall_fstat ;9
     dq invalid_syscall
   .end:
 

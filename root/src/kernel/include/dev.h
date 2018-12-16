@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef size_t dev_t;
+typedef uint64_t dev_t;
 
 dev_t device_find(const char *);
 dev_t device_add(const char *, int, uint64_t,
