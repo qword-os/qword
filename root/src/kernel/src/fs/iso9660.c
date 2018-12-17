@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <fs.h>
 #include <klib.h>
+#include <lock.h>
 
 #define SECTOR_SIZE 2048
 #define FILE_TYPE 0
@@ -155,6 +156,8 @@ struct handle_t *handles;
 
 int mount_i = 0;
 struct mount_t *mounts;
+
+static lock_t iso9660_lock = 1;
 
 static uint8_t rd_byte(int handle, uint64_t location) {
     uint8_t buf[1];
@@ -357,6 +360,7 @@ out:
 }
 
 static int iso9660_open(const char *path, int flags, int mode, int mount) {
+    spinlock_acquire(iso9660_lock);
     struct path_result_t result = resolve_path(&mounts[mount], path,
             FILE_TYPE);
 
@@ -375,20 +379,26 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
     else
         handle.begin = result.target.extent_location.little;
     handle.offset = 0;
+    spinlock_release(iso9660_lock);
     return create_handle(handle);
 }
 
 static int iso9660_read(int handle, void *buf, size_t count) {
+    spinlock_acquire(iso9660_lock);
     struct handle_t *handle_s = &handles[handle];
     struct mount_t *mount = &mounts[handle_s->mount];
 
-    if (!buf)
+    if (!buf) {
+        spinlock_release(iso9660_lock);
         return -1;
+    }
 
     if (((size_t)handle_s->offset + count) >= (size_t)handle_s->end)
         count = (size_t)(handle_s->offset - handle_s->end);
-    if (!count)
+    if (!count) {
+        spinlock_release(iso9660_lock);
         return -1;
+    }
 
     int num_blocks = count / mount->block_size;
     if (count % mount->block_size)
@@ -396,43 +406,59 @@ static int iso9660_read(int handle, void *buf, size_t count) {
 
     for (int i = 0; i < num_blocks; i++) {
         int cache = cache_block(mount, (handle_s->begin + (handle_s->offset/mount->block_size)));
-        if (cache == -1)
+        if (cache == -1) {
+            spinlock_release(iso9660_lock);
             return -1;
+        }
         kmemcpy(buf, mount->cache[cache].cache + (handle_s->offset %
                     mount->block_size), count);
         handle_s->offset += count;
     }
+    spinlock_release(iso9660_lock);
     return (int)count;
 }
 
 static int iso9660_seek(int handle, off_t offset, int type) {
-    if (handle < 0)
+    spinlock_acquire(iso9660_lock);
+    if (handle < 0) {
+        spinlock_release(iso9660_lock);
         return -1;
-    if (handle > handle_i)
+    }
+    if (handle > handle_i) {
+        spinlock_release(iso9660_lock);
         return -1;
-    if (handles[handle].free)
+    }
+    if (handles[handle].free) {
+        spinlock_release(iso9660_lock);
         return -1;
+    }
     struct handle_t *handle_s = &handles[handle];
     switch (type) {
         case SEEK_SET:
             handle_s->offset = offset;
+            spinlock_release(iso9660_lock);
             return handle_s->offset;
         case SEEK_CUR:
             handle_s->offset += offset;
+            spinlock_release(iso9660_lock);
             return handle_s->offset;
         case SEEK_END:
             handle_s->offset = handle_s->end;
+        spinlock_release(iso9660_lock);
             return handle_s->offset;
         default:
+            spinlock_release(iso9660_lock);
             return -1;
     }
 }
 
 /* TODO fix this, it's just a stub for size now */
 static int iso9660_fstat(int handle, struct stat *st) {
+    spinlock_acquire(iso9660_lock);
     struct handle_t *handle_s = &handles[handle];
     st->st_size = handle_s->end;
 
+    spinlock_release(iso9660_lock);
     return 0;
 }
 static int iso9660_mount(const char *source) {
@@ -465,13 +491,21 @@ static int iso9660_mount(const char *source) {
 }
 
 static int iso9660_close(int handle) {
-    if (!handle)
+    spinlock_acquire(iso9660_lock);
+    if (!handle) {
+        spinlock_release(iso9660_lock);
         return -1;
-    if (handle > handle_i)
+    }
+    if (handle > handle_i) {
+        spinlock_release(iso9660_lock);
         return -1;
-    if (handles[handle].free)
+    }
+    if (handles[handle].free) {
+        spinlock_release(iso9660_lock);
         return -1;
+    }
     handles[handle].free = 1;
+    spinlock_release(iso9660_lock);
     return 0;
 }
 
