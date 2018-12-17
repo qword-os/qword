@@ -17,5 +17,6 @@ uint64_t device_size(int);
 int device_read(int, void *, uint64_t, size_t);
 int device_write(int, const void *, uint64_t, size_t);
 int device_flush(int);
+char *device_list(size_t);
 
 #endif

@@ -25,17 +25,69 @@
 #include <time.h>
 #include <kbd.h>
 #include <irq.h>
+#include <panic.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
 
-    /* Execute a test process */
-    const char *args[] = {"/bin/hello", "world", NULL};
-    const char *environ[] = {"FOO=BAR", NULL};
-    kexec("/bin/hello", args, environ,
-          "/dev/tty", "/dev/tty", "/dev/tty");
+    int tty = open("/dev/tty", 0, 0);
 
-    kprint(KPRN_INFO, "kmain: End of init.");
+    char *root = cmdline_get_value("root");
+    char new_root[64];
+    if (!root) {
+        char *dev;
+        kprint(KPRN_WARN, "kmain: Command line argument \"root\" not specified.");
+        kprint(KPRN_INFO, "List of available devices:");
+        for (size_t i = 0; (dev = device_list(i)); i++)
+            kprint(KPRN_INFO, "/dev/%s", dev);
+        readline(tty, "Select root device: ", new_root, 64);
+        root = new_root;
+    } else {
+        kstrcpy(new_root, root);
+        root = new_root;
+    }
+    kprint(KPRN_INFO, "kmain: root=%s", new_root);
+
+    char *rootfs = cmdline_get_value("rootfs");
+    char new_rootfs[64];
+    if (!rootfs) {
+        kprint(KPRN_WARN, "kmain: Command line argument \"rootfs\" not specified.");
+        readline(tty, "Root filesystem to use: ", new_rootfs, 64);
+        rootfs = new_rootfs;
+    } else {
+        kstrcpy(new_rootfs, rootfs);
+        rootfs = new_rootfs;
+    }
+    kprint(KPRN_INFO, "kmain: rootfs=%s", new_rootfs);
+
+    char *init = cmdline_get_value("init");
+    char new_init[64];
+    if (!init) {
+        kprint(KPRN_WARN, "kmain: Command line argument \"init\" not specified.");
+        readline(tty, "Location of init: ", new_init, 64);
+        init = new_init;
+    } else {
+        kstrcpy(new_init, init);
+        init = new_init;
+    }
+    kprint(KPRN_INFO, "kmain: init=%s", new_init);
+
+    close(tty);
+
+    /* Mount root partition */
+    if (mount(root, "/", rootfs, 0, 0)) {
+        panic("Unable to mount root", 0, 0);
+    }
+
+    /* Execute init process */
+    kprint(KPRN_INFO, "kmain: Starting init");
+    const char *args[] = { init, NULL };
+    const char *environ[] = { NULL };
+    if (kexec(init, args, environ, "/dev/tty", "/dev/tty", "/dev/tty") == -1) {
+        panic("Unable to launch init", 0, 0);
+    }
+
+    kprint(KPRN_INFO, "kmain: End of kmain");
 
     for (;;) asm volatile ("hlt;");
 }
@@ -95,10 +147,6 @@ void kmain(void) {
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
-
-    /* Mount /dev/hda on / */
-    if (mount("/dev/hda", "/", "echfs", 0, 0))
-        mount("/dev/hda", "/", "iso9660", 0, 0);
 
     /* Initialise scheduler */
     init_sched();

@@ -7,6 +7,7 @@
 #include <tty.h>
 #include <mm.h>
 #include <time.h>
+#include <fs.h>
 
 int ktolower(int c) {
     if (c >= 0x41 && c <= 0x5a)
@@ -57,6 +58,18 @@ size_t kstrlen(const char *str) {
     for (len = 0; str[len]; len++);
 
     return len;
+}
+
+void readline(int fd, const char *prompt, char *str, size_t max) {
+    size_t i;
+    write(fd, prompt, kstrlen(prompt));
+    for (i = 0; i < (max - 1); i++) {
+        read(fd, &str[i], 1);
+        if (str[i] == '\n')
+            break;
+    }
+    str[i] = 0;
+    return;
 }
 
 #define KPRINT_BUF_MAX 1024

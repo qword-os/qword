@@ -39,6 +39,22 @@ int device_flush(int dev) {
     return devices[dev].flush(magic);
 }
 
+char *device_list(size_t index) {
+    size_t i = 0;
+
+    for (size_t j = 0; i < index; j++) {
+        if (j == MAX_DEVICES)
+            return (char *)0;
+        if (devices[j].used)
+            i++;
+    }
+
+    if (devices[i].used)
+        return devices[i].name;
+    else
+        return (char *)0;
+}
+
 /* Returns a device ID by name, (dev_t)(-1) if not found. */
 dev_t device_find(const char *name) {
     dev_t dev;

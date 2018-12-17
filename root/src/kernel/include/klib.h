@@ -34,5 +34,7 @@ void *kmemcpy(void *, const void*, size_t);
 int kmemcmp(const void *, const void *, size_t);
 void *memmove(void *, const void *, size_t);
 
+void readline(int, const char *, char *, size_t);
+
 
 #endif
