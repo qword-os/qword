@@ -41,16 +41,17 @@ int device_flush(int dev) {
 
 char *device_list(size_t index) {
     size_t i = 0;
+    size_t j;
 
-    for (size_t j = 0; i < index; j++) {
+    for (j = 0; i < index; j++) {
         if (j == MAX_DEVICES)
             return (char *)0;
         if (devices[j].used)
             i++;
     }
 
-    if (devices[i].used)
-        return devices[i].name;
+    if (devices[j].used)
+        return devices[j].name;
     else
         return (char *)0;
 }
