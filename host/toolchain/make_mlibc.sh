@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -z "$PREFIX" ]; then
-	PREFIX=$(pwd)/sysroot
+	PREFIX="$(pwd)/sysroot"
 fi
 if [ -z "$TARGET" ]; then
 	TARGET=x86_64-qword
@@ -33,6 +33,13 @@ mkdir -p build
 cd build
 sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
 meson .. --prefix=/usr --libdir=lib --cross-file cross_file.txt
+pushd ../subprojects
+for i in $(ls -d */); do
+	cd $i
+	git pull
+	cd ..
+done
+popd
 ninja
 DESTDIR="$PREFIX" ninja install
 

@@ -517,6 +517,33 @@ static int echfs_lseek(int handle, off_t offset, int type) {
     }
 }
 
+static int echfs_dup(int handle) {
+    if (handle < 0) {
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    spinlock_acquire(&echfs_lock);
+
+    if (handle >= echfs_handles_i) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (echfs_handles[handle].free) {
+        spinlock_release(&echfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    int newfd = echfs_create_handle(echfs_handles[handle]);
+
+    spinlock_release(&echfs_lock);
+
+    return newfd;
+}
+
 static int echfs_fstat(int handle, struct stat *st) {
     if (handle < 0) {
         // TODO: should be EBADF
@@ -620,6 +647,7 @@ void init_echfs(void) {
     echfs.read = echfs_read;
     echfs.lseek = echfs_lseek;
     echfs.fstat = echfs_fstat;
+    echfs.dup = echfs_dup;
 
     vfs_install_fs(echfs);
 }

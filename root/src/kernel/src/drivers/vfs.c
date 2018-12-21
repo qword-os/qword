@@ -109,32 +109,15 @@ term:
     }
 }
 
-/* Find free file handle and setup said handle */
-int open(const char *path, int mode, int perms) {
-    char *loc_path;
-
-    struct vfs_handle_t handle = {0};
-
-    size_t i;
+static int create_fd(int fs, int intern_fd) {
+    size_t i = 0;
 
 retry:
-    for (i = 0; i < fd_count; i++) {
+    for ( ; i < fd_count; i++) {
         if (!file_descriptors[i].used) {
-            int mountpoint = vfs_get_mountpoint(path, &loc_path);
-            if (mountpoint == -1) return -1;
-
-            int magic = mountpoints[mountpoint].magic;
-            int fs = mountpoints[mountpoint].fs;
-
-            int intern_fd = filesystems[fs].open(loc_path, mode, perms, magic);
-            if (intern_fd == -1) return -1;
-
-            handle.fs = fs;
-            handle.intern_fd = intern_fd;
-            handle.used = 1;
-
-            /* Register kernel descriptor */
-            file_descriptors[i] = handle;
+            file_descriptors[i].fs = fs;
+            file_descriptors[i].intern_fd = intern_fd;
+            file_descriptors[i].used = 1;
 
             return (int)i;
         }
@@ -145,6 +128,31 @@ retry:
     file_descriptors = krealloc(file_descriptors, fd_count * sizeof(struct vfs_handle_t));
 
     goto retry;
+}
+
+/* Find free file handle and setup said handle */
+int open(const char *path, int mode, int perms) {
+    char *loc_path;
+
+    int mountpoint = vfs_get_mountpoint(path, &loc_path);
+    if (mountpoint == -1) return -1;
+
+    int magic = mountpoints[mountpoint].magic;
+    int fs = mountpoints[mountpoint].fs;
+
+    int intern_fd = filesystems[fs].open(loc_path, mode, perms, magic);
+    if (intern_fd == -1) return -1;
+
+    return create_fd(fs, intern_fd);
+}
+
+int dup(int fd) {
+    int fs = file_descriptors[fd].fs;
+    int intern_fd = file_descriptors[fd].intern_fd;
+
+    int new_intern_fd = filesystems[fd].dup(intern_fd);
+
+    return create_fd(fs, new_intern_fd);
 }
 
 int read(int fd, void *buf, size_t len) {

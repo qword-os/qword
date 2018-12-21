@@ -17,7 +17,6 @@ struct devfs_handle_t {
     long end;
     int is_stream;
     int device;
-    lock_t lock;
 };
 
 static lock_t devfs_lock = 1;
@@ -53,40 +52,26 @@ load_handle:
 
 static int devfs_write(int handle, const void *ptr, size_t len) {
     spinlock_acquire(&devfs_lock);
-    spinlock_acquire(&devfs_handles[handle].lock);
     struct devfs_handle_t dev = devfs_handles[handle];
-    spinlock_release(&devfs_lock);
     int ret = device_write(dev.device, ptr, dev.ptr, len);
     if (ret == -1) {
-        spinlock_acquire(&devfs_lock);
-        spinlock_release(&devfs_handles[handle].lock);
         spinlock_release(&devfs_lock);
         return -1;
     }
     dev.ptr += ret;
-    spinlock_acquire(&devfs_lock);
-    devfs_handles[handle] = dev;
-    spinlock_release(&devfs_handles[handle].lock);
     spinlock_release(&devfs_lock);
     return ret;
 }
 
 static int devfs_read(int handle, void *ptr, size_t len) {
     spinlock_acquire(&devfs_lock);
-    spinlock_acquire(&devfs_handles[handle].lock);
     struct devfs_handle_t dev = devfs_handles[handle];
-    spinlock_release(&devfs_lock);
     int ret = device_read(dev.device, ptr, dev.ptr, len);
     if (ret == -1) {
-        spinlock_acquire(&devfs_lock);
-        spinlock_release(&devfs_handles[handle].lock);
         spinlock_release(&devfs_lock);
         return -1;
     }
     dev.ptr += ret;
-    spinlock_acquire(&devfs_lock);
-    devfs_handles[handle] = dev;
-    spinlock_release(&devfs_handles[handle].lock);
     spinlock_release(&devfs_lock);
     return ret;
 }
@@ -120,8 +105,6 @@ static int devfs_open(char *path, int flags, int mode) {
     new_handle.ptr = 0;
     new_handle.begin = 0;
     new_handle.device = device;
-
-    new_handle.lock = 1;
 
     int ret = devfs_create_handle(new_handle);
     spinlock_release(&devfs_lock);
@@ -199,6 +182,33 @@ fail:
     return -1;
 }
 
+static int devfs_dup(int handle) {
+    if (handle < 0) {
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    spinlock_acquire(&devfs_lock);
+
+    if (handle >= devfs_handles_i) {
+        spinlock_release(&devfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    if (devfs_handles[handle].free) {
+        spinlock_release(&devfs_lock);
+        // TODO: should be EBADF
+        return -1;
+    }
+
+    int newfd = devfs_create_handle(devfs_handles[handle]);
+
+    spinlock_release(&devfs_lock);
+
+    return newfd;
+}
+
 int devfs_fstat(int handle, struct stat *st) {
     if (handle < 0) {
         // TODO: should be EBADF
@@ -265,6 +275,7 @@ void init_devfs(void) {
     devfs.close = devfs_close;
     devfs.lseek = devfs_lseek;
     devfs.fstat = devfs_fstat;
+    devfs.dup = devfs_dup;
 
     vfs_install_fs(devfs);
 }

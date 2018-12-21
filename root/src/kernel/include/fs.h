@@ -87,6 +87,7 @@ struct fs_t {
     int (*read)(int, void *, size_t);
     int (*write)(int, const void *, size_t);
     int (*lseek)(int, off_t, int);
+    int (*dup)(int);
 };
 
 /* VFS calls */
@@ -98,6 +99,7 @@ int fstat(int, struct stat *);
 int read(int, void *, size_t);
 int write(int, const void *, size_t);
 int lseek(int, off_t, int);
+int dup(int);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
