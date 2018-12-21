@@ -389,10 +389,8 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
 }
 
 static int iso9660_read(int handle, void *buf, size_t count) {
-    if (handle < 0) {
-        spinlock_release(&iso9660_lock);
+    if (handle < 0)
         return -1;
-    }
 
     spinlock_acquire(&iso9660_lock);
     struct handle_t *handle_s = &handles[handle];
@@ -444,10 +442,8 @@ static int iso9660_read(int handle, void *buf, size_t count) {
 }
 
 static int iso9660_seek(int handle, off_t offset, int type) {
-    if (handle < 0) {
-        spinlock_release(&iso9660_lock);
+    if (handle < 0)
         return -1;
-    }
 
     spinlock_acquire(&iso9660_lock);
     if (handle >= handle_i) {
@@ -480,10 +476,8 @@ static int iso9660_seek(int handle, off_t offset, int type) {
 
 /* TODO fix this, it's just a stub for size now */
 static int iso9660_fstat(int handle, struct stat *st) {
-    if (handle < 0) {
-        spinlock_release(&iso9660_lock);
+    if (handle < 0)
         return -1;
-    }
 
     spinlock_acquire(&iso9660_lock);
 
@@ -531,11 +525,11 @@ static int iso9660_mount(const char *source) {
 }
 
 static int iso9660_close(int handle) {
-    if (handle < 0) {
-        spinlock_release(&iso9660_lock);
+    if (handle < 0)
         return -1;
-    }
+
     spinlock_acquire(&iso9660_lock);
+
     if (handle >= handle_i) {
         spinlock_release(&iso9660_lock);
         return -1;
