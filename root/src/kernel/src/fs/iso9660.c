@@ -182,7 +182,7 @@ static int get_cache(struct mount_t *mount, uint32_t block) {
 
     if (!cache) {
         mount->cache = krealloc(mount->cache, sizeof(struct cached_block_t) *
-                mount->cache_i);
+                mount->cache_i + 1);
         num = mount->cache_i++;
         mount->cache[num].block = block;
         mount->cache[num].ready = 0;
@@ -202,6 +202,7 @@ static int cache_block(struct mount_t *mount, uint32_t block) {
     cache->cache = kalloc(mount->block_size);
     lseek(mount->device, loc, SEEK_SET);
     read(mount->device, cache->cache, mount->block_size);
+    cache->ready = 1;
     return cache_index;
 }
 
@@ -360,12 +361,15 @@ out:
 }
 
 static int iso9660_open(const char *path, int flags, int mode, int mount) {
-    spinlock_acquire(iso9660_lock);
+    spinlock_acquire(&iso9660_lock);
+
     struct path_result_t result = resolve_path(&mounts[mount], path,
             FILE_TYPE);
 
-    if (result.failure || result.not_found)
+    if (result.failure || result.not_found) {
+        spinlock_release(&iso9660_lock);
         return -1;
+    }
 
     struct handle_t handle = {0};
     kstrcpy(handle.path, path);
@@ -379,86 +383,93 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
     else
         handle.begin = result.target.extent_location.little;
     handle.offset = 0;
-    spinlock_release(iso9660_lock);
-    return create_handle(handle);
+    int handle_num = create_handle(handle);
+    spinlock_release(&iso9660_lock);
+    return handle_num;
 }
 
 static int iso9660_read(int handle, void *buf, size_t count) {
-    spinlock_acquire(iso9660_lock);
+    spinlock_acquire(&iso9660_lock);
     struct handle_t *handle_s = &handles[handle];
     struct mount_t *mount = &mounts[handle_s->mount];
 
     if (!buf) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
 
     if (((size_t)handle_s->offset + count) >= (size_t)handle_s->end)
         count = (size_t)(handle_s->offset - handle_s->end);
     if (!count) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
 
-    int num_blocks = count / mount->block_size;
-    if (count % mount->block_size)
-        num_blocks++;
-
-    for (int i = 0; i < num_blocks; i++) {
-        int cache = cache_block(mount, (handle_s->begin + (handle_s->offset/mount->block_size)));
+    uint64_t progress = 0;
+    while (progress < count) {
+        size_t block = handle_s->begin + ((handle_s->offset + progress)
+                / mount->block_size);
+        int cache = cache_block(mount, block);
         if (cache == -1) {
-            spinlock_release(iso9660_lock);
+            spinlock_release(&iso9660_lock);
             return -1;
         }
-        kmemcpy(buf, mount->cache[cache].cache + (handle_s->offset %
-                    mount->block_size), count);
-        handle_s->offset += count;
+
+        uint64_t chunk = count - progress;
+        uint64_t offset = (handle_s->offset + progress) % mount->block_size;
+        if (chunk > mount->block_size - offset)
+            chunk = mount->block_size - offset;
+
+        kmemcpy(buf + progress, mount->cache[cache].cache + offset, chunk);
+        progress += chunk;
     }
-    spinlock_release(iso9660_lock);
+    handle_s->offset += count;
+
+    spinlock_release(&iso9660_lock);
     return (int)count;
 }
 
 static int iso9660_seek(int handle, off_t offset, int type) {
-    spinlock_acquire(iso9660_lock);
+    spinlock_acquire(&iso9660_lock);
     if (handle < 0) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
     if (handle > handle_i) {
-        spinlock_release(iso9660_lock);
+         spinlock_release(&iso9660_lock);
         return -1;
     }
     if (handles[handle].free) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
     struct handle_t *handle_s = &handles[handle];
     switch (type) {
         case SEEK_SET:
             handle_s->offset = offset;
-            spinlock_release(iso9660_lock);
+            spinlock_release(&iso9660_lock);
             return handle_s->offset;
         case SEEK_CUR:
             handle_s->offset += offset;
-            spinlock_release(iso9660_lock);
+            spinlock_release(&iso9660_lock);
             return handle_s->offset;
         case SEEK_END:
             handle_s->offset = handle_s->end;
-        spinlock_release(iso9660_lock);
+            spinlock_release(&iso9660_lock);
             return handle_s->offset;
         default:
-            spinlock_release(iso9660_lock);
+            spinlock_release(&iso9660_lock);
             return -1;
     }
 }
 
 /* TODO fix this, it's just a stub for size now */
 static int iso9660_fstat(int handle, struct stat *st) {
-    spinlock_acquire(iso9660_lock);
+    spinlock_acquire(&iso9660_lock);
     struct handle_t *handle_s = &handles[handle];
     st->st_size = handle_s->end;
 
-    spinlock_release(iso9660_lock);
+    spinlock_release(&iso9660_lock);
     return 0;
 }
 static int iso9660_mount(const char *source) {
@@ -491,21 +502,21 @@ static int iso9660_mount(const char *source) {
 }
 
 static int iso9660_close(int handle) {
-    spinlock_acquire(iso9660_lock);
+    spinlock_acquire(&iso9660_lock);
     if (!handle) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
     if (handle > handle_i) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
     if (handles[handle].free) {
-        spinlock_release(iso9660_lock);
+        spinlock_release(&iso9660_lock);
         return -1;
     }
     handles[handle].free = 1;
-    spinlock_release(iso9660_lock);
+    spinlock_release(&iso9660_lock);
     return 0;
 }
 
