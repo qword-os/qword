@@ -389,11 +389,25 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
 }
 
 static int iso9660_read(int handle, void *buf, size_t count) {
+    if (handle < 0) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+
     spinlock_acquire(&iso9660_lock);
     struct handle_t *handle_s = &handles[handle];
     struct mount_t *mount = &mounts[handle_s->mount];
 
     if (!buf) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+
+    if (handle >= handle_i) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+    if (handles[handle].free) {
         spinlock_release(&iso9660_lock);
         return -1;
     }
@@ -430,12 +444,13 @@ static int iso9660_read(int handle, void *buf, size_t count) {
 }
 
 static int iso9660_seek(int handle, off_t offset, int type) {
-    spinlock_acquire(&iso9660_lock);
     if (handle < 0) {
         spinlock_release(&iso9660_lock);
         return -1;
     }
-    if (handle > handle_i) {
+
+    spinlock_acquire(&iso9660_lock);
+    if (handle >= handle_i) {
          spinlock_release(&iso9660_lock);
         return -1;
     }
@@ -465,7 +480,21 @@ static int iso9660_seek(int handle, off_t offset, int type) {
 
 /* TODO fix this, it's just a stub for size now */
 static int iso9660_fstat(int handle, struct stat *st) {
+    if (handle < 0) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+
     spinlock_acquire(&iso9660_lock);
+
+    if (handle >= handle_i) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+    if (handles[handle].free) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
     struct handle_t *handle_s = &handles[handle];
     st->st_size = handle_s->end;
 
@@ -502,12 +531,12 @@ static int iso9660_mount(const char *source) {
 }
 
 static int iso9660_close(int handle) {
-    spinlock_acquire(&iso9660_lock);
-    if (!handle) {
+    if (handle < 0) {
         spinlock_release(&iso9660_lock);
         return -1;
     }
-    if (handle > handle_i) {
+    spinlock_acquire(&iso9660_lock);
+    if (handle >= handle_i) {
         spinlock_release(&iso9660_lock);
         return -1;
     }
