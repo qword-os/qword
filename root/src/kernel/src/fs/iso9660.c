@@ -713,6 +713,26 @@ static int iso9660_close(int handle) {
     return 0;
 }
 
+static int iso9660_dup(int handle) {
+    if (handle < 0)
+        return -1;
+
+    spinlock_acquire(&iso9660_lock);
+
+    if (handle >= handle_i) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+    if (handles[handle].free) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+
+    int new_fd = create_handle(handles[handle]);
+    spinlock_release(&iso9660_lock);
+    return new_fd;
+}
+
 void init_iso9660(void) {
     struct fs_t iso9660 = {0};
 
@@ -723,6 +743,7 @@ void init_iso9660(void) {
     iso9660.lseek = iso9660_seek;
     iso9660.fstat = iso9660_fstat;
     iso9660.close = iso9660_close;
+    iso9660.dup = iso9660_dup;
 
     vfs_install_fs(iso9660);
 }
