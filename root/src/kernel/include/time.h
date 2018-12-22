@@ -26,5 +26,6 @@ extern volatile uint64_t uptime_raw;
 extern volatile uint64_t uptime_sec;
 
 void ksleep(uint64_t);
+uint64_t mktime64(int, int, int, int, int, int);
 
 #endif

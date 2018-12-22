@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <fs.h>
+#include <time.h>
 #include <klib.h>
 #include <lock.h>
 
@@ -13,6 +14,9 @@
 #define FILE_FLAG_XATTR_PERMS (1 << 4)
 #define FILE_FLAG_LARGE (1 << 7)
 #define PATH_MAX 4096
+#define TF_CREATION (1 << 0)
+#define TF_MODIFY (1 << 1)
+#define TF_ACCESS (1 << 2)
 
 struct int16_LSB_MSB_t {
     uint16_t little;
@@ -111,6 +115,9 @@ struct primary_descriptor_t {
 struct path_result_t {
     struct directory_entry_t target;
     struct directory_entry_t parent;
+    /* location on disk of rock ridge sysarea */
+    uint64_t rr_loc;
+    int rr_length;
     int failure;
     int not_found;
 };
@@ -150,6 +157,32 @@ struct handle_t {
     struct path_result_t path_res;
     char path[PATH_MAX];
 };
+
+struct rr_px {
+    uint8_t signature[2];
+    uint8_t length;
+    uint8_t version;
+    struct int32_LSB_MSB_t mode;
+    struct int32_LSB_MSB_t links;
+    struct int32_LSB_MSB_t uid;
+    struct int32_LSB_MSB_t gid;
+    struct int32_LSB_MSB_t ino;
+}__attribute__((packed));
+
+struct rr_pn {
+    uint8_t signature[2];
+    uint8_t length;
+    uint8_t version;
+    struct int32_LSB_MSB_t high;
+    struct int32_LSB_MSB_t low;
+}__attribute__((packed));
+
+struct rr_tf {
+    uint8_t signature[2];
+    uint8_t length;
+    uint8_t version;
+    uint8_t flags;
+}__attribute__((packed));
 
 int handle_i = 0;
 struct handle_t *handles;
@@ -204,6 +237,66 @@ static int cache_block(struct mount_t *mount, uint32_t block) {
     read(mount->device, cache->cache, mount->block_size);
     cache->ready = 1;
     return cache_index;
+}
+
+static struct rr_px load_rr_px(const char *sysarea, int length) {
+    struct rr_px res = {0};
+    int pos = 0;
+    while (pos - 1 < length) {
+        if (sysarea[pos] == 'P' && sysarea[pos + 1] == 'X')
+            break;
+        pos++;
+    }
+
+    if (pos - 1 == length)
+        return res;
+
+    kmemcpy(&res, sysarea + pos, sizeof(struct rr_px));
+    return res;
+}
+
+static struct rr_pn load_rr_pn(const char *sysarea, int length) {
+    struct rr_pn res = {0};
+    int pos = 0;
+    while (pos - 1 < length) {
+        if (sysarea[pos] == 'P' && sysarea[pos + 1] == 'N')
+            break;
+        pos++;
+    }
+
+    if (pos - 1 == length)
+        return res;
+
+    kmemcpy(&res, sysarea + pos, sizeof(struct rr_pn));
+    return res;
+}
+
+static char *load_rr_tf(const char *sysarea, int length) {
+    int pos = 0;
+    while (pos - 1 < length) {
+        if (sysarea[pos] == 'T' && sysarea[pos + 1] == 'F')
+            break;
+        pos++;
+    }
+
+    if (pos - 1 == length)
+        return NULL;
+
+    char *res = kalloc(sysarea[pos + 2]);
+    kmemcpy(res, sysarea + pos, sysarea[pos + 2]);
+    return res;
+}
+
+static char *load_rr_area(struct mount_t *mount, uint64_t loc, int length) {
+    char *res = kalloc(length);
+    int cache_index = cache_block(mount, loc / mount->block_size);
+    if (cache_index == -1)
+        return NULL;
+
+    struct cached_block_t *cache = &mount->cache[cache_index];
+    uint64_t offset = loc % mount->block_size;
+    kmemcpy(res, cache->cache + offset, length);
+    return res;
 }
 
 static struct directory_result_t load_dir(struct mount_t *mount,
@@ -273,6 +366,7 @@ static struct path_result_t resolve_path(struct mount_t *mount,
     struct directory_entry_t *entry = NULL;
     struct directory_result_t current_dir = {0};
     kmemcpy(&result.target, &mount->root_entry, sizeof(struct directory_entry_t));
+    kmemcpy(&result.parent, &mount->root_entry, sizeof(struct directory_entry_t));
     do {
         const char *seg = path;
         path = kstrchrnul(path, '/');
@@ -323,6 +417,11 @@ static struct path_result_t resolve_path(struct mount_t *mount,
                 lower_name = kalloc(name_length);
                 kmemcpy(lower_name, sysarea + 5, name_length);
                 lower_name[name_length] = '\0';
+
+                uint64_t entry_loc = 0;
+                entry_loc = (result.parent.extent_location.little * mount->block_size) + pos;
+                result.rr_loc = entry_loc + sizeof(struct directory_entry_t) + entry->name_length;
+                result.rr_length = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
             } else {
                 name_length = entry->name_length;
                 lower_name = kalloc(name_length);
@@ -474,7 +573,8 @@ static int iso9660_seek(int handle, off_t offset, int type) {
     }
 }
 
-/* TODO fix this, it's just a stub for size now */
+/* TODO add checks for if rockridge format and take into
+ * account the gmt offset when calculating time*/
 static int iso9660_fstat(int handle, struct stat *st) {
     if (handle < 0)
         return -1;
@@ -490,7 +590,72 @@ static int iso9660_fstat(int handle, struct stat *st) {
         return -1;
     }
     struct handle_t *handle_s = &handles[handle];
+    struct mount_t *mount = &mounts[handle_s->mount];
     st->st_size = handle_s->end;
+    st->st_dev = mount->device;
+    st->st_blksize = mount->block_size;
+    st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
+
+    int rr_length = handle_s->path_res.rr_length;
+    char *rr_area = load_rr_area(mount, handle_s->path_res.rr_loc, rr_length);
+    if (!rr_area) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+    struct rr_px px = load_rr_px(rr_area, rr_length);
+    if (px.signature[0] != 'P' && px.signature[1] != 'X') {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+    st->st_ino = px.ino.little;
+    st->st_nlink = px.links.little;
+    st->st_uid = px.uid.little;
+    st->st_gid = px.gid.little;
+    st->st_mode = px.mode.little;
+    st->st_rdev = 0;
+    if (st->st_mode & S_IFBLK || st->st_mode & S_IFCHR) {
+        /* device/char file - look for PN entry */
+        struct rr_pn pn = load_rr_pn(rr_area, rr_length);
+        if (pn.signature[0] != 'P' && pn.signature[1] != 'N') {
+            spinlock_release(&iso9660_lock);
+            return -1;
+        }
+        st->st_rdev = ((uint64_t)pn.high.little) << 32 |
+            (uint64_t)pn.low.little;
+    }
+
+    char *tf_buf = load_rr_tf(rr_area, rr_length);
+    struct rr_tf *tf = (struct rr_tf*) tf_buf;
+    if (tf->signature[0] != 'T' && tf->signature[1] != 'F') {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
+
+    unsigned int count = 0;
+    if (tf->flags & TF_CREATION) {
+        struct dir_date_time_t *iso_time = (struct dir_date_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct dir_date_time_t) *
+                    count++));
+        st->st_ctim.tv_sec = mktime64(iso_time->years, iso_time->month,
+                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+    }
+    if (tf->flags & TF_MODIFY) {
+        struct dir_date_time_t *iso_time = (struct dir_date_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct dir_date_time_t) *
+                    count++));
+        st->st_mtim.tv_sec = mktime64(iso_time->years, iso_time->month,
+                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_mtim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+    }
+    if (tf->flags & TF_ACCESS) {
+        struct dir_date_time_t *iso_time = (struct dir_date_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct dir_date_time_t) *
+                    count++));
+        st->st_atim.tv_sec = mktime64(iso_time->years, iso_time->month,
+                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_atim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+    }
 
     spinlock_release(&iso9660_lock);
     return 0;
