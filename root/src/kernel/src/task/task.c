@@ -22,7 +22,7 @@ lock_t scheduler_lock = 0;
 struct process_t **process_table;
 
 struct thread_t **task_table;
-static int64_t task_count = 0;
+int64_t task_count = 0;
 
 static lock_t switched_cpus = 0;
 
@@ -160,8 +160,6 @@ void task_resched(struct ctx_t *ctx) {
         current_thread->ctx = *ctx;
         /* Save FPU context */
         fxsave(&current_thread->fxstate);
-        /* Save user rsp */
-        current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
     }
@@ -180,7 +178,6 @@ void task_resched(struct ctx_t *ctx) {
     cpu_local->current_process = thread->process;
 
     cpu_local->thread_kstack = thread->kstack;
-    cpu_local->thread_ustack = thread->ustack;
 
     thread->active_on_cpu = current_cpu;
 
@@ -367,7 +364,7 @@ found_new_tid:;
     /* Search for free global task ID */
     tid_t new_task_id;
     for (new_task_id = 0; new_task_id < MAX_TASKS; new_task_id++) {
-        if (!task_table[new_task_id] || task_table[new_tid] == (void *)(-1))
+        if (!task_table[new_task_id] || task_table[new_task_id] == (void *)(-1))
             goto found_new_task_id;
     }
     goto err;

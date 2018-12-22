@@ -8,6 +8,69 @@
 
 struct pagemap_t kernel_pagemap;
 
+static inline size_t entries_to_virt_addr(size_t pml4_entry,
+                                   size_t pdpt_entry,
+                                   size_t pd_entry,
+                                   size_t pt_entry) {
+    size_t virt_addr = 0;
+
+    virt_addr |= pml4_entry << 39;
+    virt_addr |= pdpt_entry << 30;
+    virt_addr |= pd_entry << 21;
+    virt_addr |= pt_entry << 12;
+
+    return virt_addr;
+}
+
+struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
+    /* Allocate the new pagemap */
+    struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));
+    new_pagemap->pml4 = (pmm_alloc(1) + MEM_PHYS_OFFSET);
+    new_pagemap->lock = 1;
+
+    pt_entry_t *pdpt;
+    pt_entry_t *pd;
+    pt_entry_t *pt;
+
+    /* Map and copy all used pages */
+    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
+        if (old_pagemap->pml4[i] & 1) {
+            pdpt = (pt_entry_t *)((old_pagemap->pml4[i] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
+            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+                if (pdpt[j] & 1) {
+                    pd = (pt_entry_t *)((pdpt[j] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
+                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
+                        if (pd[k] & 1) {
+                            pt = (pt_entry_t *)((pd[k] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
+                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
+                                if (pt[l] & 1) {
+                                    size_t new_page = (size_t)pmm_alloc(1);
+                                    if (!new_page)
+                                        return (void *)0;
+                                    kmemcpy((char *)(new_page + MEM_PHYS_OFFSET),
+                                            (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
+                                            PAGE_SIZE);
+                                    map_page(new_pagemap,
+                                             new_page,
+                                             entries_to_virt_addr(i, j, k, l),
+                                             (pt[l] & 0xfff));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* Map kernel into higher half */
+    for (size_t i = PAGE_TABLE_ENTRIES / 2; i < PAGE_TABLE_ENTRIES; i++) {
+        new_pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
+    }
+
+    return new_pagemap;
+}
+
 /* map physaddr -> virtaddr using pml4 pointer */
 /* Returns 0 on success, -1 on failure */
 int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size_t flags) {

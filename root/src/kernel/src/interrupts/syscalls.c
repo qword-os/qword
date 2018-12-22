@@ -20,6 +20,68 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_fork(struct ctx_t *ctx) {
+    spinlock_acquire(&scheduler_lock);
+
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+
+    struct thread_t *calling_thread = task_table[current_task];
+
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+
+    struct process_t *old_process = process_table[current_process];
+
+    struct pagemap_t *new_pagemap = fork_address_space(old_process->pagemap);
+
+    spinlock_release(&scheduler_lock);
+    pid_t new_pid = task_pcreate(new_pagemap);
+    spinlock_acquire(&scheduler_lock);
+
+    struct process_t *new_process = process_table[new_pid];
+
+    /* Copy relevant metadata over */
+    kstrcpy(new_process->cwd, old_process->cwd);
+    new_process->cur_brk = old_process->cur_brk;
+
+    /* Duplicate all file handles */
+    for (size_t i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (old_process->file_handles[i] == -1)
+            continue;
+        new_process->file_handles[i] = dup(old_process->file_handles[i]);
+    }
+
+    new_process->threads[0] = kalloc(sizeof(struct thread_t));
+    struct thread_t *new_thread = new_process->threads[0];
+
+    /* Search for free global task ID */
+    tid_t new_task_id;
+    for (new_task_id = 0; new_task_id < MAX_TASKS; new_task_id++) {
+        if (!task_table[new_task_id] || task_table[new_task_id] == (void *)(-1))
+            goto found_new_task_id;
+    }
+    //goto err;
+
+found_new_task_id:
+    task_table[new_task_id] = new_thread;
+
+    new_thread->tid = 0;
+    new_thread->process = new_pid;
+    new_thread->lock = 1;
+    new_thread->yield_target = 0;
+    new_thread->active_on_cpu = -1;
+    new_thread->kstack = calling_thread->kstack;
+    new_thread->fs_base = calling_thread->fs_base;
+    new_thread->ctx = *ctx;
+    new_thread->ctx.rax = 0;
+    fxsave(&new_thread->fxstate);
+
+    task_count++;
+
+    spinlock_release(&scheduler_lock);
+
+    return new_pid;
+}
+
 int syscall_set_fs_base(struct ctx_t *ctx) {
     // rdi: new fs base
 

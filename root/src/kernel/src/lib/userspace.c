@@ -68,8 +68,6 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
     pid_t new_pid = task_pcreate(pagemap);
     if (new_pid == (pid_t)(-1)) return -1;
 
-    process_table[new_pid]->auxval = auxval;
-
     process_table[new_pid]->file_handles[0] = open(stdin, 0, 0);
     process_table[new_pid]->file_handles[1] = open(stdout, 0, 0);
     process_table[new_pid]->file_handles[2] = open(stderr, 0, 0);

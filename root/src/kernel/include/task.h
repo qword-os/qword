@@ -70,7 +70,6 @@ struct thread_t {
     uint64_t yield_target;
     int active_on_cpu;
     size_t kstack;
-    size_t ustack;
     size_t fs_base;
     struct ctx_t ctx;
     uint8_t fxstate[512] __attribute__((aligned(16)));
@@ -90,7 +89,7 @@ struct auxval_t {
 
 struct process_t {
     pid_t pid;
-    int priority;
+    pid_t ppid;
     struct pagemap_t *pagemap;
     struct thread_t **threads;
     char cwd[2048];
@@ -99,8 +98,9 @@ struct process_t {
     lock_t file_handles_lock;
     size_t cur_brk;
     lock_t cur_brk_lock;
-    struct auxval_t auxval;
 };
+
+extern int64_t task_count;
 
 extern lock_t scheduler_lock;
 

@@ -150,7 +150,7 @@ int dup(int fd) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
-    int new_intern_fd = filesystems[fd].dup(intern_fd);
+    int new_intern_fd = filesystems[fs].dup(intern_fd);
 
     return create_fd(fs, new_intern_fd);
 }

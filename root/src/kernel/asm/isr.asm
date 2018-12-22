@@ -157,7 +157,6 @@ extern kbd_handler
     pop rdx
     pop rcx
     pop rbx
-    add rsp, 8
 %endmacro
 
 section .text
@@ -276,6 +275,8 @@ syscall_table:
     dq syscall_lseek ;8
     extern syscall_fstat
     dq syscall_fstat ;9
+    extern syscall_fork
+    dq syscall_fork ;10
     dq invalid_syscall
   .end:
 
@@ -284,6 +285,14 @@ section .text
 syscall_entry:
     mov qword [gs:0024], rsp ; save the user stack
     mov rsp, qword [gs:0016] ; switch to the kernel space stack for the thread
+
+    sti
+
+    push 0x1b            ; ss
+    push qword [gs:0024] ; rsp
+    push r11             ; rflags
+    push 0x23            ; cs
+    push rcx             ; rip
 
     pusham
 
@@ -296,6 +305,8 @@ syscall_entry:
 
   .out:
     popams
+
+    cli
 
     mov rsp, qword [gs:0024] ; restore the user stack
 
