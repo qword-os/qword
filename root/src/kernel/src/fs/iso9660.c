@@ -367,6 +367,8 @@ static struct path_result_t resolve_path(struct mount_t *mount,
     struct directory_result_t current_dir = {0};
     kmemcpy(&result.target, &mount->root_entry, sizeof(struct directory_entry_t));
     kmemcpy(&result.parent, &mount->root_entry, sizeof(struct directory_entry_t));
+    if (!*path) /* they want the root dir */
+        return result;
     do {
         const char *seg = path;
         path = kstrchrnul(path, '/');
@@ -454,8 +456,11 @@ out:
     } while(*path);
 
 
-    if (!(result.target.flags & FILE_FLAG_DIR) && type == DIR_TYPE)
-      result.failure = 1;
+
+    if (result.target.flags & FILE_FLAG_DIR && type == DIR_TYPE)
+        result.failure = 1;
+    if (result.target.flags & FILE_FLAG_DIR && type == FILE_TYPE)
+        result.failure = 1;
     return result;
 }
 
