@@ -759,6 +759,13 @@ static int iso9660_dup(int handle) {
     return new_fd;
 }
 
+static int iso9660_write(int handle, const void *buf, size_t count) {
+    (void)handle;
+    (void)buf;
+    (void)count;
+    return -1; /* we don't do that here */
+}
+
 void init_iso9660(void) {
     struct fs_t iso9660 = {0};
 
@@ -770,6 +777,7 @@ void init_iso9660(void) {
     iso9660.fstat = iso9660_fstat;
     iso9660.close = iso9660_close;
     iso9660.dup = iso9660_dup;
+    iso9660.write = iso9660_write;
 
     vfs_install_fs(iso9660);
 }
