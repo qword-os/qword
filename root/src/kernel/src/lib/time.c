@@ -20,16 +20,21 @@ void ksleep(uint64_t time) {
     return;
 }
 
-uint64_t mktime64(int year, int month, int day, int hour, int minute,
-        int second) {
-    uint64_t nanoPrefix = 1e9;
-    year -= (month <= 2);
-    const int64_t era = (year >= 0 ? year : year - 399) / 400;
-    unsigned int yoe = (unsigned int)(year - era * 400);  // [0, 399]
-    unsigned int doy = (153 * (month + (month > 2 ? -3 : 9)) + 2)/5 + day - 1;  // [0, 365]
-    unsigned int doe = yoe * 365 + yoe/4 - yoe/100 + doy;         // [0, 146096]
-    int64_t days = era * 146097 + ((uint64_t)doe) - 719468;
+uint64_t mktime64(int year0, int mon0, int day, int hour, int min,
+        int sec) {
+        unsigned int mon = mon0, year = year0;
 
-    return second * nanoPrefix + minute * 60 * nanoPrefix + hour * 3600 * nanoPrefix
-            + days * 86400 * nanoPrefix;
+    /* taken from linux/kernel/time/time.c */
+    /* 1..12 -> 11,12,1..10 */
+    if (0 >= (int) (mon -= 2)) {
+        mon += 12;	/* Puts Feb last since it has leap day */
+        year -= 1;
+    }
+
+    return ((((uint64_t)
+            (year/4 - year/100 + year/400 + 367*mon/12 + day) +
+            year*365 - 719499
+            )*24 + hour
+            )*60 + min
+            )*60 + sec;
 }

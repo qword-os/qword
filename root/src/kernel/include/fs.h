@@ -44,8 +44,8 @@ struct mnt_t {
 };
 
 #define S_IFMT 0x0F00
-#define S_IFBLK 0x0000
-#define S_IFCHR 0x0100
+#define S_IFBLK 0x06000
+#define S_IFCHR 0x01000
 #define S_IFIFO 0x0200
 #define S_IFREG 0x0300
 #define S_IFDIR 0x0400

@@ -17,6 +17,7 @@
 #define TF_CREATION (1 << 0)
 #define TF_MODIFY (1 << 1)
 #define TF_ACCESS (1 << 2)
+#define TF_ATTRIBUTES (1 << 3)
 
 struct int16_LSB_MSB_t {
     uint16_t little;
@@ -28,7 +29,17 @@ struct int32_LSB_MSB_t {
     uint32_t big;
 }__attribute__((packed));
 
-struct dir_date_time_t {
+struct long_date_time_t {
+    uint32_t years;
+    uint16_t month;
+    uint16_t day;
+    uint16_t hour;
+    uint16_t minute;
+    uint16_t second;
+    uint8_t gmt_offset;
+}__attribute((packed));
+
+struct file_time_t {
     uint8_t years;
     uint8_t month;
     uint8_t day;
@@ -36,7 +47,7 @@ struct dir_date_time_t {
     uint8_t minute;
     uint8_t second;
     uint8_t gmt_offset;
-}__attribute((packed));
+}__attribute__((packed));
 
 struct dec_datetime {
     char year[4];
@@ -54,7 +65,7 @@ struct directory_entry_t {
     uint8_t xattr_length;
     struct int32_LSB_MSB_t extent_location;
     struct int32_LSB_MSB_t extent_length;
-    struct dir_date_time_t date;
+    struct file_time_t date;
     uint8_t flags;
     uint8_t unit_size;
     uint8_t interleave_size;
@@ -89,7 +100,7 @@ struct primary_descriptor_t {
     uint8_t xattr_length;
     struct int32_LSB_MSB_t extent_location;
     struct int32_LSB_MSB_t extent_length;
-    struct dir_date_time_t date;
+    struct long_date_time_t date;
     uint8_t flags;
     uint8_t unit_size;
     uint8_t interleave_size;
@@ -581,6 +592,7 @@ static int iso9660_seek(int handle, off_t offset, int type) {
 /* TODO add checks for if rockridge format and take into
  * account the gmt offset when calculating time*/
 static int iso9660_fstat(int handle, struct stat *st) {
+    kprint(KPRN_DBG, "entering fstat...????");
     if (handle < 0)
         return -1;
 
@@ -608,7 +620,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
         return -1;
     }
     struct rr_px px = load_rr_px(rr_area, rr_length);
-    if (px.signature[0] != 'P' && px.signature[1] != 'X') {
+    if (px.signature[0] != 'P' || px.signature[1] != 'X') {
         spinlock_release(&iso9660_lock);
         return -1;
     }
@@ -621,7 +633,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
     if (st->st_mode & S_IFBLK || st->st_mode & S_IFCHR) {
         /* device/char file - look for PN entry */
         struct rr_pn pn = load_rr_pn(rr_area, rr_length);
-        if (pn.signature[0] != 'P' && pn.signature[1] != 'N') {
+        if (pn.signature[0] != 'P' || pn.signature[1] != 'N') {
             spinlock_release(&iso9660_lock);
             return -1;
         }
@@ -630,37 +642,51 @@ static int iso9660_fstat(int handle, struct stat *st) {
     }
 
     char *tf_buf = load_rr_tf(rr_area, rr_length);
+    if (!tf_buf) {
+        spinlock_release(&iso9660_lock);
+        return -1;
+    }
     struct rr_tf *tf = (struct rr_tf*) tf_buf;
-    if (tf->signature[0] != 'T' && tf->signature[1] != 'F') {
+    if (tf->signature[0] != 'T' || tf->signature[1] != 'F') {
         spinlock_release(&iso9660_lock);
         return -1;
     }
 
     unsigned int count = 0;
+    kprint(KPRN_DBG, "%x", tf->flags);
     if (tf->flags & TF_CREATION) {
-        struct dir_date_time_t *iso_time = (struct dir_date_time_t*)(tf_buf +
-                sizeof(struct rr_tf) + (sizeof(struct dir_date_time_t) *
+        struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_ctim.tv_sec = mktime64(iso_time->years, iso_time->month,
+        st->st_ctim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
                 iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
         st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
     }
     if (tf->flags & TF_MODIFY) {
-        struct dir_date_time_t *iso_time = (struct dir_date_time_t*)(tf_buf +
-                sizeof(struct rr_tf) + (sizeof(struct dir_date_time_t) *
+        struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_mtim.tv_sec = mktime64(iso_time->years, iso_time->month,
+        st->st_mtim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
                 iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
-        st->st_mtim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+        st->st_mtim.tv_nsec = st->st_mtim.tv_sec * 1000000000;
     }
     if (tf->flags & TF_ACCESS) {
-        struct dir_date_time_t *iso_time = (struct dir_date_time_t*)(tf_buf +
-                sizeof(struct rr_tf) + (sizeof(struct dir_date_time_t) *
+        struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_atim.tv_sec = mktime64(iso_time->years, iso_time->month,
+        st->st_atim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
                 iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
-        st->st_atim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+        st->st_atim.tv_nsec = st->st_atim.tv_sec * 1000000000;
     }
+    if (tf->flags & TF_ATTRIBUTES) {
+        struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
+                sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
+                    count++));
+        st->st_ctim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
+                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+    }
+
 
     spinlock_release(&iso9660_lock);
     return 0;
