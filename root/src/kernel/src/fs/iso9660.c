@@ -18,6 +18,8 @@
 #define TF_MODIFY (1 << 1)
 #define TF_ACCESS (1 << 2)
 #define TF_ATTRIBUTES (1 << 3)
+#define ISO_IFBLK 0x6000
+#define ISO_IFCHR 0x2000
 
 struct int16_LSB_MSB_t {
     uint16_t little;
@@ -630,7 +632,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
     st->st_gid = px.gid.little;
     st->st_mode = px.mode.little;
     st->st_rdev = 0;
-    if (st->st_mode & S_IFBLK || st->st_mode & S_IFCHR) {
+    if (st->st_mode & ISO_IFBLK || st->st_mode & ISO_IFCHR) {
         /* device/char file - look for PN entry */
         struct rr_pn pn = load_rr_pn(rr_area, rr_length);
         if (pn.signature[0] != 'P' || pn.signature[1] != 'N') {
