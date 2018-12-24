@@ -306,6 +306,11 @@ static struct path_result_t path_resolver(struct mount_t *mnt, const char *path)
     parent.payload = ROOT_ID;
 
     if (!kstrcmp(path, "/")) {
+        kstrcpy(result.name, "/");
+        result.target_entry = -1;
+        result.target.parent_id = -1;
+        result.target.type = DIRECTORY_TYPE;
+        kstrcpy(result.target.name, "/");
         result.target.payload = ROOT_ID;
         return result; // exception for root
     }
@@ -414,12 +419,6 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
     new_handle.mnt = mnt;
 
-    if (path_result.type == DIRECTORY_TYPE) {
-        int ret = echfs_create_handle(new_handle);
-        spinlock_release(&echfs_lock);
-        return ret;
-    }
-
     int cached_file;
 
     if (!mounts[mnt].cached_files_ptr) goto skip_search;
@@ -437,19 +436,23 @@ skip_search:
     kstrcpy(mounts[mnt].cached_files[cached_file].path, path);
     mounts[mnt].cached_files[cached_file].path_res = path_result;
 
-    mounts[mnt].cached_files[cached_file].cache = kalloc(mounts[mnt].bytesperblock);
+    if (path_result.type == FILE_TYPE) {
 
-    mounts[mnt].cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
-    mounts[mnt].cached_files[cached_file].alloc_map[0] = mounts[mnt].cached_files[cached_file].path_res.target.payload;
-    for (uint64_t i = 1; mounts[mnt].cached_files[cached_file].alloc_map[i-1] != END_OF_CHAIN; i++) {
-        mounts[mnt].cached_files[cached_file].alloc_map = krealloc(mounts[mnt].cached_files[cached_file].alloc_map, sizeof(uint64_t) * (i + 1));
-        mounts[mnt].cached_files[cached_file].alloc_map[i] = rd_qword(mounts[mnt].device,
-                (mounts[mnt].fatstart * mounts[mnt].bytesperblock) + (mounts[mnt].cached_files[cached_file].alloc_map[i-1] * sizeof(uint64_t)));
+        mounts[mnt].cached_files[cached_file].cache = kalloc(mounts[mnt].bytesperblock);
+
+        mounts[mnt].cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
+        mounts[mnt].cached_files[cached_file].alloc_map[0] = mounts[mnt].cached_files[cached_file].path_res.target.payload;
+        for (uint64_t i = 1; mounts[mnt].cached_files[cached_file].alloc_map[i-1] != END_OF_CHAIN; i++) {
+            mounts[mnt].cached_files[cached_file].alloc_map = krealloc(mounts[mnt].cached_files[cached_file].alloc_map, sizeof(uint64_t) * (i + 1));
+            mounts[mnt].cached_files[cached_file].alloc_map[i] = rd_qword(mounts[mnt].device,
+                    (mounts[mnt].fatstart * mounts[mnt].bytesperblock) + (mounts[mnt].cached_files[cached_file].alloc_map[i-1] * sizeof(uint64_t)));
+        }
+
+        mounts[mnt].cached_files[cached_file].cache_status = CACHE_NOTREADY;
+
+        mounts[mnt].cached_files_ptr++;
+
     }
-
-    mounts[mnt].cached_files[cached_file].cache_status = CACHE_NOTREADY;
-
-    mounts[mnt].cached_files_ptr++;
 
 search_out:
 

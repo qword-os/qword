@@ -98,6 +98,14 @@ static int devfs_mount(void) {
 static int devfs_open(char *path, int flags, int mode) {
     spinlock_acquire(&devfs_lock);
 
+    if (!kstrcmp(path, "/")) {
+        // TODO: open devfs root dir
+        goto fail;
+    }
+
+    if (*path == '/')
+        path++;
+
     dev_t device = device_find(path);
     if (device == (dev_t)(-1))
         goto fail;

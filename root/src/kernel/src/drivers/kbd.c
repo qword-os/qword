@@ -65,7 +65,8 @@ int kbd_read(char *buf, size_t count) {
     int wait = 1;
 
     while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-        yield(10);
+        //yield(10);
+        ksleep(10);
     }
 
     for (size_t i = 0; i < count; ) {
@@ -79,9 +80,11 @@ int kbd_read(char *buf, size_t count) {
         } else {
             if (wait) {
                 spinlock_release(&kbd_read_lock);
-                yield(10);
+                //yield(10);
+                ksleep(10);
                 while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-                    yield(10);
+                    //yield(10);
+                    ksleep(10);
                 }
             } else {
                 spinlock_release(&kbd_read_lock);
