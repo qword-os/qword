@@ -70,6 +70,7 @@ struct thread_t {
     uint64_t yield_target;
     int active_on_cpu;
     size_t kstack;
+    size_t ustack;
     size_t fs_base;
     struct ctx_t ctx;
     uint8_t fxstate[512] __attribute__((aligned(16)));

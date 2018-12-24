@@ -200,7 +200,7 @@ static void kprn_x(uint64_t x) {
 static lock_t kprint_lock = 1;
 
 static void print_timestamp(int type) {
-    kputs("["); kprn_ui(uptime_sec); kputs(".");
+    kputs("\e[37m["); kprn_ui(uptime_sec); kputs(".");
     kprn_ui(uptime_raw); kputs("] ");
 
     switch (type) {
