@@ -18,8 +18,14 @@
 #define TF_MODIFY (1 << 1)
 #define TF_ACCESS (1 << 2)
 #define TF_ATTRIBUTES (1 << 3)
-#define ISO_IFBLK 0x6000
-#define ISO_IFCHR 0x2000
+#define ISO_IFBLK 060000
+#define ISO_IFCHR 020000
+#define ISO_IFSOCK 0140000
+#define ISO_IFLNK 0120000
+#define ISO_IFREG 0100000
+#define ISO_IFDIR 040000
+#define ISO_IFIFO 010000
+#define ISO_FILE_MODE_MASK 0xf000
 
 struct int16_LSB_MSB_t {
     uint16_t little;
@@ -594,7 +600,6 @@ static int iso9660_seek(int handle, off_t offset, int type) {
 /* TODO add checks for if rockridge format and take into
  * account the gmt offset when calculating time*/
 static int iso9660_fstat(int handle, struct stat *st) {
-    kprint(KPRN_DBG, "entering fstat...????");
     if (handle < 0)
         return -1;
 
@@ -631,8 +636,17 @@ static int iso9660_fstat(int handle, struct stat *st) {
     st->st_uid = px.uid.little;
     st->st_gid = px.gid.little;
     st->st_mode = px.mode.little;
+    switch (st->st_mode & ISO_FILE_MODE_MASK) {
+        case ISO_IFBLK: st->st_mode |= S_IFBLK; break;
+        case ISO_IFCHR: st->st_mode |= S_IFCHR; break;
+        case ISO_IFSOCK: st->st_mode |= S_IFSOCK; break;
+        case ISO_IFLNK: st->st_mode |= S_IFLNK; break;
+        case ISO_IFREG: st->st_mode |= S_IFREG; break;
+        case ISO_IFDIR: st->st_mode |= S_IFDIR; break;
+        case ISO_IFIFO: st->st_mode |= S_IFIFO; break;
+    }
     st->st_rdev = 0;
-    if (st->st_mode & ISO_IFBLK || st->st_mode & ISO_IFCHR) {
+    if (st->st_mode & S_IFBLK || st->st_mode & S_IFCHR) {
         /* device/char file - look for PN entry */
         struct rr_pn pn = load_rr_pn(rr_area, rr_length);
         if (pn.signature[0] != 'P' || pn.signature[1] != 'N') {
