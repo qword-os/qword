@@ -380,14 +380,13 @@ static struct path_result_t resolve_path(struct mount_t *mount,
         const char *path, int type) {
     struct path_result_t result = {0};
 
-    if (*path == '/') path++;
 
     struct directory_entry_t *entry = NULL;
     struct directory_result_t current_dir = {0};
     kmemcpy(&result.target, &mount->root_entry, sizeof(struct directory_entry_t));
     kmemcpy(&result.parent, &mount->root_entry, sizeof(struct directory_entry_t));
-    if (!*path) /* they want the root dir */
-        return result;
+    if (*path =='/' && path[1] == '\0') return result;
+    if (*path == '/') path++;
     do {
         const char *seg = path;
         path = kstrchrnul(path, '/');
