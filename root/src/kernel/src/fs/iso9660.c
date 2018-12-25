@@ -668,7 +668,6 @@ static int iso9660_fstat(int handle, struct stat *st) {
     }
 
     unsigned int count = 0;
-    kprint(KPRN_DBG, "%x", tf->flags);
     if (tf->flags & TF_CREATION) {
         struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
                 sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
