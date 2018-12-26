@@ -30,6 +30,8 @@
 void kmain_thread(void *arg) {
     (void)arg;
 
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(execve_request_monitor, 0));
+
     int tty = open("/dev/tty", 0, 0);
 
     char *root = cmdline_get_value("root");

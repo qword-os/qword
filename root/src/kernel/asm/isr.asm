@@ -222,8 +222,9 @@ irq0_handler:
 
 ipi_abortexec:
     mov rsp, qword [gs:0008]
-    call lapic_eoi
-    sti
+    extern abort_thread_exec
+    xor rdi, rdi
+    call abort_thread_exec
   .wait:
     hlt
     jmp .wait
@@ -277,6 +278,8 @@ syscall_table:
     dq syscall_fstat ;9
     extern syscall_fork
     dq syscall_fork ;10
+    extern syscall_execve
+    dq syscall_execve ;11
     dq invalid_syscall
   .end:
 

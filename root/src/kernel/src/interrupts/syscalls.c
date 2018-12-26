@@ -20,6 +20,18 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_execve(struct ctx_t *ctx) {
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+
+    execve_send_request(current_process,
+        (void *)ctx->rdi,
+        (void *)ctx->rsi,
+        (void *)ctx->rdx);
+
+    /* TODO: monitor some flag to catch failed execves */
+    for (;;) { asm volatile ("hlt"); }
+}
+
 int syscall_fork(struct ctx_t *ctx) {
     spinlock_acquire(&scheduler_lock);
 
@@ -31,13 +43,20 @@ int syscall_fork(struct ctx_t *ctx) {
 
     struct process_t *old_process = process_table[current_process];
 
-    struct pagemap_t *new_pagemap = fork_address_space(old_process->pagemap);
-
     spinlock_release(&scheduler_lock);
-    pid_t new_pid = task_pcreate(new_pagemap);
+    pid_t new_pid = task_pcreate();
+    if (new_pid == -1)
+        return -1;
     spinlock_acquire(&scheduler_lock);
 
+    struct pagemap_t *new_pagemap = fork_address_space(old_process->pagemap);
+
     struct process_t *new_process = process_table[new_pid];
+
+    pmm_free((void *)new_process->pagemap->pml4 - MEM_PHYS_OFFSET, 1);
+    kfree(new_process->pagemap);
+
+    new_process->pagemap = new_pagemap;
 
     /* Copy relevant metadata over */
     kstrcpy(new_process->cwd, old_process->cwd);
@@ -65,6 +84,7 @@ found_new_task_id:
     task_table[new_task_id] = new_thread;
 
     new_thread->tid = 0;
+    new_thread->task_id = new_task_id;
     new_thread->process = new_pid;
     new_thread->lock = 1;
     new_thread->yield_target = 0;

@@ -65,6 +65,7 @@ typedef int32_t gid_t;
 
 struct thread_t {
     tid_t tid;
+    tid_t task_id;
     pid_t process;
     lock_t lock;
     uint64_t yield_target;
@@ -135,7 +136,7 @@ struct tcreate_elf_exec_data {
     &((struct tcreate_elf_exec_data){.entry=entry_, .argv=argv_, .envp=envp_, .auxval=auxval_})
 
 tid_t task_tcreate(pid_t, enum tcreate_abi, const void *);
-pid_t task_pcreate(struct pagemap_t *);
+pid_t task_pcreate(void);
 int task_tkill(pid_t, tid_t);
 
 #endif

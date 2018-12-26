@@ -22,6 +22,38 @@ static inline size_t entries_to_virt_addr(size_t pml4_entry,
     return virt_addr;
 }
 
+void free_address_space(struct pagemap_t *pagemap) {
+    pt_entry_t *pdpt;
+    pt_entry_t *pd;
+    pt_entry_t *pt;
+
+    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
+        if (pagemap->pml4[i] & 1) {
+            pdpt = (pt_entry_t *)((pagemap->pml4[i] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
+            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
+                if (pdpt[j] & 1) {
+                    pd = (pt_entry_t *)((pdpt[j] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
+                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
+                        if (pd[k] & 1) {
+                            pt = (pt_entry_t *)((pd[k] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
+                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
+                                if (pt[l] & 1)
+                                    pmm_free((void *)(pt[l] & 0xfffffffffffff000), 1);
+                            }
+                            pmm_free((void *)(pd[k] & 0xfffffffffffff000), 1);
+                        }
+                    }
+                    pmm_free((void *)(pdpt[j] & 0xfffffffffffff000), 1);
+                }
+            }
+            pmm_free((void *)(pagemap->pml4[i] & 0xfffffffffffff000), 1);
+        }
+    }
+
+    for (size_t i = 0; i < PAGE_TABLE_ENTRIES; i++)
+        pagemap->pml4[i] = 0;
+}
+
 struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
     /* Allocate the new pagemap */
     struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));

@@ -248,7 +248,7 @@ void task_trigger_resched(struct ctx_t *ctx) {
 
 /* Create process */
 /* Returns process ID, -1 on failure */
-pid_t task_pcreate(struct pagemap_t *pagemap) {
+pid_t task_pcreate(void) {
     spinlock_acquire(&scheduler_lock);
 
     /* Search for free process ID */
@@ -288,18 +288,34 @@ found_new_pid:
 
     new_process->file_handles_lock = 1;
 
-    /* Map the higher half into the process */
-    for (size_t i = 256; i < 512; i++) {
-        pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
-    }
-
     kstrcpy(new_process->cwd, "/");
     new_process->cwd_lock = 1;
 
     new_process->cur_brk = BASE_BRK_LOCATION;
     new_process->cur_brk_lock = 1;
 
-    new_process->pagemap = pagemap;
+    /* Create a new pagemap for the process */
+    pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+    if ((size_t)pml4 == MEM_PHYS_OFFSET) {
+        kfree(new_process->file_handles);
+        kfree(new_process->threads);
+        kfree(new_process);
+        process_table[new_pid] = EMPTY;
+        goto err;
+    }
+
+    new_process->pagemap = kalloc(sizeof(struct pagemap_t));
+    if (!new_process->pagemap) {
+        pmm_free((void *)((size_t)pml4 - MEM_PHYS_OFFSET), 1);
+        kfree(new_process->file_handles);
+        kfree(new_process->threads);
+        kfree(new_process);
+        process_table[new_pid] = EMPTY;
+        goto err;
+    }
+    new_process->pagemap->pml4 = pml4;
+    spinlock_release(&new_process->pagemap->lock);
+
     new_process->pid = new_pid;
 
     spinlock_release(&scheduler_lock);
@@ -308,6 +324,25 @@ found_new_pid:
 err:
     spinlock_release(&scheduler_lock);
     return -1;
+}
+
+void abort_thread_exec(int scheduler_is_locked) {
+    load_cr3((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET);
+
+    cpu_locals[current_cpu].current_task = -1;
+    cpu_locals[current_cpu].current_thread = -1;
+    cpu_locals[current_cpu].current_process = -1;
+
+    kprint(0, "aborting thread execution on CPU #%d", current_cpu);
+
+    if (scheduler_is_locked) {
+        spinlock_release(&scheduler_lock);
+    } else {
+        lapic_eoi();
+        asm volatile ("sti");
+    }
+
+    for (;;) { asm volatile ("hlt"); }
 }
 
 /* Kill a thread in a given process */
@@ -326,7 +361,10 @@ int task_tkill(pid_t pid, tid_t tid) {
         /* Send abort execution IPI */
         lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[active_on_cpu].lapic_id) << 24);
         lapic_write(APICREG_ICR0, IPI_ABORTEXEC);
+        ksleep(5);
     }
+
+    task_table[process_table[pid]->threads[tid]->task_id] = EMPTY;
 
     kfree(process_table[pid]->threads[tid]);
 
@@ -334,12 +372,10 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     task_count--;
 
-    /* Send resched IPI to CPU 0 to trigger a reschedule */
-    lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[0].lapic_id) << 24);
-    lapic_write(APICREG_ICR0, IPI_RESCHED);
+    if (active_on_cpu == current_cpu)
+        abort_thread_exec(1);
 
-    /* Paranoia: make sure the IPI goes through, 1ms should be more than plenty */
-    ksleep(1);
+    spinlock_release(&scheduler_lock);
 
     return 0;
 }
@@ -518,6 +554,7 @@ found_new_task_id:;
     new_thread->fs_base = 0;
 
     new_thread->tid = new_tid;
+    new_thread->task_id = new_task_id;
     new_thread->process = pid;
     spinlock_release(&new_thread->lock);
 

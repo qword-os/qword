@@ -13,9 +13,7 @@ void ksleep(uint64_t time) {
 
     final_time++;
 
-    while (uptime_raw < final_time) {
-        asm volatile ("hlt");
-    }
+    while (uptime_raw < final_time);
 
     return;
 }

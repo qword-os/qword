@@ -14,8 +14,13 @@
 
 #define EMPTY ((void *)(size_t)(-1))
 
+int exec(pid_t, const char *, const char **, const char **);
+
 pid_t kexec(const char *, const char **, const char **,
             const char *, const char *, const char *);
+
+void execve_send_request(pid_t, const char *, const char **, const char **);
+void execve_request_monitor(void *);
 
 int ktolower(int);
 char *kstrchrnul(const char *, int);
