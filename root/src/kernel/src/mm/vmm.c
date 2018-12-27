@@ -22,10 +22,19 @@ static inline size_t entries_to_virt_addr(size_t pml4_entry,
     return virt_addr;
 }
 
+struct pagemap_t *new_address_space(void) {
+    struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));
+    new_pagemap->pml4 = (pmm_alloc(1) + MEM_PHYS_OFFSET);
+    new_pagemap->lock = 1;
+    return new_pagemap;
+}
+
 void free_address_space(struct pagemap_t *pagemap) {
     pt_entry_t *pdpt;
     pt_entry_t *pd;
     pt_entry_t *pt;
+
+    spinlock_acquire(&pagemap->lock);
 
     for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
         if (pagemap->pml4[i] & 1) {
@@ -50,15 +59,13 @@ void free_address_space(struct pagemap_t *pagemap) {
         }
     }
 
-    for (size_t i = 0; i < PAGE_TABLE_ENTRIES; i++)
-        pagemap->pml4[i] = 0;
+    pmm_free((void *)pagemap->pml4 - MEM_PHYS_OFFSET, 1);
+    kfree(pagemap);
 }
 
 struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
     /* Allocate the new pagemap */
-    struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));
-    new_pagemap->pml4 = (pmm_alloc(1) + MEM_PHYS_OFFSET);
-    new_pagemap->lock = 1;
+    struct pagemap_t *new_pagemap = new_address_space();
 
     pt_entry_t *pdpt;
     pt_entry_t *pd;

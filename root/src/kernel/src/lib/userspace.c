@@ -12,13 +12,16 @@ struct execve_request_t {
     char *filename;
     char **argv;
     char **envp;
+    lock_t *err_lock;
+    int *err;
 };
 
 static size_t execve_requests_i = 0;
 static struct execve_request_t *execve_requests = 0;
 static lock_t execve_request_lock = 1;
 
-void execve_send_request(pid_t pid, const char *filename, const char **argv, const char **envp) {
+void execve_send_request(pid_t pid, const char *filename, const char **argv, const char **envp,
+                    lock_t **err_lock, int **err) {
     spinlock_acquire(&scheduler_lock);
     spinlock_acquire(&execve_request_lock);
 
@@ -58,6 +61,14 @@ void execve_send_request(pid_t pid, const char *filename, const char **argv, con
         kstrcpy(execve_request->envp[i], envp[i]);
     }
 
+    execve_request->err_lock = kalloc(sizeof(lock_t));
+    *(execve_request->err_lock) = 1;
+    execve_request->err = kalloc(sizeof(int));
+    *(execve_request->err) = 0;
+
+    *err_lock = execve_request->err_lock;
+    *err = execve_request->err;
+
     spinlock_release(&execve_request_lock);
     spinlock_release(&scheduler_lock);
 }
@@ -72,7 +83,7 @@ void execve_request_monitor(void *arg) {
         spinlock_acquire(&execve_request_lock);
         if (execve_requests_i) {
             kprint(0, "execve_monitor: executing execve request");
-            exec(
+            int ret = exec(
                 execve_requests[0].pid,
                 execve_requests[0].filename,
                 (const char **)execve_requests[0].argv,
@@ -97,6 +108,15 @@ void execve_request_monitor(void *arg) {
             }
             kfree(execve_requests[0].envp);
 
+            if (ret) {
+                spinlock_acquire(execve_requests[0].err_lock);
+                *(execve_requests[0].err) = 1;
+                spinlock_release(execve_requests[0].err_lock);
+            } else {
+                kfree((void *)execve_requests[0].err_lock);
+                kfree(execve_requests[0].err);
+            }
+
             execve_requests_i--;
             for (size_t i = 0; i < execve_requests_i; i++)
                 execve_requests[i] = execve_requests[i + 1];
@@ -113,27 +133,24 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
 
     struct process_t *process = process_table[pid];
 
-    struct pagemap_t *old_address_space = process->pagemap;
-
-    /* Destroy all previous threads */
-    for (size_t i = 0; i < MAX_THREADS; i++)
-        task_tkill(pid, i);
-
-    /* Free previous address space */
-    free_address_space(old_address_space);
+    struct pagemap_t *old_pagemap = process->pagemap;
+    struct pagemap_t *new_pagemap = new_address_space();
 
     /* Load the executable */
     int fd = open(filename, 0, 0);
-    if (fd < 0)
+    if (fd < 0) {
+        free_address_space(new_pagemap);
         return -1;
+    }
 
     struct auxval_t auxval;
     char *ld_path;
 
-    ret = elf_load(fd, process->pagemap, 0, &auxval, &ld_path);
+    ret = elf_load(fd, new_pagemap, 0, &auxval, &ld_path);
     close(fd);
     if (ret == -1) {
         kprint(KPRN_DBG, "elf: Load of binary file %s failed.", filename);
+        free_address_space(new_pagemap);
         return -1;
     }
 
@@ -144,16 +161,19 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
         int ld_fd = open(ld_path, 0, 0);
         if (ld_fd < 0) {
             kprint(KPRN_DBG, "elf: Could not find dynamic linker.");
+            free_address_space(new_pagemap);
+            kfree(ld_path);
             return -1;
         }
 
         /* 1 GiB is chosen arbitrarily (as programs are expected to fit below 1 GiB).
            TODO: Dynamically find a virtual address range that is large enough */
         struct auxval_t ld_auxval;
-        ret = elf_load(ld_fd, process->pagemap, 0x40000000, &ld_auxval, NULL);
+        ret = elf_load(ld_fd, new_pagemap, 0x40000000, &ld_auxval, NULL);
         close(ld_fd);
         if (ret == -1) {
             kprint(KPRN_DBG, "elf: Load of binary file %s failed.", ld_path);
+            free_address_space(new_pagemap);
             kfree(ld_path);
             return -1;
         }
@@ -163,13 +183,21 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
 
     /* Map the higher half into the process */
     for (size_t i = 256; i < 512; i++) {
-        process->pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
+        new_pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
     }
 
+    /* Destroy all previous threads */
+    for (size_t i = 0; i < MAX_THREADS; i++)
+        task_tkill(pid, i);
+
+    /* Free previous address space */
+    free_address_space(old_pagemap);
+
+    /* Load new pagemap */
+    process->pagemap = new_pagemap;
+
     /* Create main thread */
-    tid_t new_thread = task_tcreate(pid, tcreate_elf_exec,
-            tcreate_elf_exec_data((void *)entry, argv, envp, &auxval));
-    if (new_thread == (tid_t)(-1)) return -1;
+    task_tcreate(pid, tcreate_elf_exec, tcreate_elf_exec_data((void *)entry, argv, envp, &auxval));
 
     return 0;
 }

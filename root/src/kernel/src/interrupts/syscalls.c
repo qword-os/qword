@@ -7,6 +7,7 @@
 #include <fs.h>
 #include <task.h>
 #include <mm.h>
+#include <time.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -23,13 +24,34 @@ static inline int privilege_check(size_t base, size_t len) {
 int syscall_execve(struct ctx_t *ctx) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
+    lock_t *err_lock;
+    int *err;
+
     execve_send_request(current_process,
         (void *)ctx->rdi,
         (void *)ctx->rsi,
-        (void *)ctx->rdx);
+        (void *)ctx->rdx,
+        &err_lock,
+        &err);
 
-    /* TODO: monitor some flag to catch failed execves */
-    for (;;) { asm volatile ("hlt"); }
+    for (;;) {
+        ksleep(10);
+        spinlock_acquire(&scheduler_lock);
+        spinlock_acquire(err_lock);
+        if (*err)
+            break;
+        spinlock_release(err_lock);
+        spinlock_release(&scheduler_lock);
+    }
+
+    spinlock_release(&scheduler_lock);
+    kprint(0, "execve failed");
+
+    /* error occurred */
+    kfree((void *)err_lock);
+    kfree(err);
+
+    return -1;
 }
 
 int syscall_fork(struct ctx_t *ctx) {

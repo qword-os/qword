@@ -30,6 +30,7 @@ int unmap_page(struct pagemap_t *, size_t);
 int remap_page(struct pagemap_t *, size_t, size_t);
 void init_vmm(void);
 
+struct pagemap_t *new_address_space(void);
 struct pagemap_t *fork_address_space(struct pagemap_t *);
 void free_address_space(struct pagemap_t *);
 
