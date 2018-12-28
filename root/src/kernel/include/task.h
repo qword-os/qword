@@ -92,6 +92,7 @@ struct auxval_t {
 struct process_t {
     pid_t pid;
     pid_t ppid;
+    int exit_code;
     struct pagemap_t *pagemap;
     struct thread_t **threads;
     char cwd[2048];

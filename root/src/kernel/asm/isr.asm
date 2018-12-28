@@ -280,6 +280,8 @@ syscall_table:
     dq syscall_fork ;10
     extern syscall_execve
     dq syscall_execve ;11
+    extern syscall_exit
+    dq syscall_exit ;12
     dq invalid_syscall
   .end:
 

@@ -372,8 +372,13 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     task_count--;
 
-    if (active_on_cpu == current_cpu)
-        abort_thread_exec(1);
+    if (active_on_cpu == current_cpu) {
+        asm volatile (
+            "mov rsp, qword ptr gs:[8];"
+            "mov rdi, 1;"
+            "call abort_thread_exec;"
+        );
+    }
 
     spinlock_release(&scheduler_lock);
 

@@ -7,6 +7,34 @@
 #include <elf.h>
 #include <lock.h>
 
+#define USER_REQUEST_EXECVE 1
+#define USER_REQUEST_EXIT 2
+
+struct userspace_request_t {
+    int type;
+    void *opaque_data;
+};
+
+static size_t userspace_request_i = 0;
+static struct userspace_request_t *userspace_requests = 0;
+static lock_t userspace_request_lock = 1;
+
+static void userspace_send_request(int type, void *opaque_data) {
+    spinlock_acquire(&userspace_request_lock);
+
+    userspace_request_i++;
+    userspace_requests = krealloc(userspace_requests,
+        sizeof(struct userspace_request_t) * userspace_request_i);
+
+    struct userspace_request_t *userspace_request =
+                    &userspace_requests[userspace_request_i - 1];
+
+    userspace_request->type = type;
+    userspace_request->opaque_data = opaque_data;
+
+    spinlock_release(&userspace_request_lock);
+}
+
 struct execve_request_t {
     pid_t pid;
     char *filename;
@@ -16,19 +44,9 @@ struct execve_request_t {
     int *err;
 };
 
-static size_t execve_requests_i = 0;
-static struct execve_request_t *execve_requests = 0;
-static lock_t execve_request_lock = 1;
-
 void execve_send_request(pid_t pid, const char *filename, const char **argv, const char **envp,
                     lock_t **err_lock, int **err) {
-    spinlock_acquire(&scheduler_lock);
-    spinlock_acquire(&execve_request_lock);
-
-    execve_requests_i++;
-    execve_requests = krealloc(execve_requests, sizeof(struct execve_request_t) * execve_requests_i);
-
-    struct execve_request_t *execve_request = &execve_requests[execve_requests_i - 1];
+    struct execve_request_t *execve_request = kalloc(sizeof(struct execve_request_t));
 
     execve_request->pid = pid;
 
@@ -69,60 +87,115 @@ void execve_send_request(pid_t pid, const char *filename, const char **argv, con
     *err_lock = execve_request->err_lock;
     *err = execve_request->err;
 
-    spinlock_release(&execve_request_lock);
-    spinlock_release(&scheduler_lock);
+    userspace_send_request(USER_REQUEST_EXECVE, execve_request);
 }
 
-void execve_request_monitor(void *arg) {
+static void execve_receive_request(struct execve_request_t *execve_request) {
+    int ret = exec(
+        execve_request->pid,
+        execve_request->filename,
+        (const char **)execve_request->argv,
+        (const char **)execve_request->envp
+    );
+
+    /* free request mem */
+
+    kfree(execve_request->filename);
+
+    for (size_t i = 0; ; i++) {
+        if (!execve_request->argv[i])
+            break;
+        kfree(execve_request->argv[i]);
+    }
+    kfree(execve_request->argv);
+
+    for (size_t i = 0; ; i++) {
+        if (!execve_request->envp[i])
+            break;
+        kfree(execve_request->envp[i]);
+    }
+    kfree(execve_request->envp);
+
+    if (ret) {
+        spinlock_acquire(execve_request->err_lock);
+        *(execve_request->err) = 1;
+        spinlock_release(execve_request->err_lock);
+    } else {
+        kfree((void *)execve_request->err_lock);
+        kfree(execve_request->err);
+    }
+
+    kfree(execve_request);
+}
+
+struct exit_request_t {
+    pid_t pid;
+    int exit_code;
+};
+
+void exit_send_request(pid_t pid, int exit_code) {
+    struct exit_request_t *exit_request = kalloc(sizeof(struct exit_request_t));
+
+    exit_request->pid = pid;
+    exit_request->exit_code = exit_code;
+
+    userspace_send_request(USER_REQUEST_EXIT, exit_request);
+}
+
+static void exit_receive_request(struct exit_request_t *exit_request) {
+    struct process_t *process = process_table[exit_request->pid];
+
+    /* Kill all associated threads */
+    for (size_t i = 0; i < MAX_THREADS; i++)
+        task_tkill(exit_request->pid, i);
+
+    /* Close all file handles */
+    for (size_t i = 0; i < MAX_FILE_HANDLES; i++) {
+        if (process->file_handles[i] == -1)
+            continue;
+        close(process->file_handles[i]);
+    }
+    kfree(process->file_handles);
+
+    /* Register exit code */
+    process->exit_code = exit_request->exit_code;
+
+    free_address_space(process->pagemap);
+
+    /* TODO: mark process as zombie/send stuff to parent process... */
+
+    kfree(exit_request);
+}
+
+void userspace_request_monitor(void *arg) {
     (void)arg;
 
-    kprint(0, "kernel: execve request monitor launched.");
+    kprint(KPRN_INFO, "urm: Userspace request monitor launched.");
 
     /* main event loop */
     for (;;) {
-        spinlock_acquire(&execve_request_lock);
-        if (execve_requests_i) {
-            kprint(0, "execve_monitor: executing execve request");
-            int ret = exec(
-                execve_requests[0].pid,
-                execve_requests[0].filename,
-                (const char **)execve_requests[0].argv,
-                (const char **)execve_requests[0].envp
-            );
-
-            /* free request mem */
-
-            kfree(execve_requests[0].filename);
-
-            for (size_t i = 0; ; i++) {
-                if (!execve_requests[0].argv[i])
+        spinlock_acquire(&userspace_request_lock);
+        if (userspace_request_i) {
+            switch (userspace_requests[0].type) {
+                case USER_REQUEST_EXECVE:
+                    kprint(KPRN_INFO, "urm: execve request received");
+                    execve_receive_request(userspace_requests[0].opaque_data);
                     break;
-                kfree(execve_requests[0].argv[i]);
-            }
-            kfree(execve_requests[0].argv);
-
-            for (size_t i = 0; ; i++) {
-                if (!execve_requests[0].envp[i])
+                case USER_REQUEST_EXIT:
+                    kprint(KPRN_INFO, "urm: exit request received");
+                    exit_receive_request(userspace_requests[0].opaque_data);
                     break;
-                kfree(execve_requests[0].envp[i]);
+                default:
+                    kprint(KPRN_ERR, "urm: Invalid request received");
+                    break;
             }
-            kfree(execve_requests[0].envp);
-
-            if (ret) {
-                spinlock_acquire(execve_requests[0].err_lock);
-                *(execve_requests[0].err) = 1;
-                spinlock_release(execve_requests[0].err_lock);
-            } else {
-                kfree((void *)execve_requests[0].err_lock);
-                kfree(execve_requests[0].err);
-            }
-
-            execve_requests_i--;
-            for (size_t i = 0; i < execve_requests_i; i++)
-                execve_requests[i] = execve_requests[i + 1];
-            execve_requests = krealloc(execve_requests, sizeof(struct execve_request_t) * execve_requests_i);
+            userspace_request_i--;
+            for (size_t i = 0; i < userspace_request_i; i++)
+                userspace_requests[i] = userspace_requests[i + 1];
+            userspace_requests = krealloc(userspace_requests,
+                sizeof(struct userspace_request_t) * userspace_request_i);
         }
-        spinlock_release(&execve_request_lock);
+        spinlock_release(&userspace_request_lock);
         ksleep(10);
     }
 }

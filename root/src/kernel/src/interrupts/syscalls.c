@@ -21,6 +21,14 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_exit(struct ctx_t *ctx) {
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+
+    exit_send_request(current_process, ctx->rdi);
+
+    for (;;) { asm volatile ("hlt;"); }
+}
+
 int syscall_execve(struct ctx_t *ctx) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
