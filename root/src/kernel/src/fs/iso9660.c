@@ -26,6 +26,7 @@
 #define ISO_IFDIR 040000
 #define ISO_IFIFO 010000
 #define ISO_FILE_MODE_MASK 0xf000
+#define CACHE_LIMIT 1023
 
 struct int16_LSB_MSB_t {
     uint16_t little;
@@ -157,6 +158,7 @@ struct mount_t {
     struct directory_entry_t root_entry;
     struct cached_block_t *cache;
     int cache_i;
+    int last_cache;
 };
 
 struct cached_block_t {
@@ -232,6 +234,22 @@ static int get_cache(struct mount_t *mount, uint32_t block) {
         }
     }
 
+    if (!cache && mount->cache_i >= CACHE_LIMIT &&
+            mount->last_cache < CACHE_LIMIT) {
+        num = ++mount->last_cache;
+        mount->cache[num].block = block;
+        mount->cache[num].ready = 0;
+        return num;
+    }
+
+    if (!cache && mount->last_cache >= CACHE_LIMIT) {
+        mount->last_cache = 0;
+        num = mount->last_cache;
+        mount->cache[num].block = block;
+        mount->cache[num].ready = 0;
+        return num;
+    }
+
     if (!cache) {
         mount->cache = krealloc(mount->cache, sizeof(struct cached_block_t) *
                 mount->cache_i + 1);
@@ -251,7 +269,8 @@ static int cache_block(struct mount_t *mount, uint32_t block) {
         return cache_index;
 
     int loc = cache->block * mount->block_size;
-    cache->cache = kalloc(mount->block_size);
+    if (!cache->cache)
+        cache->cache = kalloc(mount->block_size);
     lseek(mount->device, loc, SEEK_SET);
     read(mount->device, cache->cache, mount->block_size);
     cache->ready = 1;
