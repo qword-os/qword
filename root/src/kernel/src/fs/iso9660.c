@@ -615,8 +615,6 @@ static int iso9660_seek(int handle, off_t offset, int type) {
     }
 }
 
-/* TODO add checks for if rockridge format and take into
- * account the gmt offset when calculating time*/
 static int iso9660_fstat(int handle, struct stat *st) {
     if (handle < 0)
         return -1;
@@ -639,6 +637,16 @@ static int iso9660_fstat(int handle, struct stat *st) {
     st->st_blocks = (st->st_size + st->st_blksize - 1) / st->st_blksize;
 
     int rr_length = handle_s->path_res.rr_length;
+
+    if (!rr_length) {
+        /* TODO: standard ISO has extended attributes
+         * part of the file, which can be checked for.
+         * For now we just return as if nothing happened.
+         */
+        spinlock_release(&iso9660_lock);
+        return 0;
+    }
+
     char *rr_area = load_rr_area(mount, handle_s->path_res.rr_loc, rr_length);
     if (!rr_area) {
         spinlock_release(&iso9660_lock);
