@@ -699,32 +699,36 @@ static int iso9660_fstat(int handle, struct stat *st) {
         struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
                 sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_ctim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
-                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_ctim.tv_sec = get_unix_epoch(iso_time->second,
+                iso_time->minute, iso_time->hour, iso_time->day,
+                iso_time->month, iso_time->years + 1900);
         st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
     }
     if (tf->flags & TF_MODIFY) {
         struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
                 sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_mtim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
-                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_mtim.tv_sec = get_unix_epoch(iso_time->second,
+                iso_time->minute, iso_time->hour, iso_time->day,
+                iso_time->month, iso_time->years + 1900);
         st->st_mtim.tv_nsec = st->st_mtim.tv_sec * 1000000000;
     }
     if (tf->flags & TF_ACCESS) {
         struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
                 sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_atim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
-                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_ctim.tv_sec = get_unix_epoch(iso_time->second,
+                iso_time->minute, iso_time->hour, iso_time->day,
+                iso_time->month, iso_time->years + 1900);
         st->st_atim.tv_nsec = st->st_atim.tv_sec * 1000000000;
     }
     if (tf->flags & TF_ATTRIBUTES) {
         struct file_time_t *iso_time = (struct file_time_t*)(tf_buf +
                 sizeof(struct rr_tf) + (sizeof(struct file_time_t) *
                     count++));
-        st->st_ctim.tv_sec = mktime64(iso_time->years + 1900, iso_time->month,
-                iso_time->day, iso_time->hour, iso_time->minute, iso_time->second);
+        st->st_ctim.tv_sec = get_unix_epoch(iso_time->second,
+                iso_time->minute, iso_time->hour, iso_time->day,
+                iso_time->month, iso_time->years + 1900);
         st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
     }
 
