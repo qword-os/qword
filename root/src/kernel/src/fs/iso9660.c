@@ -645,7 +645,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
         st->st_ino = handle_s->path_res.target.extent_location.little;
         st->st_nlink = 1;
 
-        struct iso_time = handle_s->path_res.target.date;
+        struct file_time_t iso_time = handle_s->path_res.target.date;
         st->st_ctim.tv_sec = get_unix_epoch(iso_time.second,
                 iso_time.minute, iso_time.hour, iso_time.day,
                 iso_time.month, iso_time.years + 1900);
