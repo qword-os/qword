@@ -639,10 +639,19 @@ static int iso9660_fstat(int handle, struct stat *st) {
     int rr_length = handle_s->path_res.rr_length;
 
     if (!rr_length) {
-        /* TODO: standard ISO has extended attributes
-         * part of the file, which can be checked for.
-         * For now we just return as if nothing happened.
-         */
+        st->st_mode = 0660;
+        if (handle_s->path_res.target.flags & FILE_FLAG_DIR)
+            st->st_mode |= S_IFDIR;
+        st->st_ino = handle_s->path_res.target.extent_location.little;
+        st->st_nlink = 1;
+
+        struct iso_time = handle_s->path_res.target.date;
+        st->st_ctim.tv_sec = get_unix_epoch(iso_time.second,
+                iso_time.minute, iso_time.hour, iso_time.day,
+                iso_time.month, iso_time.years + 1900);
+        st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+        kprint(KPRN_WARN, "iso9660: stat() called on a non-rockridge ISO,"
+                "information will be missing!");
         spinlock_release(&iso9660_lock);
         return 0;
     }
