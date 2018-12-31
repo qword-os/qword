@@ -26,5 +26,7 @@ extern volatile uint64_t uptime_raw;
 extern volatile uint64_t uptime_sec;
 
 void ksleep(uint64_t);
+uint64_t get_jdn(int, int, int);
+uint64_t get_unix_epoch(int, int, int, int, int, int);
 
 #endif
