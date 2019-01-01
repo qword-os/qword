@@ -18,14 +18,14 @@ void lapic_write(uint32_t, uint32_t);
 void lapic_set_nmi(uint8_t, uint16_t, uint8_t);
 void lapic_enable(void);
 void lapic_eoi(void);
-void lapic_send_ipi(uint8_t, uint8_t);
+void lapic_send_ipi(int, uint8_t);
 
 uint32_t io_apic_read(size_t, uint32_t);
 void io_apic_write(size_t, uint32_t, uint32_t);
 size_t io_apic_from_redirect(uint32_t);
 uint32_t io_apic_get_max_redirect(size_t);
 void io_apic_set_redirect(uint8_t, uint32_t, uint16_t, uint8_t, int);
-void io_apic_set_mask(int, int);
+void io_apic_set_mask(int, int, int);
 
 void init_apic(void);
 

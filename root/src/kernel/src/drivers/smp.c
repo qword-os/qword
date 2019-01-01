@@ -50,7 +50,6 @@ static void ap_kernel_entry(void) {
     /* APs jump here after initialisation */
 
     kprint(KPRN_INFO, "smp: Started up AP #%u", current_cpu);
-    kprint(KPRN_INFO, "smp: Kernel stack top: %X", cpu_locals[current_cpu].kernel_stack);
 
     /* Enable this AP's local APIC */
     lapic_enable();
@@ -97,12 +96,12 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
 
     /* Send the INIT IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
-    lapic_write(APICREG_ICR0, 0x4500);
+    lapic_write(APICREG_ICR0, 0x500);
     /* wait 10ms */
     ksleep(10);
     /* Send the Startup IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
-    lapic_write(APICREG_ICR0, 0x4600 | (uint32_t)(size_t)trampoline);
+    lapic_write(APICREG_ICR0, 0x600 | (uint32_t)(size_t)trampoline);
     /* wait 1ms */
     ksleep(1);
 
@@ -111,7 +110,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     } else {
         /* Send the Startup IPI again */
         lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
-        lapic_write(APICREG_ICR0, 0x4600 | (uint32_t)(size_t)trampoline);
+        lapic_write(APICREG_ICR0, 0x600 | (uint32_t)(size_t)trampoline);
         /* wait 1s */
         ksleep(1000);
         if (smp_check_ap_flag())

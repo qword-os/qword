@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <klib.h>
-#include <pic.h>
+#include <apic.h>
 #include <tty.h>
 #include <lock.h>
 
@@ -55,7 +55,7 @@ static const char ascii_nomod[] = {
 };
 
 void init_kbd(void) {
-    pic_set_mask(1, 1);
+    io_apic_set_mask(0, 1, 1);
     return;
 }
 

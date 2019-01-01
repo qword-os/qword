@@ -11,6 +11,7 @@
 #define KPRN_WARN   1
 #define KPRN_ERR    2
 #define KPRN_DBG    3
+#define KPRN_PANIC  4
 
 #define EMPTY ((void *)(size_t)(-1))
 

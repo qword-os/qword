@@ -213,6 +213,9 @@ static void print_timestamp(int type) {
         case KPRN_ERR:
             kputs("\e[31mERROR\e[37m: ");
             break;
+        case KPRN_PANIC:
+            kputs("\e[31mPANIC\e[37m: ");
+            break;
         default:
         case KPRN_DBG:
             kputs("\e[36mDEBUG\e[37m: ");
@@ -221,7 +224,8 @@ static void print_timestamp(int type) {
 }
 
 void kprint(int type, const char *fmt, ...) {
-    spinlock_acquire(&kprint_lock);
+    if (type != KPRN_PANIC)
+        spinlock_acquire(&kprint_lock);
 
     va_list args;
 

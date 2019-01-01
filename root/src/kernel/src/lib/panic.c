@@ -19,16 +19,18 @@ void panic(const char *msg, size_t error_code, size_t debug_info) {
     for (int i = 0; i < smp_cpu_count; i++) {
         if (i == current_cpu)
             continue;
-        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
-        lapic_write(APICREG_ICR0, IPI_ABORT);
+        lapic_send_ipi(i, IPI_ABORT);
     }
 
-    kprint(KPRN_ERR, "KERNEL PANIC ON CPU #%U", current_cpu);
-    kprint(KPRN_ERR, "%s", msg);
-    kprint(KPRN_ERR, "Error code: %X", error_code);
-    kprint(KPRN_ERR, "Debug info: %X", debug_info);
+    kprint(KPRN_PANIC, "KERNEL PANIC ON CPU #%U", current_cpu);
+    kprint(KPRN_PANIC, "%s", msg);
+    kprint(KPRN_PANIC, "Error code: %X", error_code);
+    kprint(KPRN_PANIC, "Debug info: %X", debug_info);
+    kprint(KPRN_PANIC, "Current task: %d", cpu_locals[current_cpu].current_task);
+    kprint(KPRN_PANIC, "Current process: %d", cpu_locals[current_cpu].current_process);
+    kprint(KPRN_PANIC, "Current thread: %d", cpu_locals[current_cpu].current_thread);
 
-    kprint(KPRN_ERR, "System halted");
+    kprint(KPRN_PANIC, "System halted");
 
     asm volatile (
             "1:"
@@ -47,21 +49,23 @@ void kexcept(const char *msg, size_t cs, size_t ip, size_t error_code, size_t de
     for (int i = 0; i < smp_cpu_count; i++) {
         if (i == current_cpu)
             continue;
-        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
-        lapic_write(APICREG_ICR0, IPI_ABORT);
+        lapic_send_ipi(i, IPI_ABORT);
     }
 
-    kprint(KPRN_ERR, "EXCEPTION ON CPU #%U", current_cpu);
-    kprint(KPRN_ERR, "%s", msg);
-    kprint(KPRN_ERR, "Error code: %X", error_code);
-    kprint(KPRN_ERR, "Debug info: %X", debug_info);
-    kprint(KPRN_ERR, "Faulting instruction at: %X:%X", cs, ip);
+    kprint(KPRN_PANIC, "EXCEPTION ON CPU #%U", current_cpu);
+    kprint(KPRN_PANIC, "%s", msg);
+    kprint(KPRN_PANIC, "Error code: %X", error_code);
+    kprint(KPRN_PANIC, "Debug info: %X", debug_info);
+    kprint(KPRN_PANIC, "Faulting instruction at: %X:%X", cs, ip);
+    kprint(KPRN_PANIC, "Current task: %d", cpu_locals[current_cpu].current_task);
+    kprint(KPRN_PANIC, "Current process: %d", cpu_locals[current_cpu].current_process);
+    kprint(KPRN_PANIC, "Current thread: %d", cpu_locals[current_cpu].current_thread);
 
-    kprint(KPRN_ERR, "System halted");
+    kprint(KPRN_PANIC, "System halted");
 
     asm volatile(
             "1:"
             "hlt;"
-            "jmp 1b;"            
+            "jmp 1b;"
     );
 }
