@@ -9,6 +9,7 @@
 /test.img
 /**/*.o
 /**/*.bin
+/**/*.elf
 /bochsout.txt
 /bx_enh_dbg.ini
 /host/echfs-utils/echfs-utils

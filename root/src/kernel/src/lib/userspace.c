@@ -196,7 +196,7 @@ void userspace_request_monitor(void *arg) {
                 sizeof(struct userspace_request_t) * userspace_request_i);
         }
         spinlock_release(&userspace_request_lock);
-        ksleep(10);
+        yield(10);
     }
 }
 
@@ -281,6 +281,8 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
     /* Create a new process */
     pid_t new_pid = task_pcreate();
     if (new_pid == (pid_t)(-1)) return -1;
+
+    process_table[new_pid]->ppid = 0;
 
     /* Open stdio descriptors */
     process_table[new_pid]->file_handles[0] = open(stdin, 0, 0);

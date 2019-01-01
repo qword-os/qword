@@ -16,15 +16,15 @@
 #define SMP_TIMESLICE_MS 5
 
 void task_spinup(void *, size_t);
+void force_resched(void);
 
 lock_t scheduler_lock = 0;
+lock_t resched_lock = 1;
 
 struct process_t **process_table;
 
 struct thread_t **task_table;
 int64_t task_count = 0;
-
-static lock_t switched_cpus = 0;
 
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. See kernel/include/ctx.h for the register order. */
@@ -69,12 +69,8 @@ void yield(uint64_t ms) {
     tid_t current_task = cpu_locals[current_cpu].current_task;
     task_table[current_task]->yield_target = yield_target;
 
-    /* Send resched IPI to CPU 0 to trigger a reschedule */
-    lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[0].lapic_id) << 24);
-    lapic_write(APICREG_ICR0, IPI_RESCHED);
-
-    /* Paranoia: make sure the IPI goes through, 1ms should be more than plenty */
-    ksleep(1);
+    spinlock_release(&scheduler_lock);
+    force_resched();
 }
 
 /* Search for a new task to run */
@@ -118,13 +114,9 @@ __attribute__((noinline)) static void _idle(void) {
     cpu_locals[current_cpu].current_task = -1;
     cpu_locals[current_cpu].current_thread = -1;
     cpu_locals[current_cpu].current_process = -1;
-    spinlock_inc(&switched_cpus);
-    while (spinlock_read(&switched_cpus) < smp_cpu_count);
-    if (!current_cpu) {
-        spinlock_release(&scheduler_lock);
-    }
+    spinlock_release(&scheduler_lock);
+    spinlock_release(&resched_lock);
     asm volatile (
-        "call lapic_eoi;"
         "sti;"
         "1: "
         "hlt;"
@@ -150,6 +142,13 @@ __attribute__((noinline)) static void idle(void) {
 }
 
 void task_resched(struct ctx_t *ctx) {
+    spinlock_acquire(&resched_lock);
+
+    if (!spinlock_test_and_acquire(&scheduler_lock)) {
+        spinlock_release(&resched_lock);
+        return;
+    }
+
     pid_t current_task = cpu_locals[current_cpu].current_task;
     pid_t last_task = current_task;
 
@@ -190,12 +189,6 @@ void task_resched(struct ctx_t *ctx) {
     /* Restore thread FS base */
     load_fs_base(thread->fs_base);
 
-    spinlock_inc(&switched_cpus);
-    while (spinlock_read(&switched_cpus) < smp_cpu_count);
-    if (!current_cpu) {
-        spinlock_release(&scheduler_lock);
-    }
-
     /* Swap cr3, if necessary */
     if (task_table[last_task]->process != thread->process) {
         /* Switch cr3 and return to the thread */
@@ -209,36 +202,14 @@ void task_resched(struct ctx_t *ctx) {
 static int pit_ticks = 0;
 
 void task_resched_bsp(struct ctx_t *ctx) {
-    /* Assert lock on the scheduler */
-    if (!spinlock_test_and_acquire(&scheduler_lock)) {
-        return;
-    }
-
     if (++pit_ticks == SMP_TIMESLICE_MS) {
         pit_ticks = 0;
     } else {
-        spinlock_release(&scheduler_lock);
         return;
     }
 
-    spinlock_test_and_acquire(&switched_cpus);
-
-    for (int i = 1; i < smp_cpu_count; i++) {
-        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
-        lapic_write(APICREG_ICR0, IPI_RESCHED);
-    }
-
-    /* Call task_scheduler on the BSP */
-    task_resched(ctx);
-}
-
-void task_trigger_resched(struct ctx_t *ctx) {
-    spinlock_test_and_acquire(&switched_cpus);
-
-    for (int i = 1; i < smp_cpu_count; i++) {
-        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[i].lapic_id) << 24);
-        lapic_write(APICREG_ICR0, IPI_RESCHED);
-    }
+    for (int i = 1; i < smp_cpu_count; i++)
+        lapic_send_ipi(i, IPI_RESCHED);
 
     /* Call task_scheduler on the BSP */
     task_resched(ctx);
@@ -345,6 +316,9 @@ void abort_thread_exec(int scheduler_is_locked) {
     for (;;) { asm volatile ("hlt"); }
 }
 
+#define STACK_LOCATION_TOP ((size_t)0x0000800000000000)
+#define STACK_SIZE ((size_t)32768)
+
 /* Kill a thread in a given process */
 /* Return -1 on failure */
 int task_tkill(pid_t pid, tid_t tid) {
@@ -359,12 +333,13 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu) {
         /* Send abort execution IPI */
-        lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[active_on_cpu].lapic_id) << 24);
-        lapic_write(APICREG_ICR0, IPI_ABORTEXEC);
-        ksleep(5);
+        lapic_send_ipi(active_on_cpu, IPI_ABORTEXEC);
+        ksleep(1);
     }
 
     task_table[process_table[pid]->threads[tid]->task_id] = EMPTY;
+
+    void *kstack = (void *)(process_table[pid]->threads[tid]->kstack - STACK_SIZE);
 
     kfree(process_table[pid]->threads[tid]);
 
@@ -375,21 +350,20 @@ int task_tkill(pid_t pid, tid_t tid) {
     if (active_on_cpu == current_cpu) {
         asm volatile (
             "mov rsp, qword ptr gs:[8];"
+            "call kfree;"
             "mov rdi, 1;"
             "call abort_thread_exec;"
+            :
+            : "D" (kstack)
         );
+    } else {
+        kfree(kstack);
     }
 
     spinlock_release(&scheduler_lock);
 
     return 0;
 }
-
-#define KSTACK_LOCATION_TOP ((size_t)0x0000800000000000)
-#define KSTACK_SIZE ((size_t)32768)
-
-#define STACK_LOCATION_TOP ((size_t)0x0000700000000000)
-#define STACK_SIZE ((size_t)32768)
 
 /* Create thread from function pointer */
 /* Returns thread ID, -1 on failure */
@@ -420,8 +394,12 @@ found_new_task_id:;
         goto err;
     }
 
-    process_table[pid]->threads[new_tid] = new_thread;
-    task_table[new_task_id] = new_thread;
+    /* Set up a kernel stack for the thread */
+    new_thread->kstack = (size_t)kalloc(STACK_SIZE) + STACK_SIZE;
+    if (new_thread->kstack == STACK_SIZE) {
+        kfree(new_thread);
+        goto err;
+    }
 
     new_thread->active_on_cpu = -1;
 
@@ -432,7 +410,7 @@ found_new_task_id:;
         new_thread->ctx = default_krnl_ctx;
 
     /* Set up a user stack for the thread */
-    if (1) {
+    if (pid) {
         /* Virtual addresses of the stack. */
         size_t stack_guardpage = STACK_LOCATION_TOP -
                                  (STACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
@@ -519,28 +497,9 @@ found_new_task_id:;
         /* Add a guard page */
         unmap_page(process_table[pid]->pagemap, stack_guardpage);
         new_thread->ctx.rsp = stack_bottom + STACK_SIZE - ((sbase - sp) * sizeof(size_t));
-    }
-
-    /* Set up a kernel stack for the thread */
-    if (pid) {
-        size_t kstack_guardpage = KSTACK_LOCATION_TOP -
-                                  (KSTACK_SIZE + PAGE_SIZE/*guard page*/) * (new_tid + 1);
-        size_t kstack_bottom = kstack_guardpage + PAGE_SIZE;
-        for (size_t i = 0; i < KSTACK_SIZE / PAGE_SIZE; i++) {
-            void *ptr = pmm_alloc(1);
-            if (!ptr) {
-                kfree(process_table[pid]->threads[new_tid]);
-                process_table[pid]->threads[new_tid] = EMPTY;
-                goto err;
-            }
-            map_page(process_table[pid]->pagemap,
-                     (size_t)ptr,
-                     (size_t)(kstack_bottom + (i * PAGE_SIZE)),
-                     0x03);
-        }
-        /* Add a guard page */
-        unmap_page(process_table[pid]->pagemap, kstack_guardpage);
-        new_thread->kstack = kstack_bottom + KSTACK_SIZE;
+    } else {
+        /* If it's a kernel thread, kstack is the main stack */
+        new_thread->ctx.rsp = new_thread->kstack;
     }
 
     /* Set instruction pointer to entry point */
@@ -563,6 +522,9 @@ found_new_task_id:;
     new_thread->process = pid;
     spinlock_release(&new_thread->lock);
 
+    /* Actually "enable" the new thread */
+    process_table[pid]->threads[new_tid] = new_thread;
+    task_table[new_task_id] = new_thread;
     task_count++;
 
     spinlock_release(&scheduler_lock);

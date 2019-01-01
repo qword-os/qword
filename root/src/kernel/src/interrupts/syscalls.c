@@ -43,7 +43,7 @@ int syscall_execve(struct ctx_t *ctx) {
         &err);
 
     for (;;) {
-        ksleep(10);
+        yield(10);
         spinlock_acquire(&scheduler_lock);
         spinlock_acquire(err_lock);
         if (*err)
@@ -83,6 +83,8 @@ int syscall_fork(struct ctx_t *ctx) {
 
     struct process_t *new_process = process_table[new_pid];
 
+    new_process->ppid = current_process;
+
     pmm_free((void *)new_process->pagemap->pml4 - MEM_PHYS_OFFSET, 1);
     kfree(new_process->pagemap);
 
@@ -119,7 +121,8 @@ found_new_task_id:
     new_thread->lock = 1;
     new_thread->yield_target = 0;
     new_thread->active_on_cpu = -1;
-    new_thread->kstack = calling_thread->kstack;
+    /* TODO: fix this */
+    new_thread->kstack = (size_t)kalloc(32768) + 32768;
     new_thread->fs_base = calling_thread->fs_base;
     new_thread->ctx = *ctx;
     new_thread->ctx.rax = 0;

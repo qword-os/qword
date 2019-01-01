@@ -47,6 +47,7 @@ all: kernel.bin
 
 kernel.bin: $(BINS) $(OBJ) $(H_FILES)
 	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker.ld -o $@
+	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker-elf.ld -o kernel.elf
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CHARDFLAGS) -c $< -o $@

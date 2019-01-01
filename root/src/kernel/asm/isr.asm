@@ -1,4 +1,4 @@
-extern lapic_eoi
+extern lapic_eoi_ptr
 
 global int_handler
 
@@ -211,11 +211,12 @@ irq0_handler:
 
     call pit_handler
 
+    mov rax, qword [lapic_eoi_ptr]
+    mov dword [rax], 0
+
     mov rdi, rsp
 
     call task_resched_bsp
-
-    call lapic_eoi
 
     popam
     iretq
@@ -232,19 +233,15 @@ ipi_abortexec:
 ipi_resched:
     pusham
 
+    mov rax, qword [lapic_eoi_ptr]
+    mov dword [rax], 0
+
     mov rdi, rsp
 
-    mov rax, qword [gs:0000]
-    test rax, rax
-    jz .is_bsp
     call task_resched
-  .is_bsp:
-    call task_trigger_resched
 
-    ; ** EXECUTION SHOULD NEVER REACH THIS POINT **
-  .halt:
-    hlt
-    jmp .halt
+    popam
+    iretq
 
 invalid_syscall:
     mov rax, -1
@@ -331,7 +328,8 @@ irq1_handler:
     in al, 0x60
     mov rdi, rax
     call kbd_handler
-    call lapic_eoi
+    mov rax, qword [lapic_eoi_ptr]
+    mov dword [rax], 0
     popam
     iretq
 ; IPIs
