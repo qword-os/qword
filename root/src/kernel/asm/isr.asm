@@ -281,7 +281,8 @@ syscall_table:
     dq syscall_exit ;12
     extern syscall_waitpid
     dq syscall_waitpid ;13
-    dq invalid_syscall
+    extern syscall_getppid
+    dq syscall_getppid ;14
   .end:
 
 section .text

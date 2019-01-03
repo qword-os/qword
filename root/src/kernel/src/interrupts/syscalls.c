@@ -31,12 +31,14 @@ int syscall_waitpid(struct ctx_t *ctx) {
     int *status = (int *)ctx->rsi;
     int flags = (int)ctx->rdx;
 
+    if (privilege_check(ctx->rsi, sizeof(int))) {
+        return -1;
+    }
+
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
-
-    kprint(0, "waitpid(%d, %X, %d);", pid, status, flags);
 
     for (;;) {
         spinlock_acquire(&process->child_event_lock);
@@ -76,7 +78,7 @@ int syscall_exit(struct ctx_t *ctx) {
 
     exit_send_request(current_process, ctx->rdi);
 
-    for (;;) { asm volatile ("hlt;"); }
+    for (;;) { yield(1000); }
 }
 
 int syscall_execve(struct ctx_t *ctx) {
@@ -84,6 +86,8 @@ int syscall_execve(struct ctx_t *ctx) {
 
     lock_t *err_lock;
     int *err;
+
+    /* FIXME check if filename and argv/envp are in userspace */
 
     execve_send_request(current_process,
         (void *)ctx->rdi,
@@ -261,6 +265,13 @@ int syscall_debug_print(struct ctx_t *ctx) {
 
 pid_t syscall_getpid(void) {
     return cpu_locals[current_cpu].current_process;
+}
+
+pid_t syscall_getppid(void) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t ret = process_table[CURRENT_PROCESS]->ppid;
+    spinlock_release(&scheduler_lock);
+    return ret;
 }
 
 int syscall_open(struct ctx_t *ctx) {
