@@ -6,6 +6,7 @@
 #include <klib.h>
 #include <elf.h>
 #include <lock.h>
+#include <panic.h>
 
 #define USER_REQUEST_EXECVE 1
 #define USER_REQUEST_EXIT 2
@@ -142,8 +143,14 @@ void exit_send_request(pid_t pid, int exit_code) {
     userspace_send_request(USER_REQUEST_EXIT, exit_request);
 }
 
+// Macros from mlibc: options/posix/include/sys/wait.h
+#define WAITPID_STATUS_EXITED 0x00000200
+
 static void exit_receive_request(struct exit_request_t *exit_request) {
     struct process_t *process = process_table[exit_request->pid];
+
+    if (!process->ppid)
+        panic("Going nowhere without my init!", 0, 0);
 
     /* Kill all associated threads */
     for (size_t i = 0; i < MAX_THREADS; i++)
@@ -157,12 +164,20 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
     }
     kfree(process->file_handles);
 
-    /* Register exit code */
-    process->exit_code = exit_request->exit_code;
+    if (process->child_events)
+        kfree(process->child_events);
 
     free_address_space(process->pagemap);
 
     /* TODO: mark process as zombie/send stuff to parent process... */
+    struct child_event_t child_event;
+
+    child_event.pid = exit_request->pid;
+    child_event.status = 0;
+    child_event.status |= (uint8_t)(exit_request->exit_code & 0xff);
+    child_event.status |= WAITPID_STATUS_EXITED;
+
+    task_send_child_event(process->ppid, &child_event);
 
     kfree(exit_request);
 }

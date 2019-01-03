@@ -89,10 +89,14 @@ struct auxval_t {
     size_t at_phnum;
 };
 
+struct child_event_t {
+    pid_t pid;
+    int status;
+};
+
 struct process_t {
     pid_t pid;
     pid_t ppid;
-    int exit_code;
     struct pagemap_t *pagemap;
     struct thread_t **threads;
     char cwd[2048];
@@ -101,7 +105,12 @@ struct process_t {
     lock_t file_handles_lock;
     size_t cur_brk;
     lock_t cur_brk_lock;
+    struct child_event_t *child_events;
+    size_t child_event_i;
+    lock_t child_event_lock;
 };
+
+int task_send_child_event(pid_t, struct child_event_t *);
 
 extern int64_t task_count;
 

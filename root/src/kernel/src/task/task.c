@@ -61,6 +61,23 @@ void init_sched(void) {
     return;
 }
 
+int task_send_child_event(pid_t pid, struct child_event_t *child_event) {
+    spinlock_acquire(&scheduler_lock);
+    struct process_t *process = process_table[pid];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->child_event_lock);
+
+    process->child_event_i++;
+    process->child_events = krealloc(process->child_events,
+        sizeof(struct child_event_t) * process->child_event_i);
+
+    process->child_events[process->child_event_i - 1] = *child_event;
+
+    spinlock_release(&process->child_event_lock);
+    return 0;
+}
+
 void yield(uint64_t ms) {
     spinlock_acquire(&scheduler_lock);
 
@@ -264,6 +281,8 @@ found_new_pid:
 
     new_process->cur_brk = BASE_BRK_LOCATION;
     new_process->cur_brk_lock = 1;
+
+    new_process->child_event_lock = 1;
 
     /* Create a new pagemap for the process */
     pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);

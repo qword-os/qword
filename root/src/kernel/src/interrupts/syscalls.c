@@ -21,6 +21,56 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+// Macros from mlibc: options/posix/include/sys/wait.h
+#define WCONTINUED 1
+#define WNOHANG 2
+#define WUNTRACED 4
+
+int syscall_waitpid(struct ctx_t *ctx) {
+    pid_t pid = (pid_t)ctx->rdi;
+    int *status = (int *)ctx->rsi;
+    int flags = (int)ctx->rdx;
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    kprint(0, "waitpid(%d, %X, %d);", pid, status, flags);
+
+    for (;;) {
+        spinlock_acquire(&process->child_event_lock);
+        for (size_t i = 0; i < process->child_event_i; i++) {
+            if (process->child_events[i].pid == pid || pid == -1) {
+                // found our event
+                pid_t child_pid = process->child_events[i].pid;
+                struct process_t *child_process = process_table[child_pid];
+                *status = process->child_events[i].status;
+                process->child_event_i--;
+                for (size_t j = i; j < process->child_event_i; j++)
+                    process->child_events[j] = process->child_events[j + 1];
+                process->child_events = krealloc(process->child_events,
+                    sizeof(struct child_event_t) * process->child_event_i);
+                spinlock_release(&process->child_event_lock);
+                spinlock_acquire(&scheduler_lock);
+                kfree(child_process);
+                process_table[child_pid] = (void *)(-1);
+                spinlock_release(&scheduler_lock);
+                return child_pid;
+            }
+        }
+        spinlock_release(&process->child_event_lock);
+
+        // event not found
+
+        if (flags & WNOHANG) {
+            return 0;
+        }
+
+        yield(50);
+    }
+}
+
 int syscall_exit(struct ctx_t *ctx) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
