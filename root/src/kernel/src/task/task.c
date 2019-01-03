@@ -178,6 +178,8 @@ void task_resched(struct ctx_t *ctx) {
         fxsave(&current_thread->fxstate);
         /* Save user rsp */
         current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
+        /* Save errno */
+        current_thread->errno = cpu_locals[current_cpu].thread_errno;
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
     }
@@ -197,6 +199,8 @@ void task_resched(struct ctx_t *ctx) {
 
     cpu_local->thread_kstack = thread->kstack;
     cpu_local->thread_ustack = thread->ustack;
+
+    cpu_local->thread_errno = thread->errno;
 
     thread->active_on_cpu = current_cpu;
 

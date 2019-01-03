@@ -3,6 +3,7 @@
 #include <klib.h>
 #include <fs.h>
 #include <lock.h>
+#include <errno.h>
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff
@@ -113,7 +114,7 @@ static int cache_block(int handle, uint64_t block) {
 
 static int echfs_read(int handle, void *buf, size_t count) {
     if (handle < 0) {
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
@@ -121,19 +122,19 @@ static int echfs_read(int handle, void *buf, size_t count) {
 
     if (handle >= echfs_handles_i) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
     if (echfs_handles[handle].free) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
     if (echfs_handles[handle].type == DIRECTORY_TYPE) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EISDIR
+        errno = EISDIR;
         return -1;
     }
 
@@ -370,6 +371,7 @@ static int echfs_close(int handle) {
     return 0;
 
 fail:
+    errno = EBADF;
     spinlock_release(&echfs_lock);
     return -1;
 }
@@ -383,11 +385,11 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
     if (path_result.not_found) {
         spinlock_release(&echfs_lock);
-        // TODO: should be ENOENT
+        errno = ENOENT;
         return -1;
     } else if (path_result.failure) {
         spinlock_release(&echfs_lock);
-        // TODO: should be ENOTDIR
+        errno = ENOTDIR;
         return -1;
     }
 
@@ -397,7 +399,7 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
         // it's a directory
         if (flags & O_WRONLY || flags & O_RDWR) {
             spinlock_release(&echfs_lock);
-            // TODO: should be EISDIR
+            errno = EISDIR;
             return -1;
         }
     }
@@ -467,7 +469,7 @@ static int echfs_lseek(int handle, off_t offset, int type) {
     long ret;
 
     if (handle < 0) {
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
@@ -475,19 +477,19 @@ static int echfs_lseek(int handle, off_t offset, int type) {
 
     if (handle >= echfs_handles_i) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
     if (echfs_handles[handle].free) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
     if (echfs_handles[handle].type == DIRECTORY_TYPE) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EISDIR
+        errno = EISDIR;
         return -1;
     }
 
@@ -515,14 +517,14 @@ static int echfs_lseek(int handle, off_t offset, int type) {
             return ret;
         default:
             spinlock_release(&echfs_lock);
-            // TODO; should be EINVAL
+            errno = EINVAL;
             return -1;
     }
 }
 
 static int echfs_dup(int handle) {
     if (handle < 0) {
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
@@ -530,13 +532,13 @@ static int echfs_dup(int handle) {
 
     if (handle >= echfs_handles_i) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
     if (echfs_handles[handle].free) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
@@ -549,7 +551,7 @@ static int echfs_dup(int handle) {
 
 static int echfs_fstat(int handle, struct stat *st) {
     if (handle < 0) {
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
@@ -557,13 +559,13 @@ static int echfs_fstat(int handle, struct stat *st) {
 
     if (handle >= echfs_handles_i) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
     if (echfs_handles[handle].free) {
         spinlock_release(&echfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 

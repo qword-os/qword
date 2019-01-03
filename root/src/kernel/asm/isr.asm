@@ -310,6 +310,7 @@ syscall_entry:
 
   .out:
     popams
+    mov rdx, qword [gs:0032] ; return errno in rdx
 
     cli
 

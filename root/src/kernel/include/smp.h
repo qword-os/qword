@@ -20,6 +20,7 @@ struct cpu_local_t {
     size_t kernel_stack;
     size_t thread_kstack;
     size_t thread_ustack;
+    size_t thread_errno;
     /* Feel free to move every other member, and use any type as you see fit */
     tid_t current_task;
     pid_t current_process;
