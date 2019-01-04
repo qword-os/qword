@@ -4,6 +4,7 @@
 #include <fs.h>
 #include <dev.h>
 #include <lock.h>
+#include <errno.h>
 
 #define DEVFS_HANDLES_STEP 1024
 
@@ -53,6 +54,11 @@ load_handle:
 
 static int devfs_write(int handle, const void *ptr, size_t len) {
     spinlock_acquire(&devfs_lock);
+    if (devfs_handles[handle].device == -1) {
+        spinlock_release(&devfs_lock);
+        errno = EISDIR;
+        return -1;
+    }
     spinlock_acquire(&devfs_handles[handle].lock);
     struct devfs_handle_t dev = devfs_handles[handle];
     spinlock_release(&devfs_lock);
@@ -73,6 +79,11 @@ static int devfs_write(int handle, const void *ptr, size_t len) {
 
 static int devfs_read(int handle, void *ptr, size_t len) {
     spinlock_acquire(&devfs_lock);
+    if (devfs_handles[handle].device == -1) {
+        spinlock_release(&devfs_lock);
+        errno = EISDIR;
+        return -1;
+    }
     spinlock_acquire(&devfs_handles[handle].lock);
     struct devfs_handle_t dev = devfs_handles[handle];
     spinlock_release(&devfs_lock);
@@ -98,36 +109,47 @@ static int devfs_mount(void) {
 static int devfs_open(char *path, int flags, int mode) {
     spinlock_acquire(&devfs_lock);
 
+    int is_root = 0;
+
     if (!kstrcmp(path, "/")) {
-        // TODO: open devfs root dir
-        goto fail;
+        is_root = 1;
+        goto root;
     }
 
     if (*path == '/')
         path++;
 
     dev_t device = device_find(path);
-    if (device == (dev_t)(-1))
+    if (device == (dev_t)(-1)) {
+        errno = ENOENT;
         goto fail;
+    }
 
-    if (flags & O_TRUNC)
+root:
+    if (   flags & O_TRUNC
+        || flags & O_APPEND
+        || flags & O_CREAT) {
+        errno = EROFS;
         goto fail;
-    if (flags & O_APPEND)
-        goto fail;
-    if (flags & O_CREAT)
-        goto fail;
+    }
 
     struct devfs_handle_t new_handle = {0};
     new_handle.free = 0;
     kstrcpy(new_handle.path, path);
     new_handle.flags = flags;
     new_handle.mode = mode;
-    new_handle.end = (long)device_size(device);
+    if (is_root)
+        new_handle.end = 0;
+    else
+        new_handle.end = (long)device_size(device);
     if (!new_handle.end)
         new_handle.is_stream = 1;
     new_handle.ptr = 0;
     new_handle.begin = 0;
-    new_handle.device = device;
+    if (is_root)
+        new_handle.device = -1;
+    else
+        new_handle.device = device;
 
     new_handle.lock = 1;
 
@@ -274,10 +296,14 @@ int devfs_fstat(int handle, struct stat *st) {
     st->st_ctim.tv_nsec = 0;
 
     st->st_mode = 0;
-    if (devfs_handles[handle].is_stream)
-        st->st_mode |= S_IFCHR;
-    else
-        st->st_mode |= S_IFBLK;
+    if (devfs_handles[handle].device == -1) {
+        st->st_mode |= S_IFDIR;
+    } else {
+        if (devfs_handles[handle].is_stream)
+            st->st_mode |= S_IFCHR;
+        else
+            st->st_mode |= S_IFBLK;
+    }
 
     spinlock_release(&devfs_lock);
     return 0;

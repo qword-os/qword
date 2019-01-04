@@ -1,12 +1,12 @@
-cpu: reset_on_triple_fault=0
+cpu: count=2, reset_on_triple_fault=0
 
 display_library: x, options="gui_debug"
 
-megs: 256
+megs: 512
 
 clock: sync=realtime, time0=local
 
-ata0-master: type=disk, path="qword.img", mode=flat, cylinders=130, heads=16, spt=63
+ata0-master: type=disk, path="qword.img", mode=flat
 
 boot: c
 

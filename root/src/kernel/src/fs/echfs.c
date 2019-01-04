@@ -389,7 +389,7 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
         return -1;
     } else if (path_result.failure) {
         spinlock_release(&echfs_lock);
-        errno = ENOTDIR;
+        errno = ENOENT;
         return -1;
     }
 

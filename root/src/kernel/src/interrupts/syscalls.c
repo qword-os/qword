@@ -8,6 +8,7 @@
 #include <task.h>
 #include <mm.h>
 #include <time.h>
+#include <errno.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -20,6 +21,43 @@ static inline int privilege_check(size_t base, size_t len) {
 /* Prototype syscall: int syscall_name(struct ctx_t *ctx) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
+
+int syscall_chdir(struct ctx_t *ctx) {
+    char *new_path = (char *)ctx->rdi;
+
+    if (privilege_check(ctx->rdi, kstrlen(new_path) + 1))
+        return -1;
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    char abs_path[2048];
+    spinlock_acquire(&process->cwd_lock);
+    vfs_get_absolute_path(abs_path, new_path, process->cwd);
+    spinlock_release(&process->cwd_lock);
+
+    int fd = open(abs_path, 0, 0);
+    if (fd == -1)
+        /* errno is propagated from open() */
+        return -1;
+
+    struct stat st;
+    fstat(fd, &st);
+
+    close(fd);
+
+    if (!(st.st_mode & S_IFDIR)) {
+        errno = ENOTDIR;
+        return -1;
+    }
+
+    spinlock_acquire(&process->cwd_lock);
+    kstrcpy(process->cwd, abs_path);
+    spinlock_release(&process->cwd_lock);
+    return 0;
+}
 
 // Macros from mlibc: options/posix/include/sys/wait.h
 #define WCONTINUED 1
@@ -82,15 +120,25 @@ int syscall_exit(struct ctx_t *ctx) {
 }
 
 int syscall_execve(struct ctx_t *ctx) {
+    spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
 
     lock_t *err_lock;
     int *err;
 
     /* FIXME check if filename and argv/envp are in userspace */
 
+    char *path = (char *)ctx->rdi;
+
+    char abs_path[2048];
+    spinlock_acquire(&process->cwd_lock);
+    vfs_get_absolute_path(abs_path, path, process->cwd);
+    spinlock_release(&process->cwd_lock);
+
     execve_send_request(current_process,
-        (void *)ctx->rdi,
+        abs_path,
         (void *)ctx->rsi,
         (void *)ctx->rdx,
         &err_lock,
@@ -251,7 +299,7 @@ int syscall_debug_print(struct ctx_t *ctx) {
         return -1;
 
     // Make sure we're not trying to print memory that doesn't belong to us
-    if (privilege_check(ctx->rsi, kstrlen((const char *)ctx->rsi)))
+    if (privilege_check(ctx->rsi, kstrlen((const char *)ctx->rsi) + 1))
         return -1;
 
     kprint(ctx->rdi, "[%u:%u:%u] %s",
@@ -284,7 +332,7 @@ int syscall_open(struct ctx_t *ctx) {
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
-    if (privilege_check(ctx->rdi, kstrlen((const char *)ctx->rdi)))
+    if (privilege_check(ctx->rdi, kstrlen((const char *)ctx->rdi) + 1))
         return -1;
 
     spinlock_acquire(&process->file_handles_lock);

@@ -39,6 +39,9 @@ int vfs_get_mountpoint(const char *path, char **local_path) {
     if (guess_size > 1)
         *local_path += guess_size;
 
+    if (!**local_path)
+        *local_path = "/";
+
     return (int)guess;
 }
 

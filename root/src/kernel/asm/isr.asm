@@ -283,6 +283,8 @@ syscall_table:
     dq syscall_waitpid ;13
     extern syscall_getppid
     dq syscall_getppid ;14
+    extern syscall_chdir
+    dq syscall_chdir ;15
   .end:
 
 section .text
