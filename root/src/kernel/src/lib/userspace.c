@@ -19,7 +19,7 @@ struct userspace_request_t {
 static size_t userspace_request_i = 0;
 static struct userspace_request_t *userspace_requests = 0;
 static lock_t userspace_request_lock = 1;
-static struct event_t userspace_event;
+static event_t userspace_event;
 
 static void userspace_send_request(int type, void *opaque_data) {
     spinlock_acquire(&userspace_request_lock);
@@ -187,7 +187,6 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
 void userspace_request_monitor(void *arg) {
     (void)arg;
 
-    init_event(&userspace_event);
     kprint(KPRN_INFO, "urm: Userspace request monitor launched.");
 
     /* main event loop */

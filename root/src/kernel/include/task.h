@@ -35,10 +35,7 @@
     ); \
 })
 
-struct event_t {
-    size_t counter;
-    lock_t lock;
-};
+typedef lock_t event_t;
 
 struct ctx_t {
     uint64_t r15;
@@ -74,6 +71,7 @@ struct thread_t {
     pid_t process;
     lock_t lock;
     uint64_t yield_target;
+    event_t *event_ptr;
     int active_on_cpu;
     size_t kstack;
     size_t ustack;
@@ -117,9 +115,8 @@ struct process_t {
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);
-void init_event(struct event_t *);
-void task_await_event(struct event_t *);
-void task_trigger_event(struct event_t *);
+void task_await_event(event_t *);
+void task_trigger_event(event_t *);
 
 extern int64_t task_count;
 

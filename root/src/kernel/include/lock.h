@@ -14,6 +14,14 @@ typedef volatile int64_t lock_t;
     ); \
 })
 
+#define spinlock_dec(lock) ({ \
+    asm volatile ( \
+        "lock dec qword ptr ds:[rbx];" \
+        : \
+        : "b" (lock) \
+    ); \
+})
+
 #define spinlock_read(lock) ({ \
     lock_t ret; \
     asm volatile ( \
