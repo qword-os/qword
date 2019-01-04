@@ -557,3 +557,36 @@ err:
     spinlock_release(&scheduler_lock);
     return -1;
 }
+
+void task_await_event(struct event_t *event) {
+    for (;;) {
+        spinlock_acquire(&event->lock);
+        if (event->counter > 0) {
+            event->counter--;
+            spinlock_release(&event->lock);
+
+            return;
+        } else {
+            /* TODO: Put thread to sleep and add it to a
+            * wakeup queue */
+            spinlock_release(&event->lock);
+            yield(10);
+        }
+    }
+}
+
+void task_trigger_event(struct event_t *event) {
+    spinlock_acquire(&event->lock);
+    event->counter++;
+    spinlock_release(&event->lock);
+
+    return;
+}
+
+void init_event(struct event_t *event) {
+    event->counter = 0;
+    event->lock = 1;
+
+    return;
+}
+

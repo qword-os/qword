@@ -35,6 +35,11 @@
     ); \
 })
 
+struct event_t {
+    size_t counter;
+    lock_t lock;
+};
+
 struct ctx_t {
     uint64_t r15;
     uint64_t r14;
@@ -112,6 +117,9 @@ struct process_t {
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);
+void init_event(struct event_t *);
+void task_await_event(struct event_t *);
+void task_trigger_event(struct event_t *);
 
 extern int64_t task_count;
 
@@ -121,7 +129,6 @@ extern struct process_t **process_table;
 extern struct thread_t **task_table;
 
 void init_sched(void);
-
 void yield(uint64_t);
 
 enum tcreate_abi {

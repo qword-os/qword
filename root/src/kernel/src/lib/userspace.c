@@ -19,6 +19,7 @@ struct userspace_request_t {
 static size_t userspace_request_i = 0;
 static struct userspace_request_t *userspace_requests = 0;
 static lock_t userspace_request_lock = 1;
+static struct event_t userspace_event;
 
 static void userspace_send_request(int type, void *opaque_data) {
     spinlock_acquire(&userspace_request_lock);
@@ -32,6 +33,8 @@ static void userspace_send_request(int type, void *opaque_data) {
 
     userspace_request->type = type;
     userspace_request->opaque_data = opaque_data;
+
+    task_trigger_event(&userspace_event);
 
     spinlock_release(&userspace_request_lock);
 }
@@ -100,7 +103,6 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
     );
 
     /* free request mem */
-
     kfree(execve_request->filename);
 
     for (size_t i = 0; ; i++) {
@@ -185,6 +187,7 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
 void userspace_request_monitor(void *arg) {
     (void)arg;
 
+    init_event(&userspace_event);
     kprint(KPRN_INFO, "urm: Userspace request monitor launched.");
 
     /* main event loop */
@@ -211,7 +214,7 @@ void userspace_request_monitor(void *arg) {
                 sizeof(struct userspace_request_t) * userspace_request_i);
         }
         spinlock_release(&userspace_request_lock);
-        yield(10);
+        task_await_event(&userspace_event);
     }
 }
 
