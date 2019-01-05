@@ -4,6 +4,7 @@
 #include <task.h>
 #include <klib.h>
 #include <smp.h>
+#include <errno.h>
 
 struct fs_t *filesystems;
 struct mnt_t *mountpoints;
@@ -160,6 +161,13 @@ int dup(int fd) {
     return create_fd(fs, intern_fd);
 }
 
+int readdir(int fd, struct dirent *buf) {
+    int fs = file_descriptors[fd].fs;
+    int intern_fd = file_descriptors[fd].intern_fd;
+
+    return filesystems[fs].readdir(intern_fd, buf);
+}
+
 int read(int fd, void *buf, size_t len) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
@@ -229,7 +237,20 @@ int fstat(int fd, struct stat *buffer) {
     return filesystems[fs].fstat(intern_fd, buffer);
 }
 
+static int fs_call_invalid(void) {
+    kprint(KPRN_WARN, "vfs: Unimplemented filesystem call occurred, returning ENOSYS!");
+    errno = ENOSYS;
+    return -1;
+}
+
 int vfs_install_fs(struct fs_t filesystem) {
+    /* check if any entry is bogus */
+    /* XXX make this prettier */
+    size_t *p = ((void *)&filesystem) + 256; // 256 == size of type
+    for (size_t i = 0; i < (sizeof(struct fs_t) - 256) / sizeof(size_t); i++)
+        if (!p[i])
+            p[i] = (size_t)fs_call_invalid;
+
     filesystems = krealloc(filesystems, (filesystems_i + 1) * sizeof(struct fs_t));
 
     filesystems[filesystems_i++] = filesystem;

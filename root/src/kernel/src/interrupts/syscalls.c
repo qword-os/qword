@@ -22,6 +22,32 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_readdir(struct ctx_t *ctx) {
+    int fd = (int)ctx->rdi;
+    struct dirent *buf = (struct dirent *)ctx->rsi;
+
+    if (privilege_check(ctx->rsi, sizeof(struct dirent))) {
+        return -1;
+    }
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[fd] == -1) {
+        spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    size_t ret = readdir(process->file_handles[fd], buf);
+
+    spinlock_release(&process->file_handles_lock);
+    return ret;
+}
+
 int syscall_chdir(struct ctx_t *ctx) {
     char *new_path = (char *)ctx->rdi;
 

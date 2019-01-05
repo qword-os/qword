@@ -540,6 +540,52 @@ static int echfs_dup(int handle) {
     return 0;
 }
 
+static int echfs_readdir(int handle, struct dirent *dir) {
+    spinlock_acquire(&echfs_lock);
+
+    if (   handle < 0
+        || handle >= echfs_handles_i
+        || echfs_handles[handle].free) {
+        spinlock_release(&echfs_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
+    uint64_t dir_id = echfs_handles[handle].cached_file->path_res.target.payload;
+
+    for (;;) {
+        // check if past directory table
+        if (echfs_handles[handle].ptr >= (mnt->dirsize * ENTRIES_PER_BLOCK)) goto end_of_dir;
+        struct entry_t entry = rd_entry(mnt, echfs_handles[handle].ptr);
+        if (!entry.parent_id) goto end_of_dir;              // check if past last entry
+        echfs_handles[handle].ptr++;
+        if (entry.parent_id == dir_id) {
+            // valid entry
+            dir->d_ino = echfs_handles[handle].ptr - 1;
+            kstrcpy(dir->d_name, entry.name);
+            dir->d_reclen = sizeof(struct dirent);
+            switch (entry.type) {
+                case DIRECTORY_TYPE:
+                    dir->d_type = DT_DIR;
+                    break;
+                case FILE_TYPE:
+                    dir->d_type = DT_REG;
+                    break;
+            }
+            break;
+        }
+    }
+
+    spinlock_release(&echfs_lock);
+    return 0;
+
+end_of_dir:
+    spinlock_release(&echfs_lock);
+    errno = 0;
+    return -1;
+}
+
 static int echfs_fstat(int handle, struct stat *st) {
     if (handle < 0) {
         errno = EBADF;
@@ -644,6 +690,7 @@ void init_echfs(void) {
     echfs.lseek = echfs_lseek;
     echfs.fstat = echfs_fstat;
     echfs.dup = echfs_dup;
+    echfs.readdir = echfs_readdir;
 
     vfs_install_fs(echfs);
 }

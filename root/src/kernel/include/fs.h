@@ -7,9 +7,10 @@
 #include <task.h>
 #include <time.h>
 
-#define SEEK_SET        0
-#define SEEK_CUR        1
-#define SEEK_END        2
+/* from options/ansi/include/bits/ansi/seek.h in mlibc */
+#define SEEK_CUR 1
+#define SEEK_END 2
+#define SEEK_SET 3
 
 /* Flags */
 #define O_RDONLY        0b0001
@@ -76,6 +77,24 @@ struct stat {
     blkcnt_t st_blocks;
 };
 
+#define DT_UNKNOWN 0
+#define DT_FIFO 1
+#define DT_CHR 2
+#define DT_DIR 4
+#define DT_BLK 6
+#define DT_REG 8
+#define DT_LNK 10
+#define DT_SOCK 12
+#define DT_WHT 14
+
+struct dirent {
+	ino_t d_ino;
+	off_t d_off;
+	unsigned short d_reclen;
+	unsigned char d_type;
+	char d_name[1024];
+};
+
 /* A filesystem, defined by the function pointers that allow us to access it */
 struct fs_t {
     char type[256];
@@ -88,6 +107,7 @@ struct fs_t {
     int (*write)(int, const void *, size_t);
     int (*lseek)(int, off_t, int);
     int (*dup)(int);
+    int (*readdir)(int, struct dirent *);
 };
 
 /* VFS calls */
@@ -100,6 +120,7 @@ int read(int, void *, size_t);
 int write(int, const void *, size_t);
 int lseek(int, off_t, int);
 int dup(int);
+int readdir(int, struct dirent *);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
