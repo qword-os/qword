@@ -285,6 +285,8 @@ syscall_table:
     dq syscall_getppid ;14
     extern syscall_chdir
     dq syscall_chdir ;15
+    extern syscall_dup2
+    dq syscall_dup2 ;16
   .end:
 
 section .text

@@ -361,6 +361,42 @@ int syscall_open(struct ctx_t *ctx) {
     return local_fd;
 }
 
+int syscall_dup2(struct ctx_t *ctx) {
+    int old_fd = (int)ctx->rdi;
+    int new_fd = (int)ctx->rsi;
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    int old_fd_sys = process->file_handles[old_fd];
+    int new_fd_sys = process->file_handles[new_fd];
+    spinlock_release(&process->file_handles_lock);
+
+    if (old_fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (old_fd_sys == new_fd_sys) {
+        return new_fd;
+    }
+
+    if (new_fd_sys != -1) {
+        close(new_fd_sys);
+    }
+
+    new_fd_sys = dup(old_fd_sys);
+
+    spinlock_acquire(&process->file_handles_lock);
+    process->file_handles[new_fd] = new_fd_sys;
+    spinlock_release(&process->file_handles_lock);
+
+    return new_fd;
+}
+
 int syscall_close(struct ctx_t *ctx) {
     // rdi: fd
 
@@ -372,13 +408,14 @@ int syscall_close(struct ctx_t *ctx) {
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
         return -1;
     }
 
     int ret = close(process->file_handles[ctx->rdi]);
-    if (ret < 0) {
+    if (ret == -1) {
         spinlock_release(&process->file_handles_lock);
-        return ret;
+        return -1;
     }
 
     process->file_handles[ctx->rdi] = -1;
@@ -400,6 +437,7 @@ int syscall_lseek(struct ctx_t *ctx) {
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
         return -1;
     }
 
@@ -425,6 +463,7 @@ int syscall_fstat(struct ctx_t *ctx) {
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
         return -1;
     }
 
@@ -453,6 +492,7 @@ int syscall_read(struct ctx_t *ctx) {
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
         return -1;
     }
 
@@ -465,6 +505,7 @@ int syscall_read(struct ctx_t *ctx) {
             step = SYSCALL_IO_CAP;
         size_t ret = read(process->file_handles[ctx->rdi], (void *)(ctx->rsi + ptr), step);
         ptr += ret;
+        yield(1);
         if (ret < step)
             break;
     }
@@ -490,6 +531,7 @@ int syscall_write(struct ctx_t *ctx) {
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
         return -1;
     }
 
@@ -502,6 +544,7 @@ int syscall_write(struct ctx_t *ctx) {
             step = SYSCALL_IO_CAP;
         size_t ret = write(process->file_handles[ctx->rdi], (void *)(ctx->rsi + ptr), step);
         ptr += ret;
+        yield(1);
         if (ret < step)
             break;
     }
