@@ -2,9 +2,9 @@ MAKE = make
 
 PREFIX = 
 
-.PHONY: all clean
+.PHONY: core core-clean
 
-all:
+core:
 	@# Build and install qword kernel
 	$(MAKE) -C kernel
 	$(MAKE) PREFIX=$(PREFIX) install -C kernel
@@ -12,22 +12,9 @@ all:
 	@# Build qloader bootloader
 	$(MAKE) -C qloader
 
-	@# Build test userland program
-	$(MAKE) -C test
-	$(MAKE) PREFIX=$(PREFIX) install -C test
-	$(MAKE) -C hello
-	$(MAKE) PREFIX=$(PREFIX) install -C hello
-
-	@# Future targets are going to be added here
-
-clean:
+core-clean:
 	@# Cleanup qword kernel
 	$(MAKE) clean -C kernel
 
 	@# Cleanup qloader bootloader
 	$(MAKE) clean -C qloader
-
-	@# Cleanup test program
-	$(MAKE) clean -C test
-
-	@# Future targets are going to be added here

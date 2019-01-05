@@ -7,7 +7,10 @@ PREFIX = $(shell pwd)/root
 .PHONY: all iso img clean run run-kvm run-iso run-iso-kvm run-img run-img-singlecore run-img-kvm run-img-kvm-singlecore run-img-kvm-sata
 
 all:
-	$(MAKE) PREFIX=$(PREFIX) -C root/src
+	$(MAKE) core PREFIX=$(PREFIX) -C root/src
+
+world:
+	$(MAKE) world PREFIX=$(PREFIX) -C root/src
 
 iso: all
 	grub-mkrescue -o qword.iso root
@@ -51,5 +54,5 @@ run-img-kvm-sata:
 	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
 
 clean:
-	$(MAKE) clean -C root/src
+	$(MAKE) core-clean -C root/src
 	rm -f qword.iso qword.img

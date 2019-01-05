@@ -2,12 +2,12 @@
 
 set -e
 
-PKG_NAME=bash
-PKG_VERSION=4.4.18
-PKG_URL=https://ftp.gnu.org/gnu/bash/bash-$PKG_VERSION.tar.gz
+PKG_NAME=nasm
+PKG_VERSION=2.14.02
+PKG_URL=https://www.nasm.us/pub/nasm/releasebuilds/$PKG_VERSION/nasm-$PKG_VERSION.tar.gz
 PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.gz
 PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
-PKG_PREFIX=/
+PKG_PREFIX=/usr
 
 QWORD_ROOT=$(realpath ../..)
 
@@ -25,8 +25,7 @@ fi
 
 tar -xf $PKG_TARBALL
 cd $PKG_ARCHIVE_DIR
-patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
 
-./configure --host=x86_64-qword --prefix=$PKG_PREFIX --without-bash-malloc
+./configure --host=x86_64-qword --prefix=$PKG_PREFIX
 make "$@"
 make DESTDIR=$QWORD_ROOT install
