@@ -565,11 +565,12 @@ err:
 }
 
 void task_await_event(event_t *event) {
+    spinlock_acquire(&scheduler_lock);
     if (spinlock_read(event)) {
         spinlock_dec(event);
+        spinlock_release(&scheduler_lock);
         return;
     } else {
-        spinlock_acquire(&scheduler_lock);
         struct thread_t *current_thread = task_table[cpu_locals[current_cpu].current_task];
         current_thread->event_ptr = event;
         spinlock_release(&scheduler_lock);
