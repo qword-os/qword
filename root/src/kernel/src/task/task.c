@@ -86,7 +86,6 @@ void yield(uint64_t ms) {
     tid_t current_task = cpu_locals[current_cpu].current_task;
     task_table[current_task]->yield_target = yield_target;
 
-    spinlock_release(&scheduler_lock);
     force_resched();
 }
 
@@ -332,20 +331,18 @@ err:
 void abort_thread_exec(int scheduler_is_locked) {
     load_cr3((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET);
 
+    if (!scheduler_is_locked) {
+        spinlock_acquire(&scheduler_lock);
+        lapic_eoi();
+    }
+
     cpu_locals[current_cpu].current_task = -1;
     cpu_locals[current_cpu].current_thread = -1;
     cpu_locals[current_cpu].current_process = -1;
 
     kprint(0, "aborting thread execution on CPU #%d", current_cpu);
 
-    if (scheduler_is_locked) {
-        spinlock_release(&scheduler_lock);
-    } else {
-        lapic_eoi();
-        asm volatile ("sti");
-    }
-
-    for (;;) { asm volatile ("hlt"); }
+    force_resched();
 }
 
 #define STACK_LOCATION_TOP ((size_t)0x0000800000000000)

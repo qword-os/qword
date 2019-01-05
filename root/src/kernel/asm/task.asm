@@ -70,6 +70,9 @@ force_resched:
     push r14
     push r15
 
+    ; release relevant locks
+    lock inc qword [scheduler_lock]
+
     mov rdi, rsp
   .retry:
     call task_resched
