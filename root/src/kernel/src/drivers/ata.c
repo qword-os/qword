@@ -84,14 +84,14 @@ static int ata_write48(int disk, uint64_t sector, uint8_t *buffer);
 static int ata_flush(int disk);
 static int ata_flush_ext(int disk);
 
-static ata_device devices[DEVICE_COUNT];
+static ata_device ata_devices[DEVICE_COUNT];
 
 static lock_t ata_lock = 1;
 
 static int find_sect(int drive, uint64_t sect) {
     for (size_t i = 0; i < MAX_CACHED_SECTORS; i++)
-        if ((devices[drive].cache[i].sector == sect)
-            && (devices[drive].cache[i].status))
+        if ((ata_devices[drive].cache[i].sector == sect)
+            && (ata_devices[drive].cache[i].status))
             return i;
 
     return -1;
@@ -106,7 +106,7 @@ static int cache_sect(int drive, int sect) {
 
     /* Find empty sector */
     for (targ = 0; targ < MAX_CACHED_SECTORS; targ++)
-        if (!devices[drive].cache[targ].status) goto fnd;
+        if (!ata_devices[drive].cache[targ].status) goto fnd;
 
     /* Slot not find, overwrite another */
     if (overwritten_slot == MAX_CACHED_SECTORS)
@@ -115,11 +115,11 @@ static int cache_sect(int drive, int sect) {
     targ = overwritten_slot++;
 
     /* Flush device cache */
-    if (devices[drive].cache[targ].status == CACHE_DIRTY) {
+    if (ata_devices[drive].cache[targ].status == CACHE_DIRTY) {
         if (sect <= 0x0fffffff)
-            ret = ata_write28(drive, (uint32_t)devices[drive].cache[targ].sector, devices[drive].cache[targ].cache);
+            ret = ata_write28(drive, (uint32_t)ata_devices[drive].cache[targ].sector, ata_devices[drive].cache[targ].cache);
         else
-            ret = ata_write48(drive, devices[drive].cache[targ].sector, devices[drive].cache[targ].cache);
+            ret = ata_write48(drive, ata_devices[drive].cache[targ].sector, ata_devices[drive].cache[targ].cache);
 
         if (ret == -1) return -1;
     }
@@ -128,20 +128,20 @@ static int cache_sect(int drive, int sect) {
 
 fnd:
     /* Allocate some cache for this device */
-    devices[drive].cache[targ].cache = kalloc(BYTES_PER_SECT);
+    ata_devices[drive].cache[targ].cache = kalloc(BYTES_PER_SECT);
 
 notfnd:
 
     /* Load sector into cache */
     if (sect <= 0x0fffffff)
-        ret = ata_read28(drive, (uint32_t)sect, devices[drive].cache[targ].cache);
+        ret = ata_read28(drive, (uint32_t)sect, ata_devices[drive].cache[targ].cache);
     else
-        ret = ata_read48(drive, sect, devices[drive].cache[targ].cache);
+        ret = ata_read48(drive, sect, ata_devices[drive].cache[targ].cache);
 
     if (ret == -1) return -1;
 
-    devices[drive].cache[targ].sector = sect;
-    devices[drive].cache[targ].status = CACHE_READY;
+    ata_devices[drive].cache[targ].sector = sect;
+    ata_devices[drive].cache[targ].status = CACHE_READY;
 
     return targ;
 }
@@ -167,7 +167,7 @@ static int ata_read(int drive, void *buf, uint64_t loc, size_t count) {
         if (chunk > BYTES_PER_SECT - offset)
             chunk = BYTES_PER_SECT - offset;
 
-        kmemcpy(buf + progress, &devices[drive].cache[slot].cache[offset], chunk);
+        kmemcpy(buf + progress, &ata_devices[drive].cache[slot].cache[offset], chunk);
         progress += chunk;
     }
 
@@ -196,8 +196,8 @@ static int ata_write(int drive, const void *buf, uint64_t loc, size_t count) {
         if (chunk > BYTES_PER_SECT - offset)
             chunk = BYTES_PER_SECT - offset;
 
-        kmemcpy(&devices[drive].cache[slot].cache[offset], buf + progress, chunk);
-        devices[drive].cache[slot].status = CACHE_DIRTY;
+        kmemcpy(&ata_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
+        ata_devices[drive].cache[slot].status = CACHE_DIRTY;
         progress += chunk;
     }
 
@@ -209,20 +209,20 @@ static int ata_flush1(int device) {
     spinlock_acquire(&ata_lock);
 
     for (size_t i = 0; i < MAX_CACHED_SECTORS; i++) {
-        if (devices[device].cache[i].status == CACHE_DIRTY) {
+        if (ata_devices[device].cache[i].status == CACHE_DIRTY) {
             int ret;
 
-            if (devices[device].cache[i].sector <= 0x0fffffff)
-                ret = ata_write28(device, (uint32_t)devices[device].cache[i].sector, devices[device].cache[i].cache);
+            if (ata_devices[device].cache[i].sector <= 0x0fffffff)
+                ret = ata_write28(device, (uint32_t)ata_devices[device].cache[i].sector, ata_devices[device].cache[i].cache);
             else
-                ret = ata_write48(device, devices[device].cache[i].sector, devices[device].cache[i].cache);
+                ret = ata_write48(device, ata_devices[device].cache[i].sector, ata_devices[device].cache[i].cache);
 
             if (ret == -1) {
                 spinlock_release(&ata_lock);
                 return -1;
             }
 
-            devices[device].cache[i].status = CACHE_READY;
+            ata_devices[device].cache[i].status = CACHE_READY;
         }
     }
 
@@ -244,7 +244,7 @@ void init_ata(void) {
     int master = 1;
     for (int i = 0; i < DEVICE_COUNT; i++) {
         if (j >= max_ports) return;
-        while (!(devices[i] = init_ata_device(ata_ports[j], master,
+        while (!(ata_devices[i] = init_ata_device(ata_ports[j], master,
                         &pci_device)).exists) {
             j++;
             if (j >= max_ports) return;
@@ -254,7 +254,7 @@ void init_ata(void) {
         j++;
         if (j % 2) master = 0;
         else master = 1;
-        device_add(ata_names[i], i, devices[i].sector_count * 512,
+        device_add(ata_names[i], i, ata_devices[i].sector_count * 512,
                           &ata_read, &ata_write, &ata_flush1);
         kprint(KPRN_INFO, "ata: Initialised %s", ata_names[i]);
     }
@@ -372,28 +372,28 @@ success:
 }
 
 static int ata_read28(int disk, uint32_t sector, uint8_t *buffer) {
-    ata_device *dev = &devices[disk];
+    ata_device *dev = &ata_devices[disk];
     port_out_b(dev->bmr_command, 0);
     port_out_d(dev->bmr_prdt, dev->prdt_phys);
     uint8_t bmr_status = port_in_b(dev->bmr_status);
     port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
-    if (devices[disk].master)
-        port_out_b(devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
+    if (ata_devices[disk].master)
+        port_out_b(ata_devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
     else
-        port_out_b(devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
+        port_out_b(ata_devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
 
-    port_out_b(devices[disk].sector_count_port, 1);
-    port_out_b(devices[disk].lba_low_port, sector & 0x000000FF);
-    port_out_b(devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
-    port_out_b(devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
+    port_out_b(ata_devices[disk].sector_count_port, 1);
+    port_out_b(ata_devices[disk].lba_low_port, sector & 0x000000FF);
+    port_out_b(ata_devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
+    port_out_b(ata_devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
 
-    port_out_b(devices[disk].command_port, 0xC8); // READ_DMA command
+    port_out_b(ata_devices[disk].command_port, 0xC8); // READ_DMA command
     port_out_b(dev->bmr_command, 0x8 | 0x1);
 
-    uint8_t status = port_in_b(devices[disk].command_port);
+    uint8_t status = port_in_b(ata_devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
-        status = port_in_b(devices[disk].command_port);
+        status = port_in_b(ata_devices[disk].command_port);
     port_out_b(dev->bmr_command, 0);
 
     if (status & 0x01) {
@@ -406,32 +406,32 @@ static int ata_read28(int disk, uint32_t sector, uint8_t *buffer) {
 }
 
 static int ata_read48(int disk, uint64_t sector, uint8_t *buffer) {
-    ata_device *dev = &devices[disk];
+    ata_device *dev = &ata_devices[disk];
     port_out_b(dev->bmr_command, 0);
     port_out_d(dev->bmr_prdt, dev->prdt_phys);
     uint8_t bmr_status = port_in_b(dev->bmr_status);
     port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
-    if (devices[disk].master)
-        port_out_b(devices[disk].device_port, 0x40);
+    if (ata_devices[disk].master)
+        port_out_b(ata_devices[disk].device_port, 0x40);
     else
-        port_out_b(devices[disk].device_port, 0x50);
+        port_out_b(ata_devices[disk].device_port, 0x50);
 
-    port_out_b(devices[disk].sector_count_port, 0);   // sector count high byte
-    port_out_b(devices[disk].lba_low_port, (uint8_t)((sector & 0x000000FF000000) >> 24));
-    port_out_b(devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000FF00000000) >> 32));
-    port_out_b(devices[disk].lba_hi_port, (uint8_t)((sector & 0x00FF0000000000) >> 40));
-    port_out_b(devices[disk].sector_count_port, 1);   // sector count low byte
-    port_out_b(devices[disk].lba_low_port, (uint8_t)(sector & 0x000000000000FF));
-    port_out_b(devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
-    port_out_b(devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
+    port_out_b(ata_devices[disk].sector_count_port, 0);   // sector count high byte
+    port_out_b(ata_devices[disk].lba_low_port, (uint8_t)((sector & 0x000000FF000000) >> 24));
+    port_out_b(ata_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000FF00000000) >> 32));
+    port_out_b(ata_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00FF0000000000) >> 40));
+    port_out_b(ata_devices[disk].sector_count_port, 1);   // sector count low byte
+    port_out_b(ata_devices[disk].lba_low_port, (uint8_t)(sector & 0x000000000000FF));
+    port_out_b(ata_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
+    port_out_b(ata_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
 
-    port_out_b(devices[disk].command_port, 0x25); // READ_DMA command
+    port_out_b(ata_devices[disk].command_port, 0x25); // READ_DMA command
     port_out_b(dev->bmr_command, 0x8 | 0x1);
 
-    uint8_t status = port_in_b(devices[disk].command_port);
+    uint8_t status = port_in_b(ata_devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
-        status = port_in_b(devices[disk].command_port);
+        status = port_in_b(ata_devices[disk].command_port);
     port_out_b(dev->bmr_command, 0);
 
     if (status & 0x01) {
@@ -444,31 +444,31 @@ static int ata_read48(int disk, uint64_t sector, uint8_t *buffer) {
 }
 
 static int ata_write28(int disk, uint32_t sector, uint8_t *buffer) {
-    ata_device *dev = &devices[disk];
+    ata_device *dev = &ata_devices[disk];
     port_out_b(dev->bmr_command, 0);
     port_out_d(dev->bmr_prdt, dev->prdt_phys);
     uint8_t bmr_status = port_in_b(dev->bmr_status);
     port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
-    if (devices[disk].master)
-        port_out_b(devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
+    if (ata_devices[disk].master)
+        port_out_b(ata_devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
     else
-        port_out_b(devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
+        port_out_b(ata_devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
 
     /* copy buffer to dma area */
     kmemcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
 
-    port_out_b(devices[disk].sector_count_port, 1);
-    port_out_b(devices[disk].lba_low_port, sector & 0x000000FF);
-    port_out_b(devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
-    port_out_b(devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
+    port_out_b(ata_devices[disk].sector_count_port, 1);
+    port_out_b(ata_devices[disk].lba_low_port, sector & 0x000000FF);
+    port_out_b(ata_devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
+    port_out_b(ata_devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
 
-    port_out_b(devices[disk].command_port, 0xCA); // WRITE_DMA command
+    port_out_b(ata_devices[disk].command_port, 0xCA); // WRITE_DMA command
     port_out_b(dev->bmr_command, 0x1);
 
-    uint8_t status = port_in_b(devices[disk].command_port);
+    uint8_t status = port_in_b(ata_devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
-        status = port_in_b(devices[disk].command_port);
+        status = port_in_b(ata_devices[disk].command_port);
     port_out_b(dev->bmr_command, 0);
 
     if (status & 0x01) {
@@ -482,37 +482,37 @@ static int ata_write28(int disk, uint32_t sector, uint8_t *buffer) {
 }
 
 static int ata_write48(int disk, uint64_t sector, uint8_t *buffer) {
-    ata_device *dev = &devices[disk];
+    ata_device *dev = &ata_devices[disk];
     port_out_b(dev->bmr_command, 0);
     port_out_d(dev->bmr_prdt, dev->prdt_phys);
     uint8_t bmr_status = port_in_b(dev->bmr_status);
     port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
-    if (devices[disk].master)
-        port_out_b(devices[disk].device_port, 0x40);
+    if (ata_devices[disk].master)
+        port_out_b(ata_devices[disk].device_port, 0x40);
     else
-        port_out_b(devices[disk].device_port, 0x50);
+        port_out_b(ata_devices[disk].device_port, 0x50);
 
     /* copy buffer to dma area */
     kmemcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
 
     /* Sector count high byte */
-    port_out_b(devices[disk].sector_count_port, 0);
-    port_out_b(devices[disk].lba_low_port, (uint8_t)((sector & 0x000000FF000000) >> 24));
-    port_out_b(devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000FF00000000) >> 32));
-    port_out_b(devices[disk].lba_hi_port, (uint8_t)((sector & 0x00FF0000000000) >> 40));
+    port_out_b(ata_devices[disk].sector_count_port, 0);
+    port_out_b(ata_devices[disk].lba_low_port, (uint8_t)((sector & 0x000000FF000000) >> 24));
+    port_out_b(ata_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000FF00000000) >> 32));
+    port_out_b(ata_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00FF0000000000) >> 40));
     /* Sector count lo byte */
-    port_out_b(devices[disk].sector_count_port, 1);
-    port_out_b(devices[disk].lba_low_port, (uint8_t)(sector & 0x000000000000FF));
-    port_out_b(devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
-    port_out_b(devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
+    port_out_b(ata_devices[disk].sector_count_port, 1);
+    port_out_b(ata_devices[disk].lba_low_port, (uint8_t)(sector & 0x000000000000FF));
+    port_out_b(ata_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
+    port_out_b(ata_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
 
-    port_out_b(devices[disk].command_port, 0x35); // WRITE_DMA command
+    port_out_b(ata_devices[disk].command_port, 0x35); // WRITE_DMA command
     port_out_b(dev->bmr_command, 0x1);
 
-    uint8_t status = port_in_b(devices[disk].command_port);
+    uint8_t status = port_in_b(ata_devices[disk].command_port);
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
-        status = port_in_b(devices[disk].command_port);
+        status = port_in_b(ata_devices[disk].command_port);
     port_out_b(dev->bmr_command, 0);
 
 
@@ -527,19 +527,19 @@ static int ata_write48(int disk, uint64_t sector, uint8_t *buffer) {
 }
 
 static int ata_flush(int disk) {
-    if (devices[disk].master)
-        port_out_b(devices[disk].device_port, 0xE0);
+    if (ata_devices[disk].master)
+        port_out_b(ata_devices[disk].device_port, 0xE0);
     else
-        port_out_b(devices[disk].device_port, 0xF0);
+        port_out_b(ata_devices[disk].device_port, 0xF0);
 
     /* Cache flush command */
-    port_out_b(devices[disk].command_port, 0xE7);
+    port_out_b(ata_devices[disk].command_port, 0xE7);
 
-    uint8_t status = port_in_b(devices[disk].command_port);
+    uint8_t status = port_in_b(ata_devices[disk].command_port);
 
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
-        status = port_in_b(devices[disk].command_port);
+        status = port_in_b(ata_devices[disk].command_port);
 
     if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error occured while flushing cache.");
@@ -551,19 +551,19 @@ static int ata_flush(int disk) {
 }
 
 static int ata_flush_ext(int disk) {
-    if (devices[disk].master)
-        port_out_b(devices[disk].device_port, 0x40);
+    if (ata_devices[disk].master)
+        port_out_b(ata_devices[disk].device_port, 0x40);
     else
-        port_out_b(devices[disk].device_port, 0x50);
+        port_out_b(ata_devices[disk].device_port, 0x50);
 
     /* Cache flush EXT command */
-    port_out_b(devices[disk].command_port, 0xEA);
+    port_out_b(ata_devices[disk].command_port, 0xEA);
 
-    uint8_t status = port_in_b(devices[disk].command_port);
+    uint8_t status = port_in_b(ata_devices[disk].command_port);
 
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
-        status = port_in_b(devices[disk].command_port);
+        status = port_in_b(ata_devices[disk].command_port);
 
     if (status & 0x01) {
         kprint(KPRN_ERR, "ata: Error occured while flushing cache.");

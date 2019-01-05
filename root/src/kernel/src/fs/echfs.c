@@ -562,7 +562,7 @@ static int echfs_readdir(int handle, struct dirent *dir) {
         echfs_handles[handle].ptr++;
         if (entry.parent_id == dir_id) {
             // valid entry
-            dir->d_ino = echfs_handles[handle].ptr - 1;
+            dir->d_ino = echfs_handles[handle].ptr;
             kstrcpy(dir->d_name, entry.name);
             dir->d_reclen = sizeof(struct dirent);
             switch (entry.type) {
@@ -607,7 +607,7 @@ static int echfs_fstat(int handle, struct stat *st) {
     }
 
     st->st_dev = mounts[echfs_handles[handle].mnt].device;
-    st->st_ino = echfs_handles[handle].cached_file->path_res.target_entry;
+    st->st_ino = echfs_handles[handle].cached_file->path_res.target_entry + 1;
     st->st_nlink = 1;
     st->st_uid = echfs_handles[handle].cached_file->path_res.target.owner;
     st->st_gid = echfs_handles[handle].cached_file->path_res.target.group;

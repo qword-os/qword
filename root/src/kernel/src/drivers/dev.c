@@ -3,19 +3,7 @@
 #include <dev.h>
 #include <klib.h>
 
-#define MAX_DEVICES 128
-
-struct device {
-    int used;
-    char name[128];
-    int magic;
-    uint64_t size;
-    int (*read)(int, void *, uint64_t, size_t);
-    int (*write)(int, const void *, uint64_t, size_t);
-    int (*flush)(int);
-};
-
-static struct device devices[MAX_DEVICES];
+struct device devices[MAX_DEVICES];
 
 uint64_t device_size(int dev) {
     return devices[dev].size;

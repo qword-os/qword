@@ -23,6 +23,7 @@ IMAGE_REALPATH=$(realpath "$2")
 
 cd "$1"
 
+shopt -s dotglob
 ROOT_FILES=$(echo **)
 
 echo "Transferring directory '$1' to image '$2'..."

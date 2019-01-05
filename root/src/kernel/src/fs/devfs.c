@@ -272,7 +272,7 @@ int devfs_fstat(int handle, struct stat *st) {
     }
 
     st->st_dev = 0;
-    st->st_ino = devfs_handles[handle].device;
+    st->st_ino = devfs_handles[handle].device + 1;
     st->st_nlink = 1;
     st->st_uid = 0;
     st->st_gid = 0;
@@ -304,6 +304,45 @@ int devfs_fstat(int handle, struct stat *st) {
     return 0;
 }
 
+static int devfs_readdir(int handle, struct dirent *dir) {
+    spinlock_acquire(&devfs_lock);
+
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
+        spinlock_release(&devfs_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    for (;;) {
+        // check if past directory table
+        if (devfs_handles[handle].ptr >= MAX_DEVICES) goto end_of_dir;
+        struct device *dev = &devices[devfs_handles[handle].ptr];
+        devfs_handles[handle].ptr++;
+        if (dev->used) {
+            // valid entry
+            dir->d_ino = devfs_handles[handle].ptr;
+            kstrcpy(dir->d_name, dev->name);
+            dir->d_reclen = sizeof(struct dirent);
+            if (dev->size) {
+                dir->d_type = DT_CHR;
+            } else {
+                dir->d_type = DT_BLK;
+            }
+            break;
+        }
+    }
+
+    spinlock_release(&devfs_lock);
+    return 0;
+
+end_of_dir:
+    spinlock_release(&devfs_lock);
+    errno = 0;
+    return -1;
+}
+
 void init_devfs(void) {
     struct fs_t devfs = {0};
     devfs_handles = kalloc(DEVFS_HANDLES_STEP * sizeof(struct devfs_handle_t));
@@ -322,6 +361,7 @@ void init_devfs(void) {
     devfs.lseek = devfs_lseek;
     devfs.fstat = devfs_fstat;
     devfs.dup = devfs_dup;
+    devfs.readdir = devfs_readdir;
 
     vfs_install_fs(devfs);
 }
