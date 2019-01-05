@@ -154,9 +154,10 @@ int dup(int fd) {
     int fs = file_descriptors[fd].fs;
     int intern_fd = file_descriptors[fd].intern_fd;
 
-    int new_intern_fd = filesystems[fs].dup(intern_fd);
+    if (filesystems[fs].dup(intern_fd))
+        return -1;
 
-    return create_fd(fs, new_intern_fd);
+    return create_fd(fs, intern_fd);
 }
 
 int read(int fd, void *buf, size_t len) {

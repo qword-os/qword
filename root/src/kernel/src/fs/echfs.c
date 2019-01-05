@@ -74,6 +74,7 @@ static int mounts_i = 0;
 
 struct echfs_handle_t {
     int free;
+    int refcount;
     uint8_t type;
     int mnt;
     char path[1024];
@@ -356,24 +357,20 @@ next:
 static int echfs_close(int handle) {
     spinlock_acquire(&echfs_lock);
 
-    if (handle < 0)
-        goto fail;
+    if (   handle < 0
+        || handle >= echfs_handles_i
+        || echfs_handles[handle].free) {
+        spinlock_release(&echfs_lock);
+        errno = EBADF;
+        return -1;
+    }
 
-    if (handle >= echfs_handles_i)
-        goto fail;
-
-    if (echfs_handles[handle].free)
-        goto fail;
-
-    echfs_handles[handle].free = 1;
+    if (!(--echfs_handles[handle].refcount)) {
+        echfs_handles[handle].free = 1;
+    }
 
     spinlock_release(&echfs_lock);
     return 0;
-
-fail:
-    errno = EBADF;
-    spinlock_release(&echfs_lock);
-    return -1;
 }
 
 static int echfs_open(const char *path, int flags, int mode, int mnt) {
@@ -460,6 +457,9 @@ search_out:
 
     new_handle.cached_file = &mounts[mnt].cached_files[cached_file];
 
+    new_handle.free = 0;
+    new_handle.refcount = 1;
+
     int ret = echfs_create_handle(new_handle);
     spinlock_release(&echfs_lock);
     return ret;
@@ -523,30 +523,21 @@ static int echfs_lseek(int handle, off_t offset, int type) {
 }
 
 static int echfs_dup(int handle) {
-    if (handle < 0) {
-        errno = EBADF;
-        return -1;
-    }
-
     spinlock_acquire(&echfs_lock);
 
-    if (handle >= echfs_handles_i) {
+    if (   handle < 0
+        || handle >= echfs_handles_i
+        || echfs_handles[handle].free) {
         spinlock_release(&echfs_lock);
         errno = EBADF;
         return -1;
     }
 
-    if (echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-
-    int newfd = echfs_create_handle(echfs_handles[handle]);
+    echfs_handles[handle].refcount++;
 
     spinlock_release(&echfs_lock);
 
-    return newfd;
+    return 0;
 }
 
 static int echfs_fstat(int handle, struct stat *st) {

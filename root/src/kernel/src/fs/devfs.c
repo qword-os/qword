@@ -10,6 +10,7 @@
 
 struct devfs_handle_t {
     int free;
+    int refcount;
     char path[1024];
     int flags;
     int mode;
@@ -54,6 +55,13 @@ load_handle:
 
 static int devfs_write(int handle, const void *ptr, size_t len) {
     spinlock_acquire(&devfs_lock);
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
+        spinlock_release(&devfs_lock);
+        errno = EBADF;
+        return -1;
+    }
     if (devfs_handles[handle].device == -1) {
         spinlock_release(&devfs_lock);
         errno = EISDIR;
@@ -79,6 +87,13 @@ static int devfs_write(int handle, const void *ptr, size_t len) {
 
 static int devfs_read(int handle, void *ptr, size_t len) {
     spinlock_acquire(&devfs_lock);
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
+        spinlock_release(&devfs_lock);
+        errno = EBADF;
+        return -1;
+    }
     if (devfs_handles[handle].device == -1) {
         spinlock_release(&devfs_lock);
         errno = EISDIR;
@@ -135,6 +150,7 @@ root:
 
     struct devfs_handle_t new_handle = {0};
     new_handle.free = 0;
+    new_handle.refcount = 1;
     kstrcpy(new_handle.path, path);
     new_handle.flags = flags;
     new_handle.mode = mode;
@@ -165,114 +181,93 @@ fail:
 static int devfs_close(int handle) {
     spinlock_acquire(&devfs_lock);
 
-    if (handle < 0)
-        goto fail;
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
+        spinlock_release(&devfs_lock);
+        errno = EBADF;
+        return -1;
+    }
 
-    if (handle >= devfs_handles_i)
-        goto fail;
-
-    if (devfs_handles[handle].free)
-        goto fail;
-
-    devfs_handles[handle].free = 1;
+    if (!(--devfs_handles[handle].refcount)) {
+        devfs_handles[handle].free = 1;
+    }
 
     spinlock_release(&devfs_lock);
     return 0;
-
-fail:
-    spinlock_release(&devfs_lock);
-    return -1;
 }
 
 static int devfs_lseek(int handle, off_t offset, int type) {
     spinlock_acquire(&devfs_lock);
 
-    if (handle < 0)
-        goto fail;
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
+        errno = EBADF;
+        spinlock_release(&devfs_lock);
+        return -1;
+    }
 
-    if (handle >= devfs_handles_i)
-        goto fail;
-
-    if (devfs_handles[handle].free)
-        goto fail;
-
-    if (devfs_handles[handle].is_stream)
-        goto fail;
+    if (devfs_handles[handle].is_stream) {
+        errno = ESPIPE;
+        spinlock_release(&devfs_lock);
+        return -1;
+    }
 
     switch (type) {
         case SEEK_SET:
             if ((devfs_handles[handle].begin + offset) > devfs_handles[handle].end ||
-                (devfs_handles[handle].begin + offset) < devfs_handles[handle].begin) return -1;
+                (devfs_handles[handle].begin + offset) < devfs_handles[handle].begin) goto def;
             devfs_handles[handle].ptr = devfs_handles[handle].begin + offset;
-            goto success;
+            break;
         case SEEK_END:
             if ((devfs_handles[handle].end + offset) > devfs_handles[handle].end ||
-                (devfs_handles[handle].end + offset) < devfs_handles[handle].begin) return -1;
+                (devfs_handles[handle].end + offset) < devfs_handles[handle].begin) goto def;
             devfs_handles[handle].ptr = devfs_handles[handle].end + offset;
-            goto success;
+            break;
         case SEEK_CUR:
             if ((devfs_handles[handle].ptr + offset) > devfs_handles[handle].end ||
-                (devfs_handles[handle].ptr + offset) < devfs_handles[handle].begin) return -1;
+                (devfs_handles[handle].ptr + offset) < devfs_handles[handle].begin) goto def;
             devfs_handles[handle].ptr += offset;
-            goto success;
+            break;
         default:
-            goto fail;
+        def:
+            spinlock_release(&devfs_lock);
+            errno = EINVAL;
+            return -1;
     }
 
-success:;
     long ret = devfs_handles[handle].ptr;
     spinlock_release(&devfs_lock);
     return ret;
-
-fail:
-    spinlock_release(&devfs_lock);
-    return -1;
 }
 
 static int devfs_dup(int handle) {
-    if (handle < 0) {
-        // TODO: should be EBADF
-        return -1;
-    }
-
     spinlock_acquire(&devfs_lock);
 
-    if (handle >= devfs_handles_i) {
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
         spinlock_release(&devfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
-    if (devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
-        // TODO: should be EBADF
-        return -1;
-    }
-
-    int newfd = devfs_create_handle(devfs_handles[handle]);
+    devfs_handles[handle].refcount++;
 
     spinlock_release(&devfs_lock);
 
-    return newfd;
+    return 0;
 }
 
 int devfs_fstat(int handle, struct stat *st) {
-    if (handle < 0) {
-        // TODO: should be EBADF
-        return -1;
-    }
-
     spinlock_acquire(&devfs_lock);
 
-    if (handle >= devfs_handles_i) {
+    if (   handle < 0
+        || handle >= devfs_handles_i
+        || devfs_handles[handle].free) {
         spinlock_release(&devfs_lock);
-        // TODO: should be EBADF
-        return -1;
-    }
-
-    if (devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
-        // TODO: should be EBADF
+        errno = EBADF;
         return -1;
     }
 
