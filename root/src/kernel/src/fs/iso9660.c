@@ -169,6 +169,7 @@ struct cached_block_t {
 
 struct handle_t {
     int free;
+    int refcount;
     int mount;
     int flags;
     int mode;
@@ -517,6 +518,8 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
     else
         handle.begin = result.target.extent_location.little;
     handle.offset = 0;
+    handle.refcount = 1;
+    handle.free = 0;
     int handle_num = create_handle(handle);
     spinlock_release(&iso9660_lock);
     return handle_num;
@@ -780,7 +783,8 @@ static int iso9660_close(int handle) {
         spinlock_release(&iso9660_lock);
         return -1;
     }
-    handles[handle].free = 1;
+    if (!(--handles[handle].refcount))
+        handles[handle].free = 1;
     spinlock_release(&iso9660_lock);
     return 0;
 }
@@ -800,9 +804,9 @@ static int iso9660_dup(int handle) {
         return -1;
     }
 
-    int new_fd = create_handle(handles[handle]);
+    handles[handle].refcount++;
     spinlock_release(&iso9660_lock);
-    return new_fd;
+    return 0;
 }
 
 static int iso9660_write(int handle, const void *buf, size_t count) {
