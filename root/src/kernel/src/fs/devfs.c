@@ -126,9 +126,7 @@ static int devfs_open(char *path, int flags, int mode) {
 
     int is_root = 0;
 
-    if (   flags & O_TRUNC
-        || flags & O_APPEND
-        || flags & O_CREAT) {
+    if (flags & O_APPEND) {
         errno = EROFS;
         goto fail;
     }
@@ -143,7 +141,10 @@ static int devfs_open(char *path, int flags, int mode) {
 
     dev_t device = device_find(path);
     if (device == (dev_t)(-1)) {
-        errno = ENOENT;
+        if (flags & O_CREAT)
+            errno = EROFS;
+        else
+            errno = ENOENT;
         goto fail;
     }
 

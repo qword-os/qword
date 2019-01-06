@@ -281,10 +281,12 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
 static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, uint8_t *type) {
     struct entry_t entry;
     // returns unique entry #, SEARCH_FAILURE upon failure/not found
+    uint64_t loc = mnt->dirstart * mnt->bytesperblock;
+    lseek(mnt->device, loc, SEEK_SET);
     for (uint64_t i = 0; ; i++) {
-        entry = rd_entry(mnt, i);
-        if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
         if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
+        read(mnt->device, (void *)&entry, sizeof(struct entry_t));
+        if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
         if ((entry.parent_id == parent) && (!kstrcmp(entry.name, name))) {
             *type = entry.type;
             return i;
@@ -294,10 +296,14 @@ static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, u
 
 static uint64_t find_free_entry(struct mount_t *mnt) {
     uint64_t i;
+    struct entry_t entry;
+
+    uint64_t loc = mnt->dirstart * mnt->bytesperblock;
+    lseek(mnt->device, loc, SEEK_SET);
 
     for (i = 0; ; i++) {
         if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
-        struct entry_t entry = rd_entry(mnt, i);
+        read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) break;              // check if past last entry
         if (entry.parent_id == DELETED_ENTRY) break;
     }
@@ -548,31 +554,36 @@ static int echfs_lseek(int handle, off_t offset, int type) {
 
     switch (type) {
         case SEEK_SET:
-            if ((echfs_handles[handle]->begin + offset) > echfs_handles[handle]->end ||
-                (echfs_handles[handle]->begin + offset) < echfs_handles[handle]->begin) return -1;
+            if (echfs_handles[handle]->begin + offset > echfs_handles[handle]->end ||
+                echfs_handles[handle]->begin + offset < echfs_handles[handle]->begin) {
+                goto einval;
+            }
             echfs_handles[handle]->ptr = echfs_handles[handle]->begin + offset;
-            ret = echfs_handles[handle]->ptr;
-            spinlock_release(&mnt->lock);
-            return ret;
+            break;
         case SEEK_END:
-            if ((echfs_handles[handle]->end + offset) > echfs_handles[handle]->end ||
-                (echfs_handles[handle]->end + offset) < echfs_handles[handle]->begin) return -1;
+            if (echfs_handles[handle]->end + offset > echfs_handles[handle]->end ||
+                echfs_handles[handle]->end + offset < echfs_handles[handle]->begin) {
+                goto einval;
+            }
             echfs_handles[handle]->ptr = echfs_handles[handle]->end + offset;
-            ret = echfs_handles[handle]->ptr;
-            spinlock_release(&mnt->lock);
-            return ret;
+            break;
         case SEEK_CUR:
-            if ((echfs_handles[handle]->ptr + offset) > echfs_handles[handle]->end ||
-                (echfs_handles[handle]->ptr + offset) < echfs_handles[handle]->begin) return -1;
+            if (echfs_handles[handle]->ptr + offset > echfs_handles[handle]->end ||
+                echfs_handles[handle]->ptr + offset < echfs_handles[handle]->begin) {
+                goto einval;
+            }
             echfs_handles[handle]->ptr += offset;
-            ret = echfs_handles[handle]->ptr;
-            spinlock_release(&mnt->lock);
-            return ret;
+            break;
         default:
+        einval:
             spinlock_release(&mnt->lock);
             errno = EINVAL;
             return -1;
     }
+
+    ret = echfs_handles[handle]->ptr;
+    spinlock_release(&mnt->lock);
+    return ret;
 }
 
 static int echfs_dup(int handle) {
@@ -608,10 +619,15 @@ static int echfs_readdir(int handle, struct dirent *dir) {
 
     uint64_t dir_id = echfs_handles[handle]->cached_file->path_res.target.payload;
 
+    struct entry_t entry;
+    uint64_t loc = mnt->dirstart * mnt->bytesperblock +
+                    echfs_handles[handle]->ptr * sizeof(struct entry_t);
+    lseek(mnt->device, loc, SEEK_SET);
+
     for (;;) {
         // check if past directory table
         if (echfs_handles[handle]->ptr >= (mnt->dirsize * ENTRIES_PER_BLOCK)) goto end_of_dir;
-        struct entry_t entry = rd_entry(mnt, echfs_handles[handle]->ptr);
+        read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) goto end_of_dir;              // check if past last entry
         echfs_handles[handle]->ptr++;
         if (entry.parent_id == dir_id) {
