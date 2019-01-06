@@ -4,6 +4,7 @@
 #include <fs.h>
 #include <lock.h>
 #include <errno.h>
+#include <panic.h>
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff
@@ -23,6 +24,9 @@
 #define CACHE_NOTREADY 0
 #define CACHE_READY 1
 #define CACHE_DIRTY 2
+
+#define MAX_ECHFS_HANDLES 32768
+#define MAX_ECHFS_MOUNTS 1024
 
 struct entry_t {
     uint64_t parent_id;
@@ -56,6 +60,8 @@ struct cached_file_t {
 };
 
 struct mount_t {
+    lock_t lock;
+    int free;
     char name[128];
     int device;
     uint64_t blocks;
@@ -68,9 +74,6 @@ struct mount_t {
     struct cached_file_t *cached_files;
     int cached_files_ptr;
 };
-
-static struct mount_t *mounts;
-static int mounts_i = 0;
 
 struct echfs_handle_t {
     int free;
@@ -86,105 +89,109 @@ struct echfs_handle_t {
     struct cached_file_t *cached_file;
 };
 
-static lock_t echfs_lock = 1;
-
-static struct echfs_handle_t *echfs_handles;
-static int echfs_handles_i = 0;
+static struct echfs_handle_t **echfs_handles;
+static struct mount_t **mounts;
 
 static int cache_block(int handle, uint64_t block) {
     /* TODO add logic to flush the cache if dirty and stuff (for write support) */
 
-    struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
 
-    if (echfs_handles[handle].cached_file->cached_block == block
-      && echfs_handles[handle].cached_file->cache_status == CACHE_READY)
+    if (echfs_handles[handle]->cached_file->cached_block == block
+      && echfs_handles[handle]->cached_file->cache_status == CACHE_READY)
         return 0;
 
     lseek(mnt->device,
-          echfs_handles[handle].cached_file->alloc_map[block] * BYTES_PER_BLOCK,
+          echfs_handles[handle]->cached_file->alloc_map[block] * BYTES_PER_BLOCK,
           SEEK_SET);
     read(mnt->device,
-         echfs_handles[handle].cached_file->cache,
+         echfs_handles[handle]->cached_file->cache,
          BYTES_PER_BLOCK);
 
-    echfs_handles[handle].cached_file->cached_block = block;
-    echfs_handles[handle].cached_file->cache_status = CACHE_READY;
+    echfs_handles[handle]->cached_file->cached_block = block;
+    echfs_handles[handle]->cached_file->cache_status = CACHE_READY;
 
     return 0;
 }
 
 static int echfs_read(int handle, void *buf, size_t count) {
-    if (handle < 0) {
+    if (   handle < 0
+        || handle >= MAX_ECHFS_HANDLES
+        || echfs_handles[handle]->free) {
         errno = EBADF;
         return -1;
     }
 
-    spinlock_acquire(&echfs_lock);
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
 
-    if (handle >= echfs_handles_i) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
+    spinlock_acquire(&mnt->lock);
 
-    if (echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-
-    if (echfs_handles[handle].type == DIRECTORY_TYPE) {
-        spinlock_release(&echfs_lock);
-        errno = EISDIR;
-        return -1;
-    }
-
-    struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
-
-    if ((size_t)echfs_handles[handle].ptr + count
-      >= (size_t)echfs_handles[handle].end) {
-        count -= ((size_t)echfs_handles[handle].ptr + count) - (size_t)echfs_handles[handle].end;
+    if ((size_t)echfs_handles[handle]->ptr + count
+      >= (size_t)echfs_handles[handle]->end) {
+        count -= ((size_t)echfs_handles[handle]->ptr + count) - (size_t)echfs_handles[handle]->end;
     }
 
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the block */
-        uint64_t block = (echfs_handles[handle].ptr + progress) / BYTES_PER_BLOCK;
+        uint64_t block = (echfs_handles[handle]->ptr + progress) / BYTES_PER_BLOCK;
         cache_block(handle, block);
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (echfs_handles[handle].ptr + progress) % BYTES_PER_BLOCK;
+        uint64_t offset = (echfs_handles[handle]->ptr + progress) % BYTES_PER_BLOCK;
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        kmemcpy(buf + progress, &echfs_handles[handle].cached_file->cache[offset], chunk);
+        kmemcpy(buf + progress, &echfs_handles[handle]->cached_file->cache[offset], chunk);
         progress += chunk;
     }
 
-    echfs_handles[handle].ptr += count;
+    echfs_handles[handle]->ptr += count;
 
-    spinlock_release(&echfs_lock);
+    spinlock_release(&mnt->lock);
     return (int)count;
 }
 
-static int echfs_create_handle(struct echfs_handle_t handle) {
+static int echfs_create_handle(struct echfs_handle_t *handle) {
     int handle_n;
 
     /* Check for a free handle */
-    for (int i = 0; i < echfs_handles_i; i++) {
-        if (echfs_handles[i].free) {
+    for (size_t i = 0; i < MAX_ECHFS_HANDLES; i++) {
+        if (!echfs_handles[i] || echfs_handles[i]->free) {
             handle_n = i;
             goto load_handle;
         }
     }
 
-    echfs_handles = krealloc(echfs_handles, (echfs_handles_i + 1) * sizeof(struct echfs_handle_t));
-    handle_n = echfs_handles_i++;
+    /* TODO catch this and do something about it */
+    panic("", 0, 0);
 
 load_handle:
-    echfs_handles[handle_n] = handle;
+    echfs_handles[handle_n] = kalloc(sizeof(struct echfs_handle_t));
+    *echfs_handles[handle_n] = *handle;
 
     return handle_n;
+}
+
+static int echfs_create_mount(struct mount_t *mount) {
+    int mount_n;
+
+    /* Check for a free handle */
+    for (size_t i = 0; i < MAX_ECHFS_MOUNTS; i++) {
+        if (!mounts[i] || mounts[i]->free) {
+            mount_n = i;
+            goto load_mount;
+        }
+    }
+
+    /* TODO catch this and do something about it */
+    panic("", 0, 0);
+
+load_mount:
+    mounts[mount_n] = kalloc(sizeof(struct mount_t));
+    *mounts[mount_n] = *mount;
+
+    return mount_n;
 }
 
 static inline uint8_t rd_byte(int handle, uint64_t loc) {
@@ -355,37 +362,38 @@ next:
 }
 
 static int echfs_close(int handle) {
-    spinlock_acquire(&echfs_lock);
-
     if (   handle < 0
-        || handle >= echfs_handles_i
-        || echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
+        || handle >= MAX_ECHFS_HANDLES
+        || echfs_handles[handle]->free) {
         errno = EBADF;
         return -1;
     }
 
-    if (!(--echfs_handles[handle].refcount)) {
-        echfs_handles[handle].free = 1;
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+
+    spinlock_acquire(&mnt->lock);
+
+    if (!(--echfs_handles[handle]->refcount)) {
+        echfs_handles[handle]->free = 1;
     }
 
-    spinlock_release(&echfs_lock);
+    spinlock_release(&mnt->lock);
     return 0;
 }
 
 static int echfs_open(const char *path, int flags, int mode, int mnt) {
-    spinlock_acquire(&echfs_lock);
+    spinlock_acquire(&mounts[mnt]->lock);
 
     struct echfs_handle_t new_handle = {0};
 
-    struct path_result_t path_result = path_resolver(&mounts[mnt], path);
+    struct path_result_t path_result = path_resolver(mounts[mnt], path);
 
     if (path_result.not_found) {
-        spinlock_release(&echfs_lock);
+        spinlock_release(&mounts[mnt]->lock);
         errno = ENOENT;
         return -1;
     } else if (path_result.failure) {
-        spinlock_release(&echfs_lock);
+        spinlock_release(&mounts[mnt]->lock);
         errno = ENOENT;
         return -1;
     }
@@ -395,7 +403,7 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
     if (path_result.type == DIRECTORY_TYPE) {
         // it's a directory
         if (flags & O_WRONLY || flags & O_RDWR) {
-            spinlock_release(&echfs_lock);
+            spinlock_release(&mounts[mnt]->lock);
             errno = EISDIR;
             return -1;
         }
@@ -420,149 +428,136 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
     int cached_file;
 
-    if (!mounts[mnt].cached_files_ptr) goto skip_search;
+    if (!mounts[mnt]->cached_files_ptr) goto skip_search;
 
-    for (cached_file = 0; kstrcmp(mounts[mnt].cached_files[cached_file].path, path); cached_file++)
-        if (cached_file == (mounts[mnt].cached_files_ptr - 1)) goto skip_search;
+    for (cached_file = 0; kstrcmp(mounts[mnt]->cached_files[cached_file].path, path); cached_file++)
+        if (cached_file == (mounts[mnt]->cached_files_ptr - 1)) goto skip_search;
 
     goto search_out;
 
 skip_search:
 
-    mounts[mnt].cached_files = krealloc(mounts[mnt].cached_files, sizeof(struct cached_file_t) * (mounts[mnt].cached_files_ptr + 1));
-    cached_file = mounts[mnt].cached_files_ptr;
+    mounts[mnt]->cached_files = krealloc(mounts[mnt]->cached_files, sizeof(struct cached_file_t) * (mounts[mnt]->cached_files_ptr + 1));
+    cached_file = mounts[mnt]->cached_files_ptr;
 
-    kstrcpy(mounts[mnt].cached_files[cached_file].path, path);
-    mounts[mnt].cached_files[cached_file].path_res = path_result;
+    kstrcpy(mounts[mnt]->cached_files[cached_file].path, path);
+    mounts[mnt]->cached_files[cached_file].path_res = path_result;
 
     if (path_result.type == FILE_TYPE) {
 
-        mounts[mnt].cached_files[cached_file].cache = kalloc(mounts[mnt].bytesperblock);
+        mounts[mnt]->cached_files[cached_file].cache = kalloc(mounts[mnt]->bytesperblock);
 
-        mounts[mnt].cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
-        mounts[mnt].cached_files[cached_file].alloc_map[0] = mounts[mnt].cached_files[cached_file].path_res.target.payload;
-        for (uint64_t i = 1; mounts[mnt].cached_files[cached_file].alloc_map[i-1] != END_OF_CHAIN; i++) {
-            mounts[mnt].cached_files[cached_file].alloc_map = krealloc(mounts[mnt].cached_files[cached_file].alloc_map, sizeof(uint64_t) * (i + 1));
-            mounts[mnt].cached_files[cached_file].alloc_map[i] = rd_qword(mounts[mnt].device,
-                    (mounts[mnt].fatstart * mounts[mnt].bytesperblock) + (mounts[mnt].cached_files[cached_file].alloc_map[i-1] * sizeof(uint64_t)));
+        mounts[mnt]->cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
+        mounts[mnt]->cached_files[cached_file].alloc_map[0] = mounts[mnt]->cached_files[cached_file].path_res.target.payload;
+        for (uint64_t i = 1; mounts[mnt]->cached_files[cached_file].alloc_map[i-1] != END_OF_CHAIN; i++) {
+            mounts[mnt]->cached_files[cached_file].alloc_map = krealloc(mounts[mnt]->cached_files[cached_file].alloc_map, sizeof(uint64_t) * (i + 1));
+            mounts[mnt]->cached_files[cached_file].alloc_map[i] = rd_qword(mounts[mnt]->device,
+                    (mounts[mnt]->fatstart * mounts[mnt]->bytesperblock) + (mounts[mnt]->cached_files[cached_file].alloc_map[i-1] * sizeof(uint64_t)));
         }
 
-        mounts[mnt].cached_files[cached_file].cache_status = CACHE_NOTREADY;
+        mounts[mnt]->cached_files[cached_file].cache_status = CACHE_NOTREADY;
 
-        mounts[mnt].cached_files_ptr++;
+        mounts[mnt]->cached_files_ptr++;
 
     }
 
 search_out:
 
-    new_handle.cached_file = &mounts[mnt].cached_files[cached_file];
+    new_handle.cached_file = &mounts[mnt]->cached_files[cached_file];
 
     new_handle.free = 0;
     new_handle.refcount = 1;
 
-    int ret = echfs_create_handle(new_handle);
-    spinlock_release(&echfs_lock);
+    int ret = echfs_create_handle(&new_handle);
+    spinlock_release(&mounts[mnt]->lock);
     return ret;
 }
 
 static int echfs_lseek(int handle, off_t offset, int type) {
     long ret;
 
-    if (handle < 0) {
+    if (   handle < 0
+        || handle >= MAX_ECHFS_HANDLES
+        || echfs_handles[handle]->free) {
         errno = EBADF;
         return -1;
     }
 
-    spinlock_acquire(&echfs_lock);
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
 
-    if (handle >= echfs_handles_i) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-
-    if (echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-
-    if (echfs_handles[handle].type == DIRECTORY_TYPE) {
-        spinlock_release(&echfs_lock);
-        errno = EISDIR;
-        return -1;
-    }
+    spinlock_acquire(&mnt->lock);
 
     switch (type) {
         case SEEK_SET:
-            if ((echfs_handles[handle].begin + offset) > echfs_handles[handle].end ||
-                (echfs_handles[handle].begin + offset) < echfs_handles[handle].begin) return -1;
-            echfs_handles[handle].ptr = echfs_handles[handle].begin + offset;
-            ret = echfs_handles[handle].ptr;
-            spinlock_release(&echfs_lock);
+            if ((echfs_handles[handle]->begin + offset) > echfs_handles[handle]->end ||
+                (echfs_handles[handle]->begin + offset) < echfs_handles[handle]->begin) return -1;
+            echfs_handles[handle]->ptr = echfs_handles[handle]->begin + offset;
+            ret = echfs_handles[handle]->ptr;
+            spinlock_release(&mnt->lock);
             return ret;
         case SEEK_END:
-            if ((echfs_handles[handle].end + offset) > echfs_handles[handle].end ||
-                (echfs_handles[handle].end + offset) < echfs_handles[handle].begin) return -1;
-            echfs_handles[handle].ptr = echfs_handles[handle].end + offset;
-            ret = echfs_handles[handle].ptr;
-            spinlock_release(&echfs_lock);
+            if ((echfs_handles[handle]->end + offset) > echfs_handles[handle]->end ||
+                (echfs_handles[handle]->end + offset) < echfs_handles[handle]->begin) return -1;
+            echfs_handles[handle]->ptr = echfs_handles[handle]->end + offset;
+            ret = echfs_handles[handle]->ptr;
+            spinlock_release(&mnt->lock);
             return ret;
         case SEEK_CUR:
-            if ((echfs_handles[handle].ptr + offset) > echfs_handles[handle].end ||
-                (echfs_handles[handle].ptr + offset) < echfs_handles[handle].begin) return -1;
-            echfs_handles[handle].ptr += offset;
-            ret = echfs_handles[handle].ptr;
-            spinlock_release(&echfs_lock);
+            if ((echfs_handles[handle]->ptr + offset) > echfs_handles[handle]->end ||
+                (echfs_handles[handle]->ptr + offset) < echfs_handles[handle]->begin) return -1;
+            echfs_handles[handle]->ptr += offset;
+            ret = echfs_handles[handle]->ptr;
+            spinlock_release(&mnt->lock);
             return ret;
         default:
-            spinlock_release(&echfs_lock);
+            spinlock_release(&mnt->lock);
             errno = EINVAL;
             return -1;
     }
 }
 
 static int echfs_dup(int handle) {
-    spinlock_acquire(&echfs_lock);
-
     if (   handle < 0
-        || handle >= echfs_handles_i
-        || echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
+        || handle >= MAX_ECHFS_HANDLES
+        || echfs_handles[handle]->free) {
         errno = EBADF;
         return -1;
     }
 
-    echfs_handles[handle].refcount++;
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
 
-    spinlock_release(&echfs_lock);
+    spinlock_acquire(&mnt->lock);
+
+    echfs_handles[handle]->refcount++;
+
+    spinlock_release(&mnt->lock);
 
     return 0;
 }
 
 static int echfs_readdir(int handle, struct dirent *dir) {
-    spinlock_acquire(&echfs_lock);
-
     if (   handle < 0
-        || handle >= echfs_handles_i
-        || echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
+        || handle >= MAX_ECHFS_HANDLES
+        || echfs_handles[handle]->free) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = &mounts[echfs_handles[handle].mnt];
-    uint64_t dir_id = echfs_handles[handle].cached_file->path_res.target.payload;
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+
+    spinlock_acquire(&mnt->lock);
+
+    uint64_t dir_id = echfs_handles[handle]->cached_file->path_res.target.payload;
 
     for (;;) {
         // check if past directory table
-        if (echfs_handles[handle].ptr >= (mnt->dirsize * ENTRIES_PER_BLOCK)) goto end_of_dir;
-        struct entry_t entry = rd_entry(mnt, echfs_handles[handle].ptr);
+        if (echfs_handles[handle]->ptr >= (mnt->dirsize * ENTRIES_PER_BLOCK)) goto end_of_dir;
+        struct entry_t entry = rd_entry(mnt, echfs_handles[handle]->ptr);
         if (!entry.parent_id) goto end_of_dir;              // check if past last entry
-        echfs_handles[handle].ptr++;
+        echfs_handles[handle]->ptr++;
         if (entry.parent_id == dir_id) {
             // valid entry
-            dir->d_ino = echfs_handles[handle].ptr;
+            dir->d_ino = echfs_handles[handle]->ptr;
             kstrcpy(dir->d_name, entry.name);
             dir->d_reclen = sizeof(struct dirent);
             switch (entry.type) {
@@ -577,53 +572,45 @@ static int echfs_readdir(int handle, struct dirent *dir) {
         }
     }
 
-    spinlock_release(&echfs_lock);
+    spinlock_release(&mnt->lock);
     return 0;
 
 end_of_dir:
-    spinlock_release(&echfs_lock);
+    spinlock_release(&mnt->lock);
     errno = 0;
     return -1;
 }
 
 static int echfs_fstat(int handle, struct stat *st) {
-    if (handle < 0) {
+    if (   handle < 0
+        || handle >= MAX_ECHFS_HANDLES
+        || echfs_handles[handle]->free) {
         errno = EBADF;
         return -1;
     }
 
-    spinlock_acquire(&echfs_lock);
+    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
 
-    if (handle >= echfs_handles_i) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
+    spinlock_acquire(&mnt->lock);
 
-    if (echfs_handles[handle].free) {
-        spinlock_release(&echfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-
-    st->st_dev = mounts[echfs_handles[handle].mnt].device;
-    st->st_ino = echfs_handles[handle].cached_file->path_res.target_entry + 1;
+    st->st_dev = mnt->device;
+    st->st_ino = echfs_handles[handle]->cached_file->path_res.target_entry + 1;
     st->st_nlink = 1;
-    st->st_uid = echfs_handles[handle].cached_file->path_res.target.owner;
-    st->st_gid = echfs_handles[handle].cached_file->path_res.target.group;
+    st->st_uid = echfs_handles[handle]->cached_file->path_res.target.owner;
+    st->st_gid = echfs_handles[handle]->cached_file->path_res.target.group;
     st->st_rdev = 0;
-    st->st_size = echfs_handles[handle].end;
+    st->st_size = echfs_handles[handle]->end;
     st->st_blksize = 512;
     st->st_blocks = (st->st_size + 512 - 1) / 512;
-    st->st_atim.tv_sec = echfs_handles[handle].cached_file->path_res.target.time;
+    st->st_atim.tv_sec = echfs_handles[handle]->cached_file->path_res.target.time;
     st->st_atim.tv_nsec = st->st_atim.tv_sec * 1000000000;
-    st->st_mtim.tv_sec = echfs_handles[handle].cached_file->path_res.target.time;
+    st->st_mtim.tv_sec = echfs_handles[handle]->cached_file->path_res.target.time;
     st->st_mtim.tv_nsec = st->st_mtim.tv_sec * 1000000000;
-    st->st_ctim.tv_sec = echfs_handles[handle].cached_file->path_res.target.time;
+    st->st_ctim.tv_sec = echfs_handles[handle]->cached_file->path_res.target.time;
     st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
 
     st->st_mode = 0;
-    switch (echfs_handles[handle].type) {
+    switch (echfs_handles[handle]->type) {
         case DIRECTORY_TYPE:
             st->st_mode |= S_IFDIR;
             break;
@@ -632,17 +619,15 @@ static int echfs_fstat(int handle, struct stat *st) {
             break;
     }
 
-    spinlock_release(&echfs_lock);
+    spinlock_release(&mnt->lock);
     return 0;
 }
 
 static int echfs_mount(const char *source) {
-    spinlock_acquire(&echfs_lock);
-
     /* open device */
     int device = open(source, O_RDWR, 0);
     if (device == -1) {
-        spinlock_release(&echfs_lock);
+        /* errno propagates from open */
         return -1;
     }
 
@@ -653,33 +638,41 @@ static int echfs_mount(const char *source) {
     if (kstrncmp(signature, "_ECH_FS_", 8)) {
         kprint(KPRN_ERR, "echidnaFS signature invalid, mount failed!");
         close(device);
-        spinlock_release(&echfs_lock);
+        errno = EINVAL;
         return -1;
     }
 
-    mounts = krealloc(mounts, sizeof(struct mount_t) * (mounts_i + 1));
+    struct mount_t mount;
 
-    mounts[mounts_i].device = device;
-    kstrcpy(mounts[mounts_i].name, source);
-    mounts[mounts_i].blocks = rd_qword(device, 12);
-    mounts[mounts_i].bytesperblock = rd_qword(device, 28);
-    mounts[mounts_i].fatsize = (mounts[mounts_i].blocks * sizeof(uint64_t)) / mounts[mounts_i].bytesperblock;
-    if ((mounts[mounts_i].blocks * sizeof(uint64_t)) % mounts[mounts_i].bytesperblock) mounts[mounts_i].fatsize++;
-    mounts[mounts_i].fatstart = RESERVED_BLOCKS;
-    mounts[mounts_i].dirsize = rd_qword(device, 20);
-    mounts[mounts_i].dirstart = mounts[mounts_i].fatstart + mounts[mounts_i].fatsize;
-    mounts[mounts_i].datastart = RESERVED_BLOCKS + mounts[mounts_i].fatsize + mounts[mounts_i].dirsize;
+    mount.device = device;
+    kstrcpy(mount.name, source);
+    mount.blocks = rd_qword(device, 12);
+    mount.bytesperblock = rd_qword(device, 28);
+    mount.fatsize = (mount.blocks * sizeof(uint64_t)) / mount.bytesperblock;
+    if ((mount.blocks * sizeof(uint64_t)) % mount.bytesperblock) mount.fatsize++;
+    mount.fatstart = RESERVED_BLOCKS;
+    mount.dirsize = rd_qword(device, 20);
+    mount.dirstart = mount.fatstart + mount.fatsize;
+    mount.datastart = RESERVED_BLOCKS + mount.fatsize + mount.dirsize;
 
-    mounts[mounts_i].cached_files = 0;
-    mounts[mounts_i].cached_files_ptr = 0;
+    mount.cached_files = 0;
+    mount.cached_files_ptr = 0;
 
-    int ret = mounts_i++;
+    mount.free = 0;
+    mount.lock = 1;
 
-    spinlock_release(&echfs_lock);
-    return ret;
+    return echfs_create_mount(&mount);
 }
 
 void init_echfs(void) {
+    echfs_handles = kalloc(MAX_ECHFS_HANDLES * sizeof(void *));
+    if (!echfs_handles)
+        panic("out of memory while allocating echfs_handles", 0, 0);
+
+    mounts = kalloc(MAX_ECHFS_MOUNTS * sizeof(void *));
+    if (!mounts)
+        panic("out of memory while allocating echfs_mounts", 0, 0);
+
     struct fs_t echfs = {0};
 
     kstrcpy(echfs.type, "echfs");
