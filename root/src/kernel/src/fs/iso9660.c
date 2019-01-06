@@ -474,7 +474,7 @@ static struct path_result_t resolve_path(struct mount_t *mount,
             result.rr_length = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
             if (result.rr_length) {
                 uint64_t entry_loc = 0;
-                entry_loc = (result.parent.extent_location.little * mount->block_size) + pos;
+                entry_loc = (result.target.extent_location.little * mount->block_size) + pos;
                 result.rr_loc = entry_loc + sizeof(struct directory_entry_t) + entry->name_length;
             }
 
