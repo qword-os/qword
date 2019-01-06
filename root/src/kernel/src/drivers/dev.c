@@ -5,6 +5,20 @@
 
 struct device devices[MAX_DEVICES];
 
+void device_sync_worker(void *arg) {
+    (void)arg;
+
+    for (;;) {
+        for (size_t i = 0; i < MAX_DEVICES; i++) {
+            if (!devices[i].used)
+                continue;
+            devices[i].flush(devices[i].magic);
+            yield(100);
+        }
+        yield(1000);
+    }
+}
+
 uint64_t device_size(int dev) {
     return devices[dev].size;
 }

@@ -33,4 +33,6 @@ int device_write(int, const void *, uint64_t, size_t);
 int device_flush(int);
 char *device_list(size_t);
 
+void device_sync_worker(void *);
+
 #endif
