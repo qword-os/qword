@@ -126,6 +126,13 @@ static int devfs_open(char *path, int flags, int mode) {
 
     int is_root = 0;
 
+    if (   flags & O_TRUNC
+        || flags & O_APPEND
+        || flags & O_CREAT) {
+        errno = EROFS;
+        goto fail;
+    }
+
     if (!kstrcmp(path, "/")) {
         is_root = 1;
         goto root;
@@ -140,14 +147,7 @@ static int devfs_open(char *path, int flags, int mode) {
         goto fail;
     }
 
-root:
-    if (   flags & O_TRUNC
-        || flags & O_APPEND
-        || flags & O_CREAT) {
-        errno = EROFS;
-        goto fail;
-    }
-
+root:;
     struct devfs_handle_t new_handle = {0};
     new_handle.free = 0;
     new_handle.refcount = 1;

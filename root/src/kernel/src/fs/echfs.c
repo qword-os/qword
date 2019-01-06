@@ -52,6 +52,7 @@ struct path_result_t {
 
 struct cached_file_t {
     char path[2048];
+    int refcount;
     struct path_result_t path_res;
     uint64_t cached_block;
     uint8_t *cache;
@@ -92,14 +93,28 @@ struct echfs_handle_t {
 static struct echfs_handle_t **echfs_handles;
 static struct mount_t **mounts;
 
-static int cache_block(int handle, uint64_t block) {
-    /* TODO add logic to flush the cache if dirty and stuff (for write support) */
+static int synchronise_cached_file(struct cached_file_t *cached_file) {
+    kprint(0, __func__);
 
+}
+
+static int cache_block(int handle, uint64_t block) {
     struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
 
     if (echfs_handles[handle]->cached_file->cached_block == block
       && echfs_handles[handle]->cached_file->cache_status == CACHE_READY)
         return 0;
+
+    if (echfs_handles[handle]->cached_file->cache_status == CACHE_DIRTY) {
+        lseek(mnt->device,
+              echfs_handles[handle]->cached_file->alloc_map[
+                echfs_handles[handle]->cached_file->cached_block
+              ] * BYTES_PER_BLOCK,
+              SEEK_SET);
+        write(mnt->device,
+              echfs_handles[handle]->cached_file->cache,
+              BYTES_PER_BLOCK);
+    }
 
     lseek(mnt->device,
           echfs_handles[handle]->cached_file->alloc_map[block] * BYTES_PER_BLOCK,
@@ -255,10 +270,10 @@ static inline struct entry_t rd_entry(struct mount_t *mnt, uint64_t entry) {
     return res;
 }
 
-static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t entry_src) {
+static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t *entry_src) {
     uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(struct entry_t));
     lseek(mnt->device, loc, SEEK_SET);
-    write(mnt->device, (void *)&entry_src, sizeof(struct entry_t));
+    write(mnt->device, (void *)entry_src, sizeof(struct entry_t));
 
     return;
 }
@@ -275,6 +290,19 @@ static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, u
             return i;
         }
     }
+}
+
+static uint64_t find_free_entry(struct mount_t *mnt) {
+    uint64_t i;
+
+    for (i = 0; ; i++) {
+        if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
+        struct entry_t entry = rd_entry(mnt, i);
+        if (!entry.parent_id) break;              // check if past last entry
+        if (entry.parent_id == DELETED_ENTRY) break;
+    }
+
+    return i;
 }
 
 static uint64_t get_free_id(struct mount_t *mnt) {
@@ -373,8 +401,14 @@ static int echfs_close(int handle) {
 
     spinlock_acquire(&mnt->lock);
 
+    struct cached_file_t *cached_file = echfs_handles[handle]->cached_file;
+
     if (!(--echfs_handles[handle]->refcount)) {
         echfs_handles[handle]->free = 1;
+    }
+
+    if (!(--cached_file->refcount)) {
+        synchronise_cached_file(cached_file);
     }
 
     spinlock_release(&mnt->lock);
@@ -388,14 +422,37 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
     struct path_result_t path_result = path_resolver(mounts[mnt], path);
 
-    if (path_result.not_found) {
+    if (path_result.not_found && !(flags & O_CREAT)) {
         spinlock_release(&mounts[mnt]->lock);
         errno = ENOENT;
         return -1;
-    } else if (path_result.failure) {
+    }
+
+    if (path_result.failure) {
         spinlock_release(&mounts[mnt]->lock);
         errno = ENOENT;
         return -1;
+    }
+
+    if (flags & O_CREAT) {
+        // create new entry
+        struct entry_t entry;
+
+        entry.parent_id = path_result.parent.payload;
+        entry.type = FILE_TYPE;
+        kstrcpy(entry.name, path_result.name);
+        entry.perms = 0; // TODO
+        entry.owner = 0; // TODO
+        entry.group = 0; // TODO
+        entry.time = 0; // TODO
+        entry.payload = END_OF_CHAIN;
+        entry.size = 0;
+
+        uint64_t new_entry = find_free_entry(mounts[mnt]);
+
+        wr_entry(mounts[mnt], new_entry, &entry);
+
+        path_result = path_resolver(mounts[mnt], path);
     }
 
     new_handle.type = path_result.type;
@@ -464,6 +521,8 @@ skip_search:
 search_out:
 
     new_handle.cached_file = &mounts[mnt]->cached_files[cached_file];
+
+    new_handle.cached_file->refcount++;
 
     new_handle.free = 0;
     new_handle.refcount = 1;
