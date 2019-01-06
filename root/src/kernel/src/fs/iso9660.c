@@ -396,7 +396,7 @@ static int create_handle(struct handle_t handle) {
 }
 
 static struct path_result_t resolve_path(struct mount_t *mount,
-        const char *path, int type) {
+        const char *path) {
     struct path_result_t result = {0};
 
 
@@ -492,20 +492,13 @@ out:
         kmemcpy(&result.target, entry, sizeof(struct directory_entry_t));
     } while(*path);
 
-
-
-    if (result.target.flags & FILE_FLAG_DIR && type == DIR_TYPE)
-        result.failure = 1;
-    if (result.target.flags & FILE_FLAG_DIR && type == FILE_TYPE)
-        result.failure = 1;
     return result;
 }
 
 static int iso9660_open(const char *path, int flags, int mode, int mount) {
     spinlock_acquire(&iso9660_lock);
 
-    struct path_result_t result = resolve_path(&mounts[mount], path,
-            FILE_TYPE);
+    struct path_result_t result = resolve_path(&mounts[mount], path);
 
     if (result.failure || result.not_found) {
         spinlock_release(&iso9660_lock);
@@ -552,7 +545,7 @@ static int iso9660_read(int handle, void *buf, size_t count) {
     }
 
     if (((size_t)handle_s->offset + count) >= (size_t)handle_s->end)
-        count = (size_t)(handle_s->offset - handle_s->end);
+        count = (size_t)(handle_s->end - handle_s->offset);
     if (!count) {
         spinlock_release(&iso9660_lock);
         return -1;
@@ -670,8 +663,8 @@ static int iso9660_fstat(int handle, struct stat *st) {
     st->st_nlink = px.links.little;
     st->st_uid = px.uid.little;
     st->st_gid = px.gid.little;
-    st->st_mode = px.mode.little;
-    switch (st->st_mode & ISO_FILE_MODE_MASK) {
+    st->st_mode = 0;
+    switch (px.mode.little & ISO_FILE_MODE_MASK) {
         case ISO_IFBLK: st->st_mode |= S_IFBLK; break;
         case ISO_IFCHR: st->st_mode |= S_IFCHR; break;
         case ISO_IFSOCK: st->st_mode |= S_IFSOCK; break;
@@ -681,7 +674,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
         case ISO_IFIFO: st->st_mode |= S_IFIFO; break;
     }
     st->st_rdev = 0;
-    if (st->st_mode & S_IFBLK || st->st_mode & S_IFCHR) {
+    if (S_ISBLK(st->st_mode) || S_ISCHR(st->st_mode)) {
         /* device/char file - look for PN entry */
         struct rr_pn pn = load_rr_pn(rr_area, rr_length);
         if (pn.signature[0] != 'P' || pn.signature[1] != 'N') {
@@ -740,7 +733,6 @@ static int iso9660_fstat(int handle, struct stat *st) {
                 iso_time->month, iso_time->years + 1900);
         st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
     }
-
 
     spinlock_release(&iso9660_lock);
     return 0;

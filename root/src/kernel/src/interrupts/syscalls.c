@@ -431,6 +431,9 @@ int syscall_close(struct ctx_t *ctx) {
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
+    if (ctx->rdi >= MAX_FILE_HANDLES) {
+        return -1;
+    }
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
@@ -460,6 +463,9 @@ int syscall_lseek(struct ctx_t *ctx) {
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
+    if (ctx->rdi >= MAX_FILE_HANDLES) {
+        return -1;
+    }
     spinlock_acquire(&process->file_handles_lock);
     if (process->file_handles[ctx->rdi] == -1) {
         spinlock_release(&process->file_handles_lock);
