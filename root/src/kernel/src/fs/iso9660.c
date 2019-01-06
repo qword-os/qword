@@ -3,6 +3,7 @@
 #include <time.h>
 #include <klib.h>
 #include <lock.h>
+#include <errno.h>
 
 #define SECTOR_SIZE 2048
 #define FILE_TYPE 0
@@ -396,6 +397,44 @@ static int create_handle(struct handle_t handle) {
     return handle_n;
 }
 
+static char *load_name(struct directory_entry_t *entry, int *name_length) {
+
+    unsigned char* sysarea = ((unsigned char*)entry) + sizeof(struct directory_entry_t) + entry->name_length;
+    int sysarea_len = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
+    if ((entry->name_length & 0x1) == 0) {
+        sysarea++;
+        sysarea_len--;
+    }
+
+    int rrnamelen = 0;
+    while ((sysarea_len >= 4) && ((sysarea[3] == 1) || (sysarea[2] == 2))) {
+        if (sysarea[0] == 'N' && sysarea[1] == 'M') {
+            rrnamelen = sysarea[2] - 5;
+            break;
+        }
+        sysarea_len -= sysarea[2];
+        sysarea += sysarea[2];
+    }
+
+    int name_len = 0;
+    char *buf;
+    if (rrnamelen) {
+        /* rock ridge naming scheme */
+        name_len = rrnamelen;
+        buf = kalloc(name_len);
+        kmemcpy(buf, sysarea + 5, name_len);
+        buf[name_len] = '\0';
+    } else {
+        name_len = entry->name_length;
+        buf = kalloc(name_len);
+        for(size_t j = 0; j < name_len; j++)
+            buf[j] = ktolower(entry->name[j]);
+    }
+    if (name_length)
+        *name_length = name_len;
+    return buf;
+}
+
 static struct path_result_t resolve_path(struct mount_t *mount,
         const char *path) {
     struct path_result_t result = {0};
@@ -432,48 +471,21 @@ static struct path_result_t resolve_path(struct mount_t *mount,
         for (int i = 0; i < current_dir.num_entries; i++) {
             entry = (struct directory_entry_t *)(current_dir.entries + pos);
 
-            unsigned char* sysarea = ((unsigned char*)entry) + sizeof(struct directory_entry_t) + entry->name_length;
-            int sysarea_len = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
-            if ((entry->name_length & 0x1) == 0) {
-                sysarea++;
-                sysarea_len--;
-            }
-
-            int rrnamelen = 0;
-            while ((sysarea_len >= 4) && ((sysarea[3] == 1) || (sysarea[2] == 2))) {
-                if (sysarea[0] == 'N' && sysarea[1] == 'M') {
-                    rrnamelen = sysarea[2] - 5;
-                    break;
-                }
-                sysarea_len -= sysarea[2];
-                sysarea += sysarea[2];
-            }
-
-            char *lower_name;
-            int name_length = 0;
-            if (rrnamelen) {
-                /* rock ridge naming scheme */
-                name_length = rrnamelen;
-                lower_name = kalloc(name_length);
-                kmemcpy(lower_name, sysarea + 5, name_length);
-                lower_name[name_length] = '\0';
-
+            result.rr_length = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
+            if (result.rr_length) {
                 uint64_t entry_loc = 0;
                 entry_loc = (result.parent.extent_location.little * mount->block_size) + pos;
                 result.rr_loc = entry_loc + sizeof(struct directory_entry_t) + entry->name_length;
-                result.rr_length = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
-            } else {
-                name_length = entry->name_length;
-                lower_name = kalloc(name_length);
-                for(size_t j = 0; j < seg_length; j++)
-                    lower_name[j] = ktolower(entry->name[j]);
             }
+
+            int name_length = 0;
+            char *lower_name = load_name(entry, &name_length);
 
             if (seg_length != name_length)
                 goto out;
             if (kstrncmp(seg, lower_name, seg_length) != 0)
                 goto out;
-            if (!rrnamelen && entry->name[name_length]
+            if (!result.rr_length && entry->name[name_length]
                     != ';')
                 goto out;
             kfree(lower_name);
@@ -816,6 +828,53 @@ static int iso9660_write(int handle, const void *buf, size_t count) {
     return -1; /* we don't do that here */
 }
 
+static int iso9660_readdir(int handle, struct dirent *dir) {
+    spinlock_acquire(&iso9660_lock);
+    if (handle < 0 || handle >= handle_i || handles[handle].free) {
+        spinlock_release(&iso9660_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    struct handle_t *handle_s = &handles[handle];
+    struct mount_t *mount = &mounts[handle_s->mount];
+
+    if (handle_s->offset >= handle_s->end) goto end_of_dir;
+    struct directory_result_t loaded_dir = load_dir(mount, &handle_s->
+            path_res.target);
+    struct directory_entry_t *target = (struct directory_entry_t*)(loaded_dir.
+            entries + handle_s->offset);
+    if (target->length <= 0) goto end_of_dir;
+    dir->d_ino = target->extent_location.little;
+    dir->d_reclen = sizeof(struct dirent);
+    int name_length = 0;
+    char *name = load_name(target, &name_length);
+    kmemcpy(dir->d_name, name, name_length);
+    dir->d_name[name_length] = '\0';
+    if (dir->d_name[0] == '\0') {
+        dir->d_name[0] = '.';
+        dir->d_name[1] = '\0';
+    }
+    if (dir->d_name[0] == 1) {
+        dir->d_name[0] = '.';
+        dir->d_name[1] = '.';
+        dir->d_name[2] = '\0';
+    }
+    if (target->flags & FILE_FLAG_DIR)
+        dir->d_type = DT_DIR;
+    else
+        dir->d_type = DT_REG;
+    handle_s->offset += target->length;
+    kfree(name);
+    spinlock_release(&iso9660_lock);
+    return 0;
+
+end_of_dir:
+    spinlock_release(&iso9660_lock);
+    errno = 0;
+    return -1;
+}
+
 void init_iso9660(void) {
     struct fs_t iso9660 = {0};
 
@@ -828,6 +887,7 @@ void init_iso9660(void) {
     iso9660.close = iso9660_close;
     iso9660.dup = iso9660_dup;
     iso9660.write = iso9660_write;
+    iso9660.readdir = iso9660_readdir;
 
     vfs_install_fs(iso9660);
 }
