@@ -1,0 +1,50 @@
+diff -urN a/arscan.c b/arscan.c
+--- a/arscan.c	2016-05-21 22:21:52.000000000 +0200
++++ b/arscan.c	2019-01-06 01:14:54.670712734 +0100
+@@ -331,9 +331,9 @@
+ #endif
+ 
+ #ifndef WINDOWS32
+-# if !defined (__ANDROID__) && !defined (__BEOS__)
+-#  include <ar.h>
+-# else
++//# if !defined (__ANDROID__) && !defined (__BEOS__)
++//#  include <ar.h>
++//# else
+    /* These platforms don't have <ar.h> but have archives in the same format
+     * as many other Unices.  This was taken from GNU binutils for BeOS.
+     */
+@@ -349,7 +349,7 @@
+     char ar_size[10];           /* File size, in ASCII decimal.  */
+     char ar_fmag[2];            /* Always contains ARFMAG.  */
+   };
+-# endif
++//# endif
+ # define TOCHAR(_m)     (_m)
+ #else
+ /* These should allow us to read Windows (VC++) libraries (according to Frank
+diff -urN a/config/config.sub b/config/config.sub
+--- a/config/config.sub	2016-05-22 15:27:16.000000000 +0200
++++ b/config/config.sub	2019-01-06 01:11:12.800379258 +0100
+@@ -1399,7 +1399,8 @@
+ 	      | -morphos* | -superux* | -rtmk* | -rtmk-nova* | -windiss* \
+ 	      | -powermax* | -dnix* | -nx6 | -nx7 | -sei* | -dragonfly* \
+ 	      | -skyos* | -haiku* | -rdos* | -toppers* | -drops* | -es* \
+-	      | -onefs* | -tirtos* | -phoenix*)
++	      | -onefs* | -tirtos* | -phoenix* \
++	      | -qword* )
+ 	# Remember, each alternative MUST END IN *, to match a version number.
+ 		;;
+ 	-qnx*)
+diff -urN a/misc.c b/misc.c
+--- a/misc.c	2016-04-09 22:44:51.000000000 +0200
++++ b/misc.c	2019-01-06 01:16:52.487420833 +0100
+@@ -700,7 +700,7 @@
+ 
+   if (value == 0)
+     {
+-      long int x = pathconf ("/", _PC_PATH_MAX);
++      long int x = pathconf ("/", 2048);
+       if (x > 0)
+         value = x;
+       else
