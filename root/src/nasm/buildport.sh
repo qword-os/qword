@@ -20,7 +20,7 @@ set -x
 
 rm -rf $PKG_ARCHIVE_DIR
 if [ ! -f $PKG_TARBALL ]; then
-	wget $PKG_URL
+    wget $PKG_URL
 fi
 
 tar -xf $PKG_TARBALL

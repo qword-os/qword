@@ -3,7 +3,7 @@
 set -e
 
 PKG_NAME=make
-PKG_VERSION=4.2
+PKG_VERSION=4.2.1
 PKG_URL=https://ftp.gnu.org/gnu/make/make-$PKG_VERSION.tar.gz
 PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.gz
 PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
@@ -20,7 +20,7 @@ set -x
 
 rm -rf $PKG_ARCHIVE_DIR
 if [ ! -f $PKG_TARBALL ]; then
-	wget $PKG_URL
+    wget $PKG_URL
 fi
 
 tar -xf $PKG_TARBALL
