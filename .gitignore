@@ -1,8 +1,8 @@
-/root/bin
-/root/lib
-/root/include
-/root/share
-/root/usr
+/root/*
+!/root/src
+!/root/root
+!/root/etc
+!/root/boot
 
 /**/*.tar.bz2
 /**/*.tar.gz
