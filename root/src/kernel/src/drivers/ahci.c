@@ -462,11 +462,8 @@ static void port_rebase(volatile struct hba_port_t *port) {
 
 static int init_ahci_device(struct ahci_device_t *device,
         volatile struct hba_port_t *port, uint8_t cmd, size_t portno) {
-    uint16_t *dest = pmm_alloc(1);
+    uint16_t *identify = pmm_alloc(1);
     int spin = 0;
-
-    port->is = port->is;
-    port->serr = port->serr;
 
     int slot = find_cmdslot(port);
     if (slot == -1) {
@@ -489,7 +486,7 @@ static int init_ahci_device(struct ahci_device_t *device,
     kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
             sizeof(volatile struct hba_cmd_tbl_t) / 8);
 
-    cmdtbl->prdt_entry[0].dba = (uint32_t)(size_t)dest;
+    cmdtbl->prdt_entry[0].dba = (uint32_t)(size_t)identify;
     cmdtbl->prdt_entry[0].dbc = 511;
     cmdtbl->prdt_entry[0].i = 1;
 
@@ -531,54 +528,17 @@ static int init_ahci_device(struct ahci_device_t *device,
 
     stop_cmd(port);
 
-    /* parse the identify data */
-    char serial[20];
-    size_t i = 0;
-
-    for (size_t j = 10; j < 20; j++) {
-        uint16_t d = dest[j];
-        char a = (char)((uint8_t)(d >> 8));
-        if (a != '\0') {
-            serial[i++] = a;
-        }
-
-        char b  = (char)(uint8_t)d;
-        if (b != '\0') {
-            serial[i++] = a;
-        }
-    }
-
-    char model[20];
-    i = 0;
-
-    for (size_t j = 27; j < 47; j++) {
-        uint16_t d = dest[j];
-        char a = (char)((uint8_t)(d >> 8));
-        if (a != '\0') {
-            model[i] = a;
-            i++;
-        }
-
-        char b  = (char)(uint8_t)d;
-        if (b != '\0') {
-            model[i] = b;
-            i++;
-        }
-    }
-
     /* Setup the device for use with the kernel device subsystem */
     device->exists = 1;
     device->port = port;
-    device->sector_count = *((uint64_t *)&dest[100]);
+    device->sector_count = *((uint64_t *)((size_t)&identify[100] + MEM_PHYS_OFFSET));
     device->cache = kalloc(MAX_CACHED_SECTORS * sizeof(struct cached_sector_t));
 
-    kprint(KPRN_INFO, "ahci: Disk serial no. is %s", serial);
-    kprint(KPRN_INFO, "ahci: Sector count = %u", *((uint64_t *)&dest[100]));
-    kprint(KPRN_INFO, "ahci: Disk model is %s", model);
+    kprint(KPRN_INFO, "ahci: Sector count = %U", device->sector_count);
     kprint(KPRN_INFO, "ahci: Identify successful");
     kprint(KPRN_INFO, "ahci: Initialised /dev/%s", ahci_names[portno]);
 
-    pmm_free(dest, 1);
+    pmm_free(identify, 1);
 
     return 0;
 }
@@ -588,9 +548,6 @@ static int init_ahci_device(struct ahci_device_t *device,
 static int ahci_rw(volatile struct hba_port_t *port,
         uint32_t startl, uint32_t starth, uint32_t count, uint16_t *buf, int w) {
     int spin = 0;
-
-    port->is = port->is;
-    port->serr = port->serr;
 
     int slot = find_cmdslot(port);
     if (slot == -1) {
@@ -652,7 +609,7 @@ static int ahci_rw(volatile struct hba_port_t *port,
         spin++;
     }
 
-    if (spin > 1000000) {
+    if (spin >= 1000000) {
         kprint(KPRN_WARN, "ahci: Port hung");
         return -1;
     }
