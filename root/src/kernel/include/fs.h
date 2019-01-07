@@ -48,6 +48,7 @@ struct vfs_handle_t {
     int used;
     int fs;
     int intern_fd;
+    int fdflags;
 };
 
 struct mnt_t {
@@ -143,5 +144,7 @@ void init_vfs(void);
 void init_devfs(void);
 void init_echfs(void);
 void init_iso9660(void);
+
+extern struct vfs_handle_t *file_descriptors;
 
 #endif

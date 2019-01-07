@@ -387,6 +387,152 @@ int syscall_open(struct ctx_t *ctx) {
     return local_fd;
 }
 
+// constants from mlibc: options/posix/include/fcntl.h
+#define F_DUPFD 1
+#define F_DUPFD_CLOEXEC 2
+#define F_GETFD 3
+#define F_SETFD 4
+#define F_GETFL 5
+#define F_SETFL 6
+#define F_GETLK 7
+#define F_SETLK 8
+#define F_SETLKW 9
+#define F_GETOWN 10
+#define F_SETOWN 11
+
+static int fcntl_dupfd(int fd, int lowest_fd, int cloexec) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    int old_fd_sys = process->file_handles[fd];
+    spinlock_release(&process->file_handles_lock);
+
+    if (old_fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    int new_fd;
+
+    spinlock_acquire(&process->file_handles_lock);
+    for (new_fd = lowest_fd; new_fd < MAX_FILE_HANDLES; new_fd++) {
+        if (process->file_handles[new_fd] == -1)
+            goto fnd;
+    }
+
+    // free handle not found
+    spinlock_release(&process->file_handles_lock);
+    errno = EINVAL;
+    return -1;
+
+fnd:;
+    int new_fd_sys = dup(old_fd_sys);
+    process->file_handles[new_fd] = new_fd_sys;
+    spinlock_release(&process->file_handles_lock);
+    return new_fd;
+}
+
+static int fcntl_getfd(int fd) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    int fd_sys = process->file_handles[fd];
+    spinlock_release(&process->file_handles_lock);
+
+    if (fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    int ret = file_descriptors[fd_sys].fdflags;
+
+    return ret;
+}
+
+static int fcntl_setfd(int fd, int fdflags) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    int fd_sys = process->file_handles[fd];
+    spinlock_release(&process->file_handles_lock);
+
+    if (fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    file_descriptors[fd_sys].fdflags = fdflags;
+
+    return 0;
+}
+
+int syscall_fcntl(struct ctx_t *ctx) {
+    int fd = (int)ctx->rdi;
+    int cmd = (int)ctx->rsi;
+
+    switch (cmd) {
+        case F_DUPFD:
+            kprint(KPRN_DBG, "fcntl(%d, F_DUPFD, %d);",
+                    fd, (int)ctx->rdx);
+            return fcntl_dupfd(fd, (int)ctx->rdx, 0);
+        case F_DUPFD_CLOEXEC:
+            kprint(KPRN_DBG, "fcntl(%d, F_DUPFD_CLOEXEC, %d);",
+                    fd, (int)ctx->rdx);
+            return fcntl_dupfd(fd, (int)ctx->rdx, 1);
+        case F_GETFD:
+            kprint(KPRN_DBG, "fcntl(%d, F_GETFD, %d);",
+                    fd, (int)ctx->rdx);
+            return fcntl_getfd(fd);
+        case F_SETFD:
+            kprint(KPRN_DBG, "fcntl(%d, F_SETFD, %d);",
+                    fd, (int)ctx->rdx);
+            return fcntl_setfd(fd, (int)ctx->rdx);
+        case F_GETFL:
+            kprint(KPRN_DBG, "fcntl(%d, F_GETFL, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        case F_SETFL:
+            kprint(KPRN_DBG, "fcntl(%d, F_SETFL, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        case F_GETLK:
+            kprint(KPRN_DBG, "fcntl(%d, F_GETLK, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        case F_SETLK:
+            kprint(KPRN_DBG, "fcntl(%d, F_SETLK, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        case F_SETLKW:
+            kprint(KPRN_DBG, "fcntl(%d, F_SETLKW, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        case F_GETOWN:
+            kprint(KPRN_DBG, "fcntl(%d, F_GETOWN, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        case F_SETOWN:
+            kprint(KPRN_DBG, "fcntl(%d, F_SETOWN, %d);",
+                    fd, (int)ctx->rdx);
+            break;
+        default:
+            break;
+    }
+
+    kprint(KPRN_ERR, "unsupported fcntl");
+    errno = ENOSYS;
+    return -1;
+}
+
 int syscall_dup2(struct ctx_t *ctx) {
     int old_fd = (int)ctx->rdi;
     int new_fd = (int)ctx->rsi;

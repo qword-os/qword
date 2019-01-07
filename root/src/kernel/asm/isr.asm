@@ -289,6 +289,8 @@ syscall_table:
     dq syscall_dup2 ;16
     extern syscall_readdir
     dq syscall_readdir ;17
+    extern syscall_fcntl
+    dq syscall_fcntl ;18
   .end:
 
 section .text

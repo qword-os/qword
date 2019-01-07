@@ -440,7 +440,7 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
         return -1;
     }
 
-    if (flags & O_CREAT) {
+    if (path_result.not_found && flags & O_CREAT) {
         // create new entry
         struct entry_t entry;
 
