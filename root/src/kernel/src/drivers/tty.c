@@ -40,7 +40,7 @@ int tty_read(int magic, void *data, uint64_t loc, size_t count) {
 
 /* Stub for now */
 static int tty_flush(int dev) {
-    return 0;
+    return 1;
 }
 
 void init_tty(void) {

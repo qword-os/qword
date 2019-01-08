@@ -72,66 +72,67 @@ void readline(int fd, const char *prompt, char *str, size_t max) {
     return;
 }
 
-#define KPRINT_BUF_MAX 1024
+#define KPRINT_BUF_MAX 256
 
-static char kprint_buf[KPRINT_BUF_MAX] = {0};
-static size_t kprint_buf_i = 0;
-
-static void kputs(const char *string) {
+static void kputs(char *kprint_buf, size_t *kprint_buf_i, const char *string) {
     size_t i;
 
     for (i = 0; string[i]; i++) {
-        if (kprint_buf_i == (KPRINT_BUF_MAX - 1))
+        if (*kprint_buf_i == (KPRINT_BUF_MAX - 1))
             break;
-        kprint_buf[kprint_buf_i++] = string[i];
+        kprint_buf[(*kprint_buf_i)++] = string[i];
     }
 
-    kprint_buf[kprint_buf_i] = 0;
+    kprint_buf[*kprint_buf_i] = 0;
 
     return;
 }
 
-static void knputs(const char *string, size_t len) {
+static void knputs(char *kprint_buf, size_t *kprint_buf_i, const char *string, size_t len) {
     size_t i;
 
     for (i = 0; i < len; i++) {
-        if (kprint_buf_i == (KPRINT_BUF_MAX - 1))
+        if (*kprint_buf_i == (KPRINT_BUF_MAX - 1))
             break;
-        kprint_buf[kprint_buf_i++] = string[i];
+        kprint_buf[(*kprint_buf_i)++] = string[i];
     }
 
-    kprint_buf[kprint_buf_i] = 0;
+    kprint_buf[*kprint_buf_i] = 0;
 
     return;
 }
 
-static void kputchar(char c) {
-    if (kprint_buf_i < (KPRINT_BUF_MAX - 1)) {
-        kprint_buf[kprint_buf_i++] = c;
+static void kputchar(char *kprint_buf, size_t *kprint_buf_i, char c) {
+    if (*kprint_buf_i < (KPRINT_BUF_MAX - 1)) {
+        kprint_buf[(*kprint_buf_i)++] = c;
     }
 
-    kprint_buf[kprint_buf_i] = 0;
+    kprint_buf[*kprint_buf_i] = 0;
 
     return;
 }
 
-static void kprint_buf_flush(void) {
+static void kprint_buf_flush(char *kprint_buf, size_t *kprint_buf_i) {
     #ifdef _KERNEL_QEMU_
         qemu_debug_puts(kprint_buf);
     #endif
     #ifdef _KERNEL_VGA_
-        tty_write(0, kprint_buf, 0, kprint_buf_i);
+        tty_write(0, kprint_buf, 0, *kprint_buf_i);
     #endif
-    kprint_buf_i = 0;
     return;
 }
 
-static void kprn_i(int64_t x) {
+static void kprint_buf_flush_panic(char *kprint_buf, size_t *kprint_buf_i) {
+    qemu_debug_puts(kprint_buf);
+    return;
+}
+
+static void kprn_i(char *kprint_buf, size_t *kprint_buf_i, int64_t x) {
     int i;
     char buf[21] = {0};
 
     if (!x) {
-        kputchar('0');
+        kputchar(kprint_buf, kprint_buf_i, '0');
         return;
     }
 
@@ -147,17 +148,17 @@ static void kprn_i(int64_t x) {
     else
         i++;
 
-    kputs(buf + i);
+    kputs(kprint_buf, kprint_buf_i, buf + i);
 
     return;
 }
 
-static void kprn_ui(uint64_t x) {
+static void kprn_ui(char *kprint_buf, size_t *kprint_buf_i, uint64_t x) {
     int i;
     char buf[21] = {0};
 
     if (!x) {
-        kputchar('0');
+        kputchar(kprint_buf, kprint_buf_i, '0');
         return;
     }
 
@@ -167,7 +168,7 @@ static void kprn_ui(uint64_t x) {
     }
 
     i++;
-    kputs(buf + i);
+    kputs(kprint_buf, kprint_buf_i, buf + i);
 
     return;
 }
@@ -176,12 +177,12 @@ static const char hex_to_ascii_tab[] = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
 };
 
-static void kprn_x(uint64_t x) {
+static void kprn_x(char *kprint_buf, size_t *kprint_buf_i, uint64_t x) {
     int i;
     char buf[17] = {0};
 
     if (!x) {
-        kputs("0x0");
+        kputs(kprint_buf, kprint_buf_i, "0x0");
         return;
     }
 
@@ -191,47 +192,48 @@ static void kprn_x(uint64_t x) {
     }
 
     i++;
-    kputs("0x");
-    kputs(buf + i);
+    kputs(kprint_buf, kprint_buf_i, "0x");
+    kputs(kprint_buf, kprint_buf_i, buf + i);
 
     return;
 }
 
-static lock_t kprint_lock = 1;
-
-static void print_timestamp(int type) {
-    kputs("\e[37m["); kprn_ui(uptime_sec); kputs(".");
-    kprn_ui(uptime_raw); kputs("] ");
+static void print_timestamp(char *kprint_buf, size_t *kprint_buf_i, int type) {
+    kputs(kprint_buf, kprint_buf_i, "\e[37m[");
+    kprn_ui(kprint_buf, kprint_buf_i, uptime_sec);
+    kputs(kprint_buf, kprint_buf_i, ".");
+    kprn_ui(kprint_buf, kprint_buf_i, uptime_raw);
+    kputs(kprint_buf, kprint_buf_i, "] ");
 
     switch (type) {
         case KPRN_INFO:
-            kputs("\e[36minfo\e[37m: ");
+            kputs(kprint_buf, kprint_buf_i, "\e[36minfo\e[37m: ");
             break;
         case KPRN_WARN:
-            kputs("\e[33mwarning\e[37m: ");
+            kputs(kprint_buf, kprint_buf_i, "\e[33mwarning\e[37m: ");
             break;
         case KPRN_ERR:
-            kputs("\e[31mERROR\e[37m: ");
+            kputs(kprint_buf, kprint_buf_i, "\e[31mERROR\e[37m: ");
             break;
         case KPRN_PANIC:
-            kputs("\e[31mPANIC\e[37m: ");
+            kputs(kprint_buf, kprint_buf_i, "\e[31mPANIC\e[37m: ");
             break;
         default:
         case KPRN_DBG:
-            kputs("\e[36mDEBUG\e[37m: ");
+            kputs(kprint_buf, kprint_buf_i, "\e[36mDEBUG\e[37m: ");
             break;
     }
 }
 
 void kprint(int type, const char *fmt, ...) {
-    if (type != KPRN_PANIC)
-        spinlock_acquire(&kprint_lock);
-
     va_list args;
 
     va_start(args, fmt);
 
-    print_timestamp(type);
+    char kprint_buf[KPRINT_BUF_MAX];
+    size_t kprint_buf_i = 0;
+
+    print_timestamp(kprint_buf, &kprint_buf_i, type);
 
     char *str;
     size_t str_len;
@@ -240,60 +242,64 @@ void kprint(int type, const char *fmt, ...) {
         char c;
 
         while (*fmt && *fmt != '%') {
-            kputchar(*fmt);
+            kputchar(kprint_buf, &kprint_buf_i, *fmt);
             if (*fmt == '\n')
-                print_timestamp(type);
+                print_timestamp(kprint_buf, &kprint_buf_i, type);
             fmt++;
         }
         if (!*fmt++) {
             va_end(args);
-            kputchar('\n');
+            kputchar(kprint_buf, &kprint_buf_i, '\n');
             goto out;
         }
         switch (*fmt++) {
             case 's':
                 str = (char *)va_arg(args, const char *);
                 if (!str)
-                    kputs("(null)");
+                    kputs(kprint_buf, &kprint_buf_i, "(null)");
                 else
-                    kputs(str);
+                    kputs(kprint_buf, &kprint_buf_i, str);
                 break;
             case 'S':
                 str_len = va_arg(args, size_t);
                 str = (char *)va_arg(args, const char *);
-                knputs(str, str_len);
+                knputs(kprint_buf, &kprint_buf_i, str, str_len);
                 break;
             case 'd':
-                kprn_i((int64_t)va_arg(args, int));
+                kprn_i(kprint_buf, &kprint_buf_i, (int64_t)va_arg(args, int));
                 break;
             case 'D':
-                kprn_i((int64_t)va_arg(args, int64_t));
+                kprn_i(kprint_buf, &kprint_buf_i, (int64_t)va_arg(args, int64_t));
                 break;
             case 'u':
-                kprn_ui((uint64_t)va_arg(args, unsigned int));
+                kprn_ui(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, unsigned int));
                 break;
             case 'U':
-                kprn_ui((uint64_t)va_arg(args, uint64_t));
+                kprn_ui(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, uint64_t));
                 break;
             case 'x':
-                kprn_x((uint64_t)va_arg(args, unsigned int));
+                kprn_x(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, unsigned int));
                 break;
             case 'X':
-                kprn_x((uint64_t)va_arg(args, uint64_t));
+                kprn_x(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, uint64_t));
                 break;
             case 'c':
                 c = (char)va_arg(args, int);
-                kputchar(c);
+                kputchar(kprint_buf, &kprint_buf_i, c);
                 break;
             default:
-                kputchar('?');
+                kputchar(kprint_buf, &kprint_buf_i, '?');
                 break;
         }
     }
 
 out:
-    kprint_buf_flush();
-    spinlock_release(&kprint_lock);
+    if (type != KPRN_PANIC) {
+        kprint_buf_flush(kprint_buf, &kprint_buf_i);
+    } else {
+        kprint_buf_flush_panic(kprint_buf, &kprint_buf_i);
+    }
+
     return;
 }
 

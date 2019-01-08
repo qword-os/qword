@@ -12,8 +12,14 @@ void device_sync_worker(void *arg) {
         for (size_t i = 0; i < MAX_DEVICES; i++) {
             if (!devices[i].used)
                 continue;
-            devices[i].flush(devices[i].magic);
-            yield(100);
+            switch (devices[i].flush(devices[i].magic)) {
+                case 1:
+                    /* flush is a no-op */
+                    break;
+                default:
+                    yield(100);
+                    break;
+            }
         }
         yield(1000);
     }

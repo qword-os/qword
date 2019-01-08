@@ -15,6 +15,8 @@
 
 #define SMP_TIMESLICE_MS 5
 
+static int scheduler_ready = 0;
+
 void task_spinup(void *, size_t);
 void force_resched(void);
 
@@ -57,6 +59,8 @@ void init_sched(void) {
     process_table[0]->pid = 0;
 
     kprint(KPRN_INFO, "sched: Init done.");
+
+    scheduler_ready = 1;
 
     return;
 }
@@ -231,17 +235,19 @@ void task_resched(struct ctx_t *ctx) {
 static int pit_ticks = 0;
 
 void task_resched_bsp(struct ctx_t *ctx) {
-    if (++pit_ticks == SMP_TIMESLICE_MS) {
-        pit_ticks = 0;
-    } else {
-        return;
+    if (scheduler_ready) {
+        if (++pit_ticks == SMP_TIMESLICE_MS) {
+            pit_ticks = 0;
+        } else {
+            return;
+        }
+
+        for (int i = 1; i < smp_cpu_count; i++)
+            lapic_send_ipi(i, IPI_RESCHED);
+
+        /* Call task_scheduler on the BSP */
+        task_resched(ctx);
     }
-
-    for (int i = 1; i < smp_cpu_count; i++)
-        lapic_send_ipi(i, IPI_RESCHED);
-
-    /* Call task_scheduler on the BSP */
-    task_resched(ctx);
 }
 
 #define BASE_BRK_LOCATION ((size_t)0x0000780000000000)
@@ -380,6 +386,7 @@ int task_tkill(pid_t pid, tid_t tid) {
         asm volatile (
             "mov rsp, qword ptr gs:[8];"
             "call kfree;"
+            "cli;"
             "mov rdi, 1;"
             "call abort_thread_exec;"
             :
