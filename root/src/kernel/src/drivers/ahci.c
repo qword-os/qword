@@ -269,8 +269,6 @@ static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);
 static int ahci_flush(int device);
 
-static struct ahci_device_t *ahci_devices;
-
 static const char *ahci_names[] = {
     "sda", "sdb", "sdc", "sdd",
     "sde", "sdf", "sdg", "sdh",
@@ -296,6 +294,8 @@ struct ahci_device_t {
     struct cached_sector_t *cache;
     int overwritten_slot;
 };
+
+static struct ahci_device_t *ahci_devices;
 
 static void port_rebase(volatile struct hba_port_t *port);
 static int init_ahci_device(struct ahci_device_t *device,
@@ -563,14 +563,15 @@ static int ahci_rw(volatile struct hba_port_t *port,
     cmd_hdr->cfl = sizeof(struct fis_regh2d_t) / sizeof(uint32_t);
     if (w)
         cmd_hdr->w = 1;
-    cmd_hdr->w = 0;
+    else
+        cmd_hdr->w = 0;
     cmd_hdr->prdtl = 1;
 
     volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(
             (size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET);
     /* ensure all entries in the command table are initialised to 0 */
     kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
-            sizeof(volatile struct hba_cmd_tbl_t) / 8);
+            sizeof(volatile struct hba_cmd_tbl_t) / sizeof(uint64_t));
 
     /* `buf` is guaranteed to be physically contiguous, so we only need one PRDT */
     cmdtbl->prdt_entry[0].dba = (uint32_t)((size_t)buf - MEM_PHYS_OFFSET);
@@ -578,7 +579,7 @@ static int ahci_rw(volatile struct hba_port_t *port,
     cmdtbl->prdt_entry[0].i = 1;
 
     struct fis_regh2d_t *cmdfis = (struct fis_regh2d_t *)((size_t)cmdtbl->cfis);
-    kmemset64(cmdfis, 0, sizeof(struct fis_regh2d_t) / 8);
+    kmemset64(cmdfis, 0, sizeof(struct fis_regh2d_t) / sizeof(uint64_t));
 
     /* Setup the command FIS according to whether the command is read or
      * write */
@@ -588,7 +589,8 @@ static int ahci_rw(volatile struct hba_port_t *port,
         /* Assume support for LBA48 commands - QEMU supports this
          * but it's not universal */
         cmdfis->command = ATA_CMD_WRITE_DMA_EXT;
-    cmdfis->command = ATA_CMD_READ_DMA_EXT;
+    else
+        cmdfis->command = ATA_CMD_READ_DMA_EXT;
 
     cmdfis->lba0 = (uint8_t)(startl & 0x000000000000ff);
     cmdfis->lba1 = (uint8_t)((startl & 0x0000000000ff00) >> 8);
@@ -625,13 +627,13 @@ static int ahci_rw(volatile struct hba_port_t *port,
 
         /* check for task file error */
         if (port->is & (1 << 30)) {
-            kprint(KPRN_WARN, "ahci: Disk read error in ahci_rw");
+            kprint(KPRN_WARN, "ahci: Disk I/O error in ahci_rw");
             return -1;
         }
     }
 
     if (port->is & (1 << 30)) {
-        kprint(KPRN_WARN, "ahci: Disk read error in ahci_rw");
+        kprint(KPRN_WARN, "ahci: Disk I/O error in ahci_rw");
         return -1;
     }
 

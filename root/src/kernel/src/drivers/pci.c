@@ -3,6 +3,10 @@
 #include <pci.h>
 #include <klib.h>
 
+#define MAX_FUNCTION 8
+#define MAX_DEVICE 32
+#define MAX_BUS 256
+
 struct pci_device_t *pci_devices;
 size_t device_count;
 size_t available_count;

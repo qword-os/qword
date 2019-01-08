@@ -4,10 +4,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define MAX_FUNCTION 8
-#define MAX_DEVICE 32
-#define MAX_BUS 256
-
 struct pci_device_t {
     uint8_t bus;
     uint8_t func;
