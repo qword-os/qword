@@ -8,9 +8,9 @@
 - Program loading with minimal userspace.
 - ATA PIO disk support.
 - Fully functional VFS and devfs with support for the echidnaFS filesystem.
+- Support for AHCI/SATA.
 
 ## Planned features
-- Support for AHCI/SATA.
 - Support for `pthreads` and other elements of POSIX, to allow porting common programs.
 
 
