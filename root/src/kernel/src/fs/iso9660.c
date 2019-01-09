@@ -136,8 +136,8 @@ struct primary_descriptor_t {
 struct path_result_t {
     struct directory_entry_t target;
     struct directory_entry_t parent;
-    /* location on disk of rock ridge sysarea */
-    uint64_t rr_loc;
+    /* rock ridge sysarea */
+    char* rr_area;
     int rr_length;
     int failure;
     int not_found;
@@ -327,18 +327,6 @@ static char *load_rr_tf(const char *sysarea, int length) {
     return res;
 }
 
-static char *load_rr_area(struct mount_t *mount, uint64_t loc, int length) {
-    char *res = kalloc(length);
-    int cache_index = cache_block(mount, loc / mount->block_size);
-    if (cache_index == -1)
-        return NULL;
-
-    struct cached_block_t *cache = &mount->cache[cache_index];
-    uint64_t offset = loc % mount->block_size;
-    kmemcpy(res, cache->cache + offset, length);
-    return res;
-}
-
 static struct directory_result_t load_dir(struct mount_t *mount,
       struct directory_entry_t *dir) {
     struct directory_result_t result;
@@ -359,25 +347,35 @@ static struct directory_result_t load_dir(struct mount_t *mount,
     int count = 0;
     uint8_t length = 0;
     int curr_block = 0;
-    for (uint32_t pos = 0; pos < dir->extent_length.little; pos += length) {
-        length = (uint8_t)cache->cache[pos];
+    int cache_loc = 0;
+    for (uint32_t pos = 0; pos < dir->extent_length.little;) {
+        length = (uint8_t)cache->cache[pos % mount->block_size];
 
         if (length == 0) {
-            if (curr_block >= num_blocks)
+            if (curr_block >= num_blocks - 1)
                 break;
             /* the end of the sector is padded */
-            int offset = next_sector((dir->extent_location.little * SECTOR_SIZE)
-                    + pos);
+            int next_sector_loc = next_sector((loc *
+                        mount->block_size) + (pos % mount->block_size));
+            int offset = next_sector_loc - ((loc *
+                        mount->block_size) + (pos % mount->block_size));
             pos += offset;
             curr_block++;
-            cache_index = cache_block(mount, curr_block + dir->extent_location
-                    .little);
+            loc++;
+            cache_index = cache_block(mount, loc);
+            cache = &mount->cache[cache_index];
             continue;
         }
 
-        kmemcpy(result.entries + pos, cache->cache + (pos % mount->block_size),
+        kmemcpy(result.entries + cache_loc, cache->cache + (pos % mount->block_size),
                 length);
+        pos += length;
+        cache_loc += length;
         count++;
+
+        //TODO: if the block ends without padding we will keep reading the
+        //same block until forever... We should check to see if we are at the
+        //end of the block and increment our block count.
     }
     result.num_entries = count;
     return result;
@@ -473,9 +471,10 @@ static struct path_result_t resolve_path(struct mount_t *mount,
 
             result.rr_length = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
             if (result.rr_length) {
-                uint64_t entry_loc = 0;
-                entry_loc = (result.target.extent_location.little * mount->block_size) + pos;
-                result.rr_loc = entry_loc + sizeof(struct directory_entry_t) + entry->name_length;
+                result.rr_area = kalloc(result.rr_length);
+                unsigned char* sysarea = ((unsigned char*)entry) + sizeof(
+                        struct directory_entry_t) + entry->name_length;
+                kmemcpy(result.rr_area, sysarea, result.rr_length);
             }
 
             int name_length = 0;
@@ -664,7 +663,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
         return 0;
     }
 
-    char *rr_area = load_rr_area(mount, handle_s->path_res.rr_loc, rr_length);
+    char *rr_area = handle_s->path_res.rr_area;
     if (!rr_area) {
         spinlock_release(&iso9660_lock);
         return -1;
