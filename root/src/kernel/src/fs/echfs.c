@@ -261,13 +261,12 @@ static inline void wr_qword(int handle, uint64_t loc, uint64_t val) {
     return;
 }
 
-static inline struct entry_t rd_entry(struct mount_t *mnt, uint64_t entry) {
-    struct entry_t res;
+static inline void rd_entry(struct entry_t *entry_src, struct mount_t *mnt, uint64_t entry) {
     uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(struct entry_t));
     lseek(mnt->device, loc, SEEK_SET);
-    read(mnt->device, (void *)&res, sizeof(struct entry_t));
+    read(mnt->device, (void *)entry_src, sizeof(struct entry_t));
 
-    return res;
+    return;
 }
 
 static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t *entry_src) {
@@ -314,10 +313,16 @@ static uint64_t find_free_entry(struct mount_t *mnt) {
 static uint64_t get_free_id(struct mount_t *mnt) {
     uint64_t id = 1;
     uint64_t i;
-
     struct entry_t entry;
 
-    for (i = 0; (entry = rd_entry(mnt, i)).parent_id; i++) {
+    uint64_t loc = mnt->dirstart * mnt->bytesperblock;
+    lseek(mnt->device, loc, SEEK_SET);
+
+    for (i = 0; ; i++) {
+        if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
+        read(mnt->device, (void *)&entry, sizeof(struct entry_t));
+        if (!entry.parent_id) break;              // check if past last entry
+        if (entry.parent_id == DELETED_ENTRY) continue;
         if ((entry.type == 1) && (entry.payload == id))
             id = (entry.payload + 1);
     }
@@ -325,37 +330,35 @@ static uint64_t get_free_id(struct mount_t *mnt) {
     return id;
 }
 
-static struct path_result_t path_resolver(struct mount_t *mnt, const char *path) {
+static void path_resolver(struct path_result_t *path_result, struct mount_t *mnt, const char *path) {
     // returns a struct of useful info
     // failure flag set upon failure
     // not_found flag set upon not found
     // even if the file is not found, info about the "parent"
     // directory and name are still returned
     char name[FILENAME_LEN];
-    struct entry_t parent = {0};
     int last = 0;
     int i;
-    struct path_result_t result;
     struct entry_t empty_entry = {0};
 
-    result.name[0] = 0;
-    result.target_entry = 0;
-    result.parent = empty_entry;
-    result.target = empty_entry;
-    result.failure = 0;
-    result.not_found = 0;
-    result.type = DIRECTORY_TYPE;
+    path_result->name[0] = 0;
+    path_result->target_entry = 0;
+    path_result->parent = empty_entry;
+    path_result->target = empty_entry;
+    path_result->failure = 0;
+    path_result->not_found = 0;
+    path_result->type = DIRECTORY_TYPE;
 
-    parent.payload = ROOT_ID;
+    path_result->parent.payload = ROOT_ID;
 
     if (!kstrcmp(path, "/")) {
-        kstrcpy(result.name, "/");
-        result.target_entry = -1;
-        result.target.parent_id = -1;
-        result.target.type = DIRECTORY_TYPE;
-        kstrcpy(result.target.name, "/");
-        result.target.payload = ROOT_ID;
-        return result; // exception for root
+        kstrcpy(path_result->name, "/");
+        path_result->target_entry = -1;
+        path_result->target.parent_id = -1;
+        path_result->target.type = DIRECTORY_TYPE;
+        kstrcpy(path_result->target.name, "/");
+        path_result->target.payload = ROOT_ID;
+        return; // exception for root
     }
 
     if (*path == '/') path++;
@@ -373,23 +376,22 @@ next:
 
     if (!last) {
         uint8_t type;
-        uint64_t search_res = search(mnt, name, parent.payload, &type);
+        uint64_t search_res = search(mnt, name, path_result->parent.payload, &type);
         if (search_res == SEARCH_FAILURE || type != DIRECTORY_TYPE) {
-            result.failure = 1; // fail if search fails
-            return result;
+            path_result->failure = 1; // fail if search fails
+            return;
         }
-        parent = rd_entry(mnt, search_res);
+        rd_entry(&path_result->parent, mnt, search_res);
     } else {
-        uint64_t search_res = search(mnt, name, parent.payload, &result.type);
+        uint64_t search_res = search(mnt, name, path_result->parent.payload, &path_result->type);
         if (search_res == SEARCH_FAILURE)
-            result.not_found = 1;
+            path_result->not_found = 1;
         else {
-            result.target = rd_entry(mnt, search_res);
-            result.target_entry = search_res;
+            rd_entry(&path_result->target, mnt, search_res);
+            path_result->target_entry = search_res;
         }
-        result.parent = parent;
-        kstrcpy(result.name, name);
-        return result;
+        kstrcpy(path_result->name, name);
+        return;
     }
 
     goto next;
@@ -426,7 +428,8 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
     struct echfs_handle_t new_handle = {0};
 
-    struct path_result_t path_result = path_resolver(mounts[mnt], path);
+    struct path_result_t path_result;
+    path_resolver(&path_result, mounts[mnt], path);
 
     if (path_result.not_found && !(flags & O_CREAT)) {
         spinlock_release(&mounts[mnt]->lock);
@@ -458,7 +461,7 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
         wr_entry(mounts[mnt], new_entry, &entry);
 
-        path_result = path_resolver(mounts[mnt], path);
+        path_resolver(&path_result, mounts[mnt], path);
     }
 
     new_handle.type = path_result.type;
