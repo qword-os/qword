@@ -4,13 +4,10 @@ MAKE = make
 
 PREFIX = $(shell pwd)/root
 
-.PHONY: all iso img clean run run-kvm run-iso run-iso-kvm run-img run-img-singlecore run-img-kvm run-img-kvm-singlecore run-img-kvm-sata
+.PHONY: all iso img clean run run-kvm run-iso run-iso-kvm run-img-ata run-img-ata-kvm run-img run-img-kvm
 
 all:
 	$(MAKE) core PREFIX=$(PREFIX) -C root/src
-
-world:
-	$(MAKE) world PREFIX=$(PREFIX) -C root/src
 
 iso: all
 	grub-mkrescue -o qword.iso root
@@ -21,6 +18,10 @@ img: all
 	truncate --size=-4096 ./qword.img
 	echfs-utils ./qword.img format 32768
 	./copy-root-to-img.sh root qword.img
+
+clean:
+	$(MAKE) core-clean -C root/src
+	rm -f qword.iso qword.img
 
 QEMU_FLAGS := $(QEMU_FLAGS) \
 	-m 2G \
@@ -38,21 +39,14 @@ run-iso:
 run-iso-kvm:
 	qemu-system-x86_64 $(QEMU_FLAGS) -drive file=qword.iso,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm
 
-run-img:
+run-img-ata:
 	qemu-system-x86_64 $(QEMU_FLAGS) -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1
 
-run-img-singlecore:
-	qemu-system-x86_64 $(QEMU_FLAGS) -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1
-
-run-img-kvm:
+run-img-ata-kvm:
 	qemu-system-x86_64 $(QEMU_FLAGS) -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=4,threads=1 -enable-kvm
 
-run-img-kvm-singlecore:
-	qemu-system-x86_64 $(QEMU_FLAGS) -drive file=qword.img,index=0,media=disk,format=raw -smp sockets=1,cores=1,threads=1 -enable-kvm
+run-img:
+	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1
 
-run-img-kvm-sata:
+run-img-kvm:
 	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
-
-clean:
-	$(MAKE) core-clean -C root/src
-	rm -f qword.iso qword.img

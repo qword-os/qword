@@ -40,12 +40,21 @@ make
 # This will install echfs-utils in /usr/local
 sudo make install
 # Else specify a PREFIX variable if you want to install it elsewhere
-make PREFIX=<myprefix> install
+#make PREFIX=<myprefix> install
 # Now build the toolchain (this step will take a while)
 cd ../toolchain
 ./make_toolchain.sh
 # Go back to the root of the tree
 cd ../..
+# You might want to build important ports such as bash or binutils
+cd root/src
+cd binutils
+./buildport.sh
+cd ../bash
+./buildport.sh
+cd ../../..
+# You might also wanna remove the archive directories from the port
+# dirs else the image will take longer to make.
 # Now to build qword itself
 make clean && make img && sync
 ```
