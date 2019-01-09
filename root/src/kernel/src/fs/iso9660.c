@@ -874,6 +874,10 @@ end_of_dir:
     return -1;
 }
 
+int iso9660_sync(void) {
+    return 0;
+}
+
 void init_iso9660(void) {
     struct fs_t iso9660 = {0};
 
@@ -887,6 +891,7 @@ void init_iso9660(void) {
     iso9660.dup = iso9660_dup;
     iso9660.write = iso9660_write;
     iso9660.readdir = iso9660_readdir;
+    iso9660.sync = iso9660_sync;
 
     vfs_install_fs(iso9660);
 }

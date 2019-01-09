@@ -204,6 +204,12 @@ int lseek(int fd, off_t offset, int type) {
     return filesystems[fs].lseek(intern_fd, offset, type);
 }
 
+int sync(void) {
+    for (size_t i = 0; i < filesystems_i; i++)
+        filesystems[i].sync();
+    return 0;
+}
+
 int mount(const char *source, const char *target,
           const char *fs_type, unsigned long m_flags,
           const void *data) {
@@ -235,6 +241,15 @@ int fstat(int fd, struct stat *buffer) {
     int intern_fd = file_descriptors[fd].intern_fd;
 
     return filesystems[fs].fstat(intern_fd, buffer);
+}
+
+void fs_sync_worker(void *arg) {
+    (void)arg;
+
+    for (;;) {
+        yield(2000);
+        sync();
+    }
 }
 
 static int fs_call_invalid(void) {

@@ -121,6 +121,7 @@ struct fs_t {
     int (*lseek)(int, off_t, int);
     int (*dup)(int);
     int (*readdir)(int, struct dirent *);
+    int (*sync)(void);
 };
 
 /* VFS calls */
@@ -134,6 +135,9 @@ int write(int, const void *, size_t);
 int lseek(int, off_t, int);
 int dup(int);
 int readdir(int, struct dirent *);
+int sync(void);
+
+void fs_sync_worker(void *);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);

@@ -344,6 +344,10 @@ end_of_dir:
     return -1;
 }
 
+int devfs_sync(void) {
+    return 0;
+}
+
 void init_devfs(void) {
     struct fs_t devfs = {0};
     devfs_handles = kalloc(DEVFS_HANDLES_STEP * sizeof(struct devfs_handle_t));
@@ -363,6 +367,7 @@ void init_devfs(void) {
     devfs.fstat = devfs_fstat;
     devfs.dup = devfs_dup;
     devfs.readdir = devfs_readdir;
+    devfs.sync = devfs_sync;
 
     vfs_install_fs(devfs);
 }
