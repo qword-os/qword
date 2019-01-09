@@ -562,7 +562,7 @@ static int iso9660_read(int handle, void *buf, size_t count) {
         count = (size_t)(handle_s->end - handle_s->offset);
     if (!count) {
         spinlock_release(&iso9660_lock);
-        return -1;
+        return 0;
     }
 
     uint64_t progress = 0;
