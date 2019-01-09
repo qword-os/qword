@@ -10,7 +10,7 @@
 #define ROOT_ID                 0xffffffffffffffff
 #define BYTES_PER_SECT          512
 #define SECTORS_PER_BLOCK       (mnt->bytesperblock / BYTES_PER_SECT)
-#define BYTES_PER_BLOCK         (SECTORS_PER_BLOCK * BYTES_PER_SECT)
+#define BYTES_PER_BLOCK         (mnt->bytesperblock)
 #define ENTRIES_PER_SECT        2
 #define ENTRIES_PER_BLOCK       (SECTORS_PER_BLOCK * ENTRIES_PER_SECT)
 #define FILENAME_LEN            218
@@ -27,6 +27,7 @@
 
 #define MAX_ECHFS_HANDLES 32768
 #define MAX_ECHFS_MOUNTS 1024
+#define MAX_CACHED_BLOCKS 8192
 
 struct entry_t {
     uint64_t parent_id;
@@ -50,13 +51,18 @@ struct path_result_t {
     uint8_t type;
 };
 
+struct cached_block_t {
+    uint8_t *cache;
+    uint64_t block;
+    int status;
+};
+
 struct cached_file_t {
     char path[2048];
     int refcount;
     struct path_result_t path_res;
-    uint64_t cached_block;
-    uint8_t *cache;
-    int cache_status;
+    struct cached_block_t *cached_blocks;
+    int overwritten_slot;
     uint64_t *alloc_map;
 };
 
@@ -98,35 +104,65 @@ static int synchronise_cached_file(struct cached_file_t *cached_file) {
 
 }
 
+static int find_block(int handle, uint64_t block) {
+    struct cached_block_t *cached_blocks =
+        echfs_handles[handle]->cached_file->cached_blocks;
+
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++)
+        if ((cached_blocks[i].block == block)
+            && (cached_blocks[i].status))
+            return i;
+
+    return -1;
+}
+
 static int cache_block(int handle, uint64_t block) {
     struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+    struct cached_file_t *cached_file = echfs_handles[handle]->cached_file;
+    struct cached_block_t *cached_blocks =
+        echfs_handles[handle]->cached_file->cached_blocks;
+    int targ;
 
-    if (echfs_handles[handle]->cached_file->cached_block == block
-      && echfs_handles[handle]->cached_file->cache_status == CACHE_READY)
-        return 0;
+    /* Find empty block */
+    for (targ = 0; targ < MAX_CACHED_BLOCKS; targ++)
+        if (!cached_blocks[targ].status) goto fnd;
 
-    if (echfs_handles[handle]->cached_file->cache_status == CACHE_DIRTY) {
+    /* Slot not find, overwrite another */
+    if (cached_file->overwritten_slot == MAX_CACHED_BLOCKS)
+        cached_file->overwritten_slot = 0;
+
+    targ = cached_file->overwritten_slot++;
+
+    /* Flush device cache */
+    if (cached_blocks[targ].status == CACHE_DIRTY) {
         lseek(mnt->device,
-              echfs_handles[handle]->cached_file->alloc_map[
-                echfs_handles[handle]->cached_file->cached_block
-              ] * BYTES_PER_BLOCK,
+              cached_file->alloc_map[cached_blocks[targ].block] * BYTES_PER_BLOCK,
               SEEK_SET);
         write(mnt->device,
-              echfs_handles[handle]->cached_file->cache,
+              cached_blocks[targ].cache,
               BYTES_PER_BLOCK);
     }
 
+    goto notfnd;
+
+fnd:
+    /* Allocate some cache for this device */
+    cached_blocks[targ].cache = kalloc(BYTES_PER_BLOCK);
+
+notfnd:
+
+    /* Load sector into cache */
     lseek(mnt->device,
-          echfs_handles[handle]->cached_file->alloc_map[block] * BYTES_PER_BLOCK,
+          cached_file->alloc_map[block] * BYTES_PER_BLOCK,
           SEEK_SET);
     read(mnt->device,
-         echfs_handles[handle]->cached_file->cache,
+         cached_blocks[targ].cache,
          BYTES_PER_BLOCK);
 
-    echfs_handles[handle]->cached_file->cached_block = block;
-    echfs_handles[handle]->cached_file->cache_status = CACHE_READY;
+    cached_blocks[targ].block = block;
+    cached_blocks[targ].status = CACHE_READY;
 
-    return 0;
+    return targ;
 }
 
 static int echfs_read(int handle, void *buf, size_t count) {
@@ -150,14 +186,21 @@ static int echfs_read(int handle, void *buf, size_t count) {
     while (progress < count) {
         /* cache the block */
         uint64_t block = (echfs_handles[handle]->ptr + progress) / BYTES_PER_BLOCK;
-        cache_block(handle, block);
+        int slot = find_block(handle, block);
+        if (slot == -1) {
+            slot = cache_block(handle, block);
+            if (slot == -1) {
+                spinlock_release(&mnt->lock);
+                return -1;
+            }
+        }
 
         uint64_t chunk = count - progress;
         uint64_t offset = (echfs_handles[handle]->ptr + progress) % BYTES_PER_BLOCK;
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        kmemcpy(buf + progress, &echfs_handles[handle]->cached_file->cache[offset], chunk);
+        kmemcpy(buf + progress, &echfs_handles[handle]->cached_file->cached_blocks[slot].cache[offset], chunk);
         progress += chunk;
     }
 
@@ -511,7 +554,8 @@ skip_search:
 
     if (path_result.type == FILE_TYPE) {
 
-        mounts[mnt]->cached_files[cached_file].cache = kalloc(mounts[mnt]->bytesperblock);
+        mounts[mnt]->cached_files[cached_file].cached_blocks =
+            kalloc(MAX_CACHED_BLOCKS * sizeof(struct cached_block_t));
 
         mounts[mnt]->cached_files[cached_file].alloc_map = kalloc(sizeof(uint64_t));
         mounts[mnt]->cached_files[cached_file].alloc_map[0] = mounts[mnt]->cached_files[cached_file].path_res.target.payload;
@@ -520,8 +564,6 @@ skip_search:
             mounts[mnt]->cached_files[cached_file].alloc_map[i] = rd_qword(mounts[mnt]->device,
                     (mounts[mnt]->fatstart * mounts[mnt]->bytesperblock) + (mounts[mnt]->cached_files[cached_file].alloc_map[i-1] * sizeof(uint64_t)));
         }
-
-        mounts[mnt]->cached_files[cached_file].cache_status = CACHE_NOTREADY;
 
         mounts[mnt]->cached_files_ptr++;
 

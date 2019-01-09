@@ -651,7 +651,7 @@ int syscall_fstat(struct ctx_t *ctx) {
     return ret;
 }
 
-#define SYSCALL_IO_CAP 8192     // cap reads and writes at 8k at a time
+#define SYSCALL_IO_CAP 16777216     // cap reads and writes at 16M at a time
 
 int syscall_read(struct ctx_t *ctx) {
     // rdi: fd

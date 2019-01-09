@@ -347,6 +347,12 @@ void *krealloc(void *ptr, size_t new) {
     /* Reference metadata page */
     alloc_metadata_t *metadata = (alloc_metadata_t *)((size_t)ptr - PAGE_SIZE);
 
+    if ((metadata->size + PAGE_SIZE - 1) / PAGE_SIZE
+         == (new + PAGE_SIZE - 1) / PAGE_SIZE) {
+        metadata->size = new;
+        return ptr;
+    }
+
     char *new_ptr;
     if ((new_ptr = kalloc(new)) == 0) {
         return (void *)0;
