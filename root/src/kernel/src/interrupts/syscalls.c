@@ -381,6 +381,7 @@ int syscall_open(struct ctx_t *ctx) {
     }
 
     process->file_handles[local_fd] = fd;
+    file_descriptors[fd].fdflags = (int)ctx->rsi;
 
     spinlock_release(&process->file_handles_lock);
     return local_fd;

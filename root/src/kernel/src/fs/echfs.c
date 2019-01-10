@@ -233,6 +233,42 @@ static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {
     return i;
 }
 
+// free on disk allocated space for this file and flush its cache
+static int erase_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
+    // erase block chain first
+    uint64_t empty = 0;
+    uint64_t block = cached_file->path_res.target.payload;
+    if (block != END_OF_CHAIN) {
+        for (;;) {
+            lseek(mnt->device, mnt->fatstart * mnt->bytesperblock
+                    + block * sizeof(uint64_t), SEEK_SET);
+            read(mnt->device, &block, sizeof(uint64_t));
+            lseek(mnt->device, -(sizeof(uint64_t)), SEEK_CUR);
+            write(mnt->device, &empty, sizeof(uint64_t));
+            if (block == END_OF_CHAIN)
+                break;
+        }
+    }
+    // clean up cache
+    struct cached_block_t *cached_blocks = cached_file->cached_blocks;
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
+        if (cached_blocks[i].status) {
+            cached_blocks[i].status = CACHE_NOTREADY;
+            kfree(cached_blocks[i].cache);
+        }
+    }
+    // clean up metadata
+    cached_file->path_res.target.payload = END_OF_CHAIN;
+    cached_file->path_res.target.size = 0;
+    cached_file->total_blocks = 0;
+    kfree(cached_file->alloc_map);
+    cached_file->alloc_map = kalloc(sizeof(uint64_t));
+    cached_file->changed_entry = 1;
+    cached_file->changed_cache = 0;
+
+    return 0;
+}
+
 static int find_block(int handle, uint64_t block) {
     struct cached_block_t *cached_blocks =
         echfs_handles[handle]->cached_file->cached_blocks;
@@ -667,7 +703,7 @@ static int echfs_open(const char *path, int flags, int mnt) {
     }
 
     if (!path_result->not_found && flags & O_TRUNC) {
-        kprint(0, "TODO: O_TRUNC support");
+        erase_file(mounts[mnt], cached_file);
     }
 
     if (path_result->not_found && flags & O_CREAT) {
@@ -740,8 +776,8 @@ static int echfs_lseek(int handle, off_t offset, int type) {
 
     spinlock_acquire(&mnt->lock);
 
+    int flags = echfs_handles[handle]->flags;
     switch (type) {
-        int flags = echfs_handles[handle]->flags;
         case SEEK_SET:
             if ((uint64_t)offset >= echfs_handles[handle]->end
                 && !(
