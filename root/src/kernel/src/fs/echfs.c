@@ -98,6 +98,7 @@ struct echfs_handle_t {
 
 static struct echfs_handle_t **echfs_handles;
 static struct mount_t **mounts;
+static lock_t echfs_mount_lock = 1;
 
 static inline uint8_t rd_byte(int handle, uint64_t loc) {
     uint8_t buf[1];
@@ -193,6 +194,7 @@ static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *ca
 }
 
 static int echfs_sync(void) {
+    spinlock_acquire(&echfs_mount_lock);
     for (size_t i = 0; i < MAX_ECHFS_MOUNTS; i++) {
         if (!mounts[i])
             break;
@@ -208,6 +210,7 @@ static int echfs_sync(void) {
             spinlock_release(&mnt->lock);
         }
     }
+    spinlock_release(&echfs_mount_lock);
     return 0;
 }
 
@@ -908,20 +911,22 @@ static int echfs_fstat(int handle, struct stat *st) {
 
     spinlock_acquire(&mnt->lock);
 
+    struct path_result_t *path_res = &echfs_handles[handle]->cached_file->path_res;
+
     st->st_dev = mnt->device;
-    st->st_ino = echfs_handles[handle]->cached_file->path_res.target_entry + 1;
+    st->st_ino = path_res->target_entry + 1;
     st->st_nlink = 1;
-    st->st_uid = echfs_handles[handle]->cached_file->path_res.target.owner;
-    st->st_gid = echfs_handles[handle]->cached_file->path_res.target.group;
+    st->st_uid = path_res->target.owner;
+    st->st_gid = path_res->target.group;
     st->st_rdev = 0;
-    st->st_size = echfs_handles[handle]->end;
+    st->st_size = path_res->target.size;
     st->st_blksize = 512;
     st->st_blocks = (st->st_size + 512 - 1) / 512;
-    st->st_atim.tv_sec = echfs_handles[handle]->cached_file->path_res.target.time;
+    st->st_atim.tv_sec = path_res->target.time;
     st->st_atim.tv_nsec = st->st_atim.tv_sec * 1000000000;
-    st->st_mtim.tv_sec = echfs_handles[handle]->cached_file->path_res.target.time;
+    st->st_mtim.tv_sec = path_res->target.time;
     st->st_mtim.tv_nsec = st->st_mtim.tv_sec * 1000000000;
-    st->st_ctim.tv_sec = echfs_handles[handle]->cached_file->path_res.target.time;
+    st->st_ctim.tv_sec = path_res->target.time;
     st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
 
     st->st_mode = 0;
@@ -939,10 +944,13 @@ static int echfs_fstat(int handle, struct stat *st) {
 }
 
 static int echfs_mount(const char *source) {
+    spinlock_acquire(&echfs_mount_lock);
+
     /* open device */
     int device = open(source, O_RDWR);
     if (device == -1) {
         /* errno propagates from open */
+        spinlock_release(&echfs_mount_lock);
         return -1;
     }
 
@@ -954,6 +962,7 @@ static int echfs_mount(const char *source) {
         kprint(KPRN_ERR, "echidnaFS signature invalid, mount failed!");
         close(device);
         errno = EINVAL;
+        spinlock_release(&echfs_mount_lock);
         return -1;
     }
 
@@ -976,7 +985,10 @@ static int echfs_mount(const char *source) {
     mount.free = 0;
     mount.lock = 1;
 
-    return echfs_create_mount(&mount);
+    int ret = echfs_create_mount(&mount);
+
+    spinlock_release(&echfs_mount_lock);
+    return ret;
 }
 
 void init_echfs(void) {
