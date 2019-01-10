@@ -39,7 +39,7 @@ void kmain_thread(void *arg) {
     /* Launch the fs cache sync worker */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(fs_sync_worker, 0));
 
-    int tty = open("/dev/tty", 0, 0);
+    int tty = open("/dev/tty", O_RDWR);
 
     char *root = cmdline_get_value("root");
     char new_root[64];

@@ -227,7 +227,7 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
     struct pagemap_t *new_pagemap = new_address_space();
 
     /* Load the executable */
-    int fd = open(filename, 0, 0);
+    int fd = open(filename, O_RDONLY);
     if (fd < 0) {
         free_address_space(new_pagemap);
         return -1;
@@ -248,7 +248,7 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
     if (!ld_path) {
         entry = auxval.at_entry;
     } else {
-        int ld_fd = open(ld_path, 0, 0);
+        int ld_fd = open(ld_path, O_RDONLY);
         if (ld_fd < 0) {
             kprint(KPRN_DBG, "elf: Could not find dynamic linker.");
             free_address_space(new_pagemap);
@@ -302,9 +302,9 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
     process_table[new_pid]->ppid = 0;
 
     /* Open stdio descriptors */
-    process_table[new_pid]->file_handles[0] = open(stdin, 0, 0);
-    process_table[new_pid]->file_handles[1] = open(stdout, 0, 0);
-    process_table[new_pid]->file_handles[2] = open(stderr, 0, 0);
+    process_table[new_pid]->file_handles[0] = open(stdin, O_RDONLY);
+    process_table[new_pid]->file_handles[1] = open(stdout, O_WRONLY);
+    process_table[new_pid]->file_handles[2] = open(stderr, O_WRONLY);
 
     exec(new_pid, filename, argv, envp);
 

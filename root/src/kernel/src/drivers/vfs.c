@@ -136,7 +136,7 @@ retry:
 }
 
 /* Find free file handle and setup said handle */
-int open(const char *path, int mode, int perms) {
+int open(const char *path, int mode) {
     char *loc_path;
 
     int mountpoint = vfs_get_mountpoint(path, &loc_path);
@@ -145,7 +145,7 @@ int open(const char *path, int mode, int perms) {
     int magic = mountpoints[mountpoint].magic;
     int fs = mountpoints[mountpoint].fs;
 
-    int intern_fd = filesystems[fs].open(loc_path, mode, perms, magic);
+    int intern_fd = filesystems[fs].open(loc_path, mode, magic);
     if (intern_fd == -1) return -1;
 
     return create_fd(fs, intern_fd);

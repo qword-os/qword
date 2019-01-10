@@ -113,7 +113,7 @@ struct fs_t {
     char type[256];
     int (*mount)(const char *, unsigned long, const void *);
     int (*umount)(const char *);
-    int (*open)(const char *, int, int, int);
+    int (*open)(const char *, int, int);
     int (*close)(int);
     int (*fstat)(int, struct stat *);
     int (*read)(int, void *, size_t);
@@ -127,7 +127,7 @@ struct fs_t {
 /* VFS calls */
 int mount(const char *, const char *, const char *, unsigned long, const void *);
 int umount(const char *);
-int open(const char *, int, int);
+int open(const char *, int);
 int close(int);
 int fstat(int, struct stat *);
 int read(int, void *, size_t);

@@ -64,7 +64,7 @@ int syscall_chdir(struct ctx_t *ctx) {
     vfs_get_absolute_path(abs_path, new_path, process->cwd);
     spinlock_release(&process->cwd_lock);
 
-    int fd = open(abs_path, 0, 0);
+    int fd = open(abs_path, O_RDONLY);
     if (fd == -1)
         /* errno is propagated from open() */
         return -1;
@@ -351,7 +351,6 @@ pid_t syscall_getppid(void) {
 int syscall_open(struct ctx_t *ctx) {
     // rdi: path
     // rsi: mode
-    // rdx: perms
 
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -375,7 +374,7 @@ int syscall_open(struct ctx_t *ctx) {
     spinlock_acquire(&process->cwd_lock);
     vfs_get_absolute_path(abs_path, (const char *)ctx->rdi, process->cwd);
     spinlock_release(&process->cwd_lock);
-    int fd = open(abs_path, ctx->rsi, ctx->rdx);
+    int fd = open(abs_path, ctx->rsi);
     if (fd < 0) {
         spinlock_release(&process->file_handles_lock);
         return fd;

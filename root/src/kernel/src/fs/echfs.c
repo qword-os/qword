@@ -59,7 +59,6 @@ struct cached_block_t {
 
 struct cached_file_t {
     char path[2048];
-    int refcount;
     struct path_result_t path_res;
     struct cached_block_t *cached_blocks;
     int overwritten_slot;
@@ -92,10 +91,8 @@ struct echfs_handle_t {
     int mnt;
     char path[1024];
     int flags;
-    int mode;
-    long ptr;
-    long begin;
-    long end;
+    uint64_t ptr;
+    uint64_t end;
     struct cached_file_t *cached_file;
 };
 
@@ -373,6 +370,9 @@ static int echfs_write(int handle, const void *buf, size_t count) {
 
     spinlock_acquire(&mnt->lock);
 
+    if (echfs_handles[handle]->flags & O_APPEND)
+        echfs_handles[handle]->ptr = echfs_handles[handle]->end;
+
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the block */
@@ -583,21 +583,15 @@ static int echfs_close(int handle) {
 
     spinlock_acquire(&mnt->lock);
 
-    struct cached_file_t *cached_file = echfs_handles[handle]->cached_file;
-
     if (!(--echfs_handles[handle]->refcount)) {
         echfs_handles[handle]->free = 1;
-    }
-
-    if (!(--cached_file->refcount)) {
-        synchronise_cached_file(mnt, cached_file);
     }
 
     spinlock_release(&mnt->lock);
     return 0;
 }
 
-static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path, int force) {
+static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
     size_t cached_file;
     struct cached_file_t *cached_files = mnt->cached_files;
 
@@ -608,60 +602,61 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path, i
         if (cached_file == (mnt->cached_files_ptr - 1))
             goto cache_it;
 
-    if (force) {
-        //synchronise_cached_file(mnt, &cached_files[cached_file]);
-        goto force_cache_it;
-    }
-
-    cached_files[cached_file].refcount++;
     return &cached_files[cached_file];
 
 cache_it:;
+    struct path_result_t path_result;
+    path_resolver(&path_result, mnt, path);
+
+    if (path_result.failure)
+        return NULL;
 
     cached_files = krealloc(cached_files,
             sizeof(struct cached_file_t) * (mnt->cached_files_ptr + 1));
     mnt->cached_files = cached_files;
     cached_file = mnt->cached_files_ptr++;
 
-force_cache_it:;
-
-    struct path_result_t path_result;
-
-    path_resolver(&path_result, mnt, path);
-
     kstrcpy(cached_files[cached_file].path, path);
     cached_files[cached_file].path_res = path_result;
 
-    if (path_result.type == FILE_TYPE) {
+    struct cached_file_t *cached_file_p = &cached_files[cached_file];
 
-        struct cached_file_t *cached_file_p = &cached_files[cached_file];
+    if (path_result.not_found || path_result.type == FILE_TYPE) {
+        cached_file_p->cached_blocks =
+            kalloc(MAX_CACHED_BLOCKS * sizeof(struct cached_block_t));
 
-        cached_file_p->cached_blocks = kalloc(MAX_CACHED_BLOCKS * sizeof(struct cached_block_t));
-
+        cached_file_p->total_blocks = 0;
         cached_file_p->alloc_map = kalloc(sizeof(uint64_t));
+    }
+
+    if (!path_result.not_found && path_result.type == FILE_TYPE) {
         cached_file_p->alloc_map[0] = cached_file_p->path_res.target.payload;
 
         uint64_t i;
         for (i = 1; cached_file_p->alloc_map[i-1] != END_OF_CHAIN; i++) {
-            cached_file_p->alloc_map = krealloc(cached_file_p->alloc_map, sizeof(uint64_t) * (i + 1));
+            cached_file_p->alloc_map = krealloc(cached_file_p->alloc_map,
+                                                sizeof(uint64_t) * (i + 1));
             cached_file_p->alloc_map[i] = rd_qword(mnt->device,
-                    (mnt->fatstart * mnt->bytesperblock) + (cached_file_p->alloc_map[i-1] * sizeof(uint64_t)));
+                    (mnt->fatstart * mnt->bytesperblock)
+                  + (cached_file_p->alloc_map[i-1] * sizeof(uint64_t)));
         }
 
         cached_file_p->total_blocks = i - 1;
-
     }
 
-    cached_files[cached_file].refcount = 1;
-    return &cached_files[cached_file];
+    return cached_file_p;
 }
 
-static int echfs_open(const char *path, int flags, int mode, int mnt) {
+static int echfs_open(const char *path, int flags, int mnt) {
     spinlock_acquire(&mounts[mnt]->lock);
 
     struct echfs_handle_t new_handle = {0};
-
-    struct cached_file_t *cached_file = cache_file(mounts[mnt], path, 0);
+    struct cached_file_t *cached_file = cache_file(mounts[mnt], path);
+    if (!cached_file) {
+        spinlock_release(&mounts[mnt]->lock);
+        errno = ENOENT;
+        return -1;
+    }
 
     struct path_result_t *path_result = &cached_file->path_res;
 
@@ -671,10 +666,8 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
         return -1;
     }
 
-    if (path_result->failure) {
-        spinlock_release(&mounts[mnt]->lock);
-        errno = ENOENT;
-        return -1;
+    if (!path_result->not_found && flags & O_TRUNC) {
+        kprint(0, "TODO: O_TRUNC support");
     }
 
     if (path_result->not_found && flags & O_CREAT) {
@@ -695,15 +688,18 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
         wr_entry(mounts[mnt], new_entry, &entry);
 
-        cached_file = cache_file(mounts[mnt], path, 1);
-        path_result = &cached_file->path_res;
+        path_result->target = entry;
+        path_result->target_entry = new_entry;
+        path_result->not_found = 0;
+        path_result->type = FILE_TYPE;
     }
 
     new_handle.type = path_result->type;
 
     if (path_result->type == DIRECTORY_TYPE) {
         // it's a directory
-        if (flags & O_WRONLY || flags & O_RDWR) {
+        if ((flags & O_ACCMODE) == O_WRONLY
+         || (flags & O_ACCMODE) == O_RDWR) {
             spinlock_release(&mounts[mnt]->lock);
             errno = EISDIR;
             return -1;
@@ -712,17 +708,10 @@ static int echfs_open(const char *path, int flags, int mode, int mnt) {
 
     kstrcpy(new_handle.path, path);
     new_handle.flags = flags;
-    new_handle.mode = mode;
 
     if (path_result->type == FILE_TYPE) {
         new_handle.end = path_result->target.size;
-        if (flags & O_APPEND) {
-            new_handle.ptr = new_handle.end;
-            new_handle.begin = new_handle.end;
-        } else {
-            new_handle.ptr = 0;
-            new_handle.begin = 0;
-        }
+        new_handle.ptr = 0;
     }
 
     new_handle.mnt = mnt;
@@ -752,23 +741,39 @@ static int echfs_lseek(int handle, off_t offset, int type) {
     spinlock_acquire(&mnt->lock);
 
     switch (type) {
+        int flags = echfs_handles[handle]->flags;
         case SEEK_SET:
-            if (echfs_handles[handle]->begin + offset > echfs_handles[handle]->end ||
-                echfs_handles[handle]->begin + offset < echfs_handles[handle]->begin) {
+            if ((uint64_t)offset >= echfs_handles[handle]->end
+                && !(
+                    (
+                        ((flags & O_ACCMODE) == O_WRONLY)
+                     || ((flags & O_ACCMODE) == O_RDWR)
+                    )
+                )) {
                 goto einval;
             }
-            echfs_handles[handle]->ptr = echfs_handles[handle]->begin + offset;
+            echfs_handles[handle]->ptr = offset;
             break;
         case SEEK_END:
-            if (echfs_handles[handle]->end + offset > echfs_handles[handle]->end ||
-                echfs_handles[handle]->end + offset < echfs_handles[handle]->begin) {
+            if (echfs_handles[handle]->end + offset >= echfs_handles[handle]->end
+                && !(
+                    (
+                        ((flags & O_ACCMODE) == O_WRONLY)
+                     || ((flags & O_ACCMODE) == O_RDWR)
+                    )
+                )) {
                 goto einval;
             }
             echfs_handles[handle]->ptr = echfs_handles[handle]->end + offset;
             break;
         case SEEK_CUR:
-            if (echfs_handles[handle]->ptr + offset > echfs_handles[handle]->end ||
-                echfs_handles[handle]->ptr + offset < echfs_handles[handle]->begin) {
+            if (echfs_handles[handle]->ptr + offset >= echfs_handles[handle]->end
+                && !(
+                    (
+                        ((flags & O_ACCMODE) == O_WRONLY)
+                     || ((flags & O_ACCMODE) == O_RDWR)
+                    )
+                )) {
                 goto einval;
             }
             echfs_handles[handle]->ptr += offset;
@@ -899,7 +904,7 @@ static int echfs_fstat(int handle, struct stat *st) {
 
 static int echfs_mount(const char *source) {
     /* open device */
-    int device = open(source, O_RDWR, 0);
+    int device = open(source, O_RDWR);
     if (device == -1) {
         /* errno propagates from open */
         return -1;

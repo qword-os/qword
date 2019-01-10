@@ -752,7 +752,7 @@ static int iso9660_fstat(int handle, struct stat *st) {
     return 0;
 }
 static int iso9660_mount(const char *source) {
-    int device = open(source, O_RDONLY, 0);
+    int device = open(source, O_RDONLY);
 
     uint8_t type = rd_byte(device, 0x10 * SECTOR_SIZE);
     if (type != 0x1) {
