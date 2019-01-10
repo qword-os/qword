@@ -413,7 +413,7 @@ void *kmemmove(void *dest, const void *src, size_t count) {
         for (i = 0; i < count; i++) {
             dest2[i] = src2[i];
         }
-    } else {
+    } else if (src < dest) {
         for (i = count; i > 0; i--) {
             dest2[i - 1] = src2[i - 1];
         }

@@ -14,6 +14,102 @@ static size_t mountpoints_i = 0;
 static size_t filesystems_i = 0;
 static size_t fd_count = 0;
 
+static int create_fd(struct vfs_handle_t *fd) {
+    size_t i = 0;
+
+retry:
+    for ( ; i < fd_count; i++) {
+        if (!file_descriptors[i].used) {
+            file_descriptors[i] = *fd;
+            return i;
+        }
+    }
+
+    /* Make more space */
+    fd_count += 256;
+    file_descriptors = krealloc(file_descriptors, fd_count * sizeof(struct vfs_handle_t));
+
+    goto retry;
+}
+
+#define PIPE_BUFFER_STEP    32768
+
+static int pipe_close(struct pipe_t *pipe) {
+    spinlock_acquire(&pipe->lock);
+    pipe->refcount--;
+    if (pipe->refcount) {
+        spinlock_release(&pipe->lock);
+        return 0;
+    }
+    if (pipe->size)
+        kfree(pipe->buffer);
+    kfree(pipe);
+    return 0;
+}
+
+static int pipe_read(struct pipe_t *pipe, void *buf, size_t count) {
+    spinlock_acquire(&pipe->lock);
+
+    size_t pipe_size_in_steps = (pipe->size + PIPE_BUFFER_STEP - 1) / PIPE_BUFFER_STEP;
+    size_t new_pipe_size = pipe->size - count;
+    size_t new_pipe_size_in_steps = (new_pipe_size + PIPE_BUFFER_STEP - 1) / PIPE_BUFFER_STEP;
+
+    if (count > pipe->size)
+        count = pipe->size;
+
+    kmemcpy(buf, pipe->buffer, count);
+
+    kmemmove(pipe->buffer, pipe->buffer + count, count);
+
+    if (new_pipe_size_in_steps < pipe_size_in_steps)
+        pipe->buffer = krealloc(pipe->buffer, new_pipe_size_in_steps);
+
+    pipe->size -= count;
+
+    spinlock_release(&pipe->lock);
+    return count;
+}
+
+static int pipe_write(struct pipe_t *pipe, const void *buf, size_t count) {
+    spinlock_acquire(&pipe->lock);
+
+    size_t pipe_size_in_steps = (pipe->size + PIPE_BUFFER_STEP - 1) / PIPE_BUFFER_STEP;
+    size_t new_pipe_size = pipe->size + count;
+    size_t new_pipe_size_in_steps = (new_pipe_size + PIPE_BUFFER_STEP - 1) / PIPE_BUFFER_STEP;
+
+    if (new_pipe_size_in_steps > pipe_size_in_steps)
+        pipe->buffer = krealloc(pipe->buffer, new_pipe_size_in_steps);
+
+    kmemcpy(pipe->buffer + pipe->size, buf, count);
+
+    pipe->size += count;
+
+    spinlock_release(&pipe->lock);
+    return count;
+}
+
+int pipe(int pipefd[2]) {
+    struct vfs_handle_t fd_read = {0};
+    struct vfs_handle_t fd_write = {0};
+    struct pipe_t *new_pipe = kalloc(sizeof(struct pipe_t));
+
+    fd_read.used = 1;
+    fd_read.type = FD_PIPE_READ;
+    fd_read.pipe = new_pipe;
+
+    fd_write.used = 1;
+    fd_write.type = FD_PIPE_WRITE;
+    fd_write.pipe = new_pipe;
+
+    new_pipe->lock = 1;
+    new_pipe->refcount = 2;
+
+    pipefd[0] = create_fd(&fd_read);
+    pipefd[1] = create_fd(&fd_write);
+
+    return 0;
+}
+
 /* Return index into mountpoints array corresponding to the mountpoint
    inside which this file/path is located.
    char **local_path will return a pointer (in *local_path) to the
@@ -114,29 +210,10 @@ term:
     }
 }
 
-static int create_fd(int fs, int intern_fd) {
-    size_t i = 0;
-
-retry:
-    for ( ; i < fd_count; i++) {
-        if (!file_descriptors[i].used) {
-            file_descriptors[i].fs = fs;
-            file_descriptors[i].intern_fd = intern_fd;
-            file_descriptors[i].used = 1;
-
-            return (int)i;
-        }
-    }
-
-    /* Make more space */
-    fd_count += 256;
-    file_descriptors = krealloc(file_descriptors, fd_count * sizeof(struct vfs_handle_t));
-
-    goto retry;
-}
-
 /* Find free file handle and setup said handle */
 int open(const char *path, int mode) {
+    struct vfs_handle_t fd = {0};
+
     char *loc_path;
 
     int mountpoint = vfs_get_mountpoint(path, &loc_path);
@@ -148,60 +225,133 @@ int open(const char *path, int mode) {
     int intern_fd = filesystems[fs].open(loc_path, mode, magic);
     if (intern_fd == -1) return -1;
 
-    return create_fd(fs, intern_fd);
+    fd.used = 1;
+    fd.type = FD_FILE;
+    fd.fs = fs;
+    fd.intern_fd = intern_fd;
+
+    return create_fd(&fd);
 }
 
 int dup(int fd) {
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    if (filesystems[fs].dup(intern_fd))
-        return -1;
+            if (filesystems[fs].dup(intern_fd))
+                return -1;
 
-    return create_fd(fs, intern_fd);
+            return create_fd(&file_descriptors[fd]);
+        }
+        case FD_PIPE_WRITE:
+        case FD_PIPE_READ: {
+            struct pipe_t *pipe = file_descriptors[fd].pipe;
+            spinlock_acquire(&pipe->lock);
+            pipe->refcount++;
+            spinlock_release(&pipe->lock);
+            return create_fd(&file_descriptors[fd]);
+        }
+        default:
+            errno = EINVAL;
+            return -1;
+    }
 }
 
 int readdir(int fd, struct dirent *buf) {
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    return filesystems[fs].readdir(intern_fd, buf);
+            return filesystems[fs].readdir(intern_fd, buf);
+        }
+        case FD_PIPE_WRITE:
+        case FD_PIPE_READ:
+        default:
+            errno = EINVAL;
+            return -1;
+    }
 }
 
 int read(int fd, void *buf, size_t len) {
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    return filesystems[fs].read(intern_fd, buf, len);
+            return filesystems[fs].read(intern_fd, buf, len);
+        }
+        case FD_PIPE_READ:
+            return pipe_read(file_descriptors[fd].pipe, buf, len);
+        case FD_PIPE_WRITE:
+        default:
+            errno = EINVAL;
+            return -1;
+    }
 }
 
 int write(int fd, const void *buf, size_t len) {
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    int res = filesystems[fs].write(intern_fd, buf, len);
-
-    return res;
+            return filesystems[fs].write(intern_fd, buf, len);
+        }
+        case FD_PIPE_WRITE:
+            return pipe_write(file_descriptors[fd].pipe, buf, len);
+        case FD_PIPE_READ:
+        default:
+            errno = EINVAL;
+            return -1;
+    }
 }
 
 int close(int fd) {
-    if (fd < 0) return -1;
+    int ret;
 
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    int res = filesystems[fs].close(intern_fd);
-    if (res == -1) return -1;
+            ret = filesystems[fs].close(intern_fd);
+            if (ret)
+                return ret;
+            break;
+        }
+        case FD_PIPE_WRITE:
+        case FD_PIPE_READ:
+            pipe_close(file_descriptors[fd].pipe);
+            ret = 0;
+            break;
+        default:
+            errno = EINVAL;
+            return -1;
+    }
+
     file_descriptors[fd].used = 0;
 
-    return res;
+    return ret;
 }
 
 int lseek(int fd, off_t offset, int type) {
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    return filesystems[fs].lseek(intern_fd, offset, type);
+            return filesystems[fs].lseek(intern_fd, offset, type);
+        }
+        case FD_PIPE_WRITE:
+        case FD_PIPE_READ:
+            errno = ESPIPE;
+            return -1;
+        default:
+            errno = EINVAL;
+            return -1;
+    }
 }
 
 int sync(void) {
@@ -236,11 +386,38 @@ int mount(const char *source, const char *target,
     return 0;
 }
 
-int fstat(int fd, struct stat *buffer) {
-    int fs = file_descriptors[fd].fs;
-    int intern_fd = file_descriptors[fd].intern_fd;
+int fstat(int fd, struct stat *st) {
+    switch (file_descriptors[fd].type) {
+        case FD_FILE: {
+            int fs = file_descriptors[fd].fs;
+            int intern_fd = file_descriptors[fd].intern_fd;
 
-    return filesystems[fs].fstat(intern_fd, buffer);
+            return filesystems[fs].fstat(intern_fd, st);
+        }
+        case FD_PIPE_WRITE:
+        case FD_PIPE_READ:
+            st->st_dev = 0;
+            st->st_ino = 0;
+            st->st_nlink = 0;
+            st->st_uid = 0;
+            st->st_gid = 0;
+            st->st_rdev = 0;
+            st->st_size = 0;
+            st->st_blksize = 0;
+            st->st_blocks = 0;
+            st->st_atim.tv_sec = 0;
+            st->st_atim.tv_nsec = 0;
+            st->st_mtim.tv_sec = 0;
+            st->st_mtim.tv_nsec = 0;
+            st->st_ctim.tv_sec = 0;
+            st->st_ctim.tv_nsec = 0;
+            st->st_mode = 0;
+            st->st_mode |= S_IFIFO;
+            return 0;
+        default:
+            errno = EINVAL;
+            return -1;
+    }
 }
 
 void fs_sync_worker(void *arg) {

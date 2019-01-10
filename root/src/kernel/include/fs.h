@@ -6,6 +6,7 @@
 #include <dev.h>
 #include <task.h>
 #include <time.h>
+#include <lock.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
 #define SEEK_CUR 1
@@ -44,11 +45,24 @@ typedef int32_t nlink_t;
 typedef int64_t blksize_t;
 typedef int64_t blkcnt_t;
 
+#define FD_FILE 0
+#define FD_PIPE_READ 1
+#define FD_PIPE_WRITE 2
+
+struct pipe_t {
+    lock_t lock;
+    void *buffer;
+    size_t size;
+    int refcount;
+};
+
 struct vfs_handle_t {
     int used;
+    int type;
     int fs;
     int intern_fd;
     int fdflags;
+    struct pipe_t *pipe;
 };
 
 struct mnt_t {

@@ -348,6 +348,49 @@ pid_t syscall_getppid(void) {
     return ret;
 }
 
+int syscall_pipe(struct ctx_t *ctx) {
+    int *pipefd = (int *)ctx->rdi;
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    if (privilege_check(ctx->rdi, sizeof(int) * 2))
+        return -1;
+
+    spinlock_acquire(&process->file_handles_lock);
+
+    int sys_pipefd[2];
+    pipe(sys_pipefd);
+
+    int local_fd_read;
+    for (local_fd_read = 0; process->file_handles[local_fd_read] != -1; local_fd_read++)
+        if (local_fd_read + 1 == MAX_FILE_HANDLES) {
+            close(sys_pipefd[0]);
+            close(sys_pipefd[1]);
+            spinlock_release(&process->file_handles_lock);
+            return -1;
+        }
+    process->file_handles[local_fd_read] = sys_pipefd[0];
+
+    int local_fd_write;
+    for (local_fd_write = 0; process->file_handles[local_fd_write] != -1; local_fd_write++)
+        if (local_fd_write + 1 == MAX_FILE_HANDLES) {
+            close(sys_pipefd[0]);
+            close(sys_pipefd[1]);
+            spinlock_release(&process->file_handles_lock);
+            return -1;
+        }
+    process->file_handles[local_fd_write] = sys_pipefd[1];
+
+    pipefd[0] = local_fd_read;
+    pipefd[1] = local_fd_write;
+
+    spinlock_release(&process->file_handles_lock);
+    return 0;
+}
+
 int syscall_open(struct ctx_t *ctx) {
     // rdi: path
     // rsi: mode

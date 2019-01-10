@@ -39,6 +39,20 @@ void kmain_thread(void *arg) {
     /* Launch the fs cache sync worker */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(fs_sync_worker, 0));
 
+    int pipes[2];
+    pipe(pipes);
+    const char *test_string = "hello world";
+    char *output = kalloc(kstrlen(test_string) + 1);
+    if (output) {
+        kprint(KPRN_DBG, "writing \"%s\" to pipes[1]", test_string);
+        write(pipes[1], test_string, kstrlen(test_string) + 1);
+        read(pipes[0], output, kstrlen(test_string) + 1);
+        kprint(KPRN_DBG, "reading \"%s\" from pipes[0]", output);
+        kfree(output);
+        close(pipes[0]);
+        close(pipes[1]);
+    }
+
     int tty = open("/dev/tty", O_RDWR);
 
     char *root = cmdline_get_value("root");

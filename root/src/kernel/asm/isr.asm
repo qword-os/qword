@@ -291,6 +291,8 @@ syscall_table:
     dq syscall_readdir ;17
     extern syscall_fcntl
     dq syscall_fcntl ;18
+    extern syscall_pipe
+    dq syscall_pipe ;19
   .end:
 
 section .text
