@@ -173,7 +173,6 @@ struct handle_t {
     int refcount;
     int mount;
     int flags;
-    int mode;
     long offset;
     long begin;
     long end;
@@ -507,7 +506,7 @@ out:
     return result;
 }
 
-static int iso9660_open(const char *path, int flags, int mode, int mount) {
+static int iso9660_open(const char *path, int flags, int mount) {
     spinlock_acquire(&iso9660_lock);
 
     struct path_result_t result = resolve_path(&mounts[mount], path);
@@ -521,7 +520,6 @@ static int iso9660_open(const char *path, int flags, int mode, int mount) {
     kstrcpy(handle.path, path);
     handle.path_res = result;
     handle.flags = flags;
-    handle.mode = mode;
     handle.mount = mount;
     handle.end = result.target.extent_length.little;
     if (flags & O_APPEND)
