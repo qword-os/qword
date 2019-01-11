@@ -27,7 +27,8 @@ QEMU_FLAGS := $(QEMU_FLAGS) \
 	-m 2G \
 	-net none \
 	-debugcon stdio \
-	-d cpu_reset
+	-d cpu_reset \
+	-machine type=q35
 
 run: run-img
 
