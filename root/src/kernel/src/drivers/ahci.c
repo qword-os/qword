@@ -7,7 +7,10 @@
 
 #define BYTES_PER_SECT 512
 
-#define MAX_CACHED_SECTORS 8192
+#define SECTORS_PER_BLOCK 128
+#define BYTES_PER_BLOCK (SECTORS_PER_BLOCK * BYTES_PER_SECT)
+
+#define MAX_CACHED_BLOCKS 8192
 
 #define MAX_AHCI_DEVICES 32
 
@@ -281,9 +284,9 @@ static const char *ahci_names[] = {
     NULL
 };
 
-struct cached_sector_t {
+struct cached_block_t {
     uint8_t *cache;
-    uint64_t sector;
+    uint64_t block;
     int status;
 };
 
@@ -291,7 +294,7 @@ struct ahci_device_t {
     volatile struct hba_port_t *port;
     int exists;
     uint64_t sector_count;
-    struct cached_sector_t *cache;
+    struct cached_block_t *cache;
     int overwritten_slot;
 };
 
@@ -532,7 +535,7 @@ static int init_ahci_device(struct ahci_device_t *device,
     device->exists = 1;
     device->port = port;
     device->sector_count = *((uint64_t *)((size_t)&identify[100] + MEM_PHYS_OFFSET));
-    device->cache = kalloc(MAX_CACHED_SECTORS * sizeof(struct cached_sector_t));
+    device->cache = kalloc(MAX_CACHED_BLOCKS * sizeof(struct cached_block_t));
 
     kprint(KPRN_INFO, "ahci: Sector count = %U", device->sector_count);
     kprint(KPRN_INFO, "ahci: Identify successful");
@@ -546,7 +549,10 @@ static int init_ahci_device(struct ahci_device_t *device,
 /* This wrapper function performs both read and write DMA operations - see ahci_read
  * and ahci_write */
 static int ahci_rw(volatile struct hba_port_t *port,
-        uint32_t startl, uint32_t starth, uint32_t count, uint16_t *buf, int w) {
+        uint64_t start, uint32_t count, uint16_t *buf, int w) {
+    uint32_t startl = (uint32_t)start;
+    uint32_t starth = start >> 32;
+
     int spin = 0;
 
     int slot = find_cmdslot(port);
@@ -644,9 +650,9 @@ static int ahci_rw(volatile struct hba_port_t *port,
 
 static lock_t ahci_lock = 1;
 
-static int find_sect(int drive, uint64_t sect) {
-    for (size_t i = 0; i < MAX_CACHED_SECTORS; i++)
-        if ((ahci_devices[drive].cache[i].sector == sect)
+static int find_block(int drive, uint64_t block) {
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++)
+        if ((ahci_devices[drive].cache[i].block == block)
             && (ahci_devices[drive].cache[i].status))
             return i;
 
@@ -654,16 +660,16 @@ static int find_sect(int drive, uint64_t sect) {
 
 }
 
-static int cache_sect(int drive, uint64_t sect) {
+static int cache_block(int drive, uint64_t block) {
     int targ;
     int ret;
 
     /* Find empty sector */
-    for (targ = 0; targ < MAX_CACHED_SECTORS; targ++)
+    for (targ = 0; targ < MAX_CACHED_BLOCKS; targ++)
         if (!ahci_devices[drive].cache[targ].status) goto fnd;
 
     /* Slot not find, overwrite another */
-    if (ahci_devices[drive].overwritten_slot == MAX_CACHED_SECTORS)
+    if (ahci_devices[drive].overwritten_slot == MAX_CACHED_BLOCKS)
         ahci_devices[drive].overwritten_slot = 0;
 
     targ = ahci_devices[drive].overwritten_slot++;
@@ -671,9 +677,8 @@ static int cache_sect(int drive, uint64_t sect) {
     /* Flush device cache */
     if (ahci_devices[drive].cache[targ].status == CACHE_DIRTY) {
         ret = ahci_rw(ahci_devices[drive].port,
-            (uint32_t)ahci_devices[drive].cache[targ].sector,
-            (ahci_devices[drive].cache[targ].sector >> 32),
-            1, (void *)ahci_devices[drive].cache[targ].cache, 1);
+            ahci_devices[drive].cache[targ].block * SECTORS_PER_BLOCK,
+            SECTORS_PER_BLOCK, (void *)ahci_devices[drive].cache[targ].cache, 1);
 
         if (ret == -1) return -1;
     }
@@ -682,17 +687,18 @@ static int cache_sect(int drive, uint64_t sect) {
 
 fnd:
     /* Allocate some cache for this device */
-    ahci_devices[drive].cache[targ].cache = kalloc(BYTES_PER_SECT);
+    ahci_devices[drive].cache[targ].cache = kalloc(BYTES_PER_BLOCK);
 
 notfnd:
 
     /* Load sector into cache */
     ret = ahci_rw(ahci_devices[drive].port,
-        (uint32_t)sect, (sect >> 32), 1, (void *)ahci_devices[drive].cache[targ].cache, 0);
+        block * SECTORS_PER_BLOCK, SECTORS_PER_BLOCK,
+        (void *)ahci_devices[drive].cache[targ].cache, 0);
 
     if (ret == -1) return -1;
 
-    ahci_devices[drive].cache[targ].sector = sect;
+    ahci_devices[drive].cache[targ].block = block;
     ahci_devices[drive].cache[targ].status = CACHE_READY;
 
     return targ;
@@ -704,10 +710,10 @@ static int ahci_read(int drive, void *buf, uint64_t loc, size_t count) {
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the sector */
-        uint64_t sect = (loc + progress) / BYTES_PER_SECT;
-        int slot = find_sect(drive, sect);
+        uint64_t block = (loc + progress) / BYTES_PER_BLOCK;
+        int slot = find_block(drive, block);
         if (slot == -1) {
-            slot = cache_sect(drive, sect);
+            slot = cache_block(drive, block);
             if (slot == -1) {
                 spinlock_release(&ahci_lock);
                 return -1;
@@ -715,9 +721,9 @@ static int ahci_read(int drive, void *buf, uint64_t loc, size_t count) {
         }
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (loc + progress) % BYTES_PER_SECT;
-        if (chunk > BYTES_PER_SECT - offset)
-            chunk = BYTES_PER_SECT - offset;
+        uint64_t offset = (loc + progress) % BYTES_PER_BLOCK;
+        if (chunk > BYTES_PER_BLOCK - offset)
+            chunk = BYTES_PER_BLOCK - offset;
 
         kmemcpy(buf + progress, &ahci_devices[drive].cache[slot].cache[offset], chunk);
         progress += chunk;
@@ -733,10 +739,10 @@ static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count) {
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the sector */
-        uint64_t sect = (loc + progress) / BYTES_PER_SECT;
-        int slot = find_sect(drive, sect);
+        uint64_t block = (loc + progress) / BYTES_PER_BLOCK;
+        int slot = find_block(drive, block);
         if (slot == -1) {
-            slot = cache_sect(drive, sect);
+            slot = cache_block(drive, block);
             if (slot == -1) {
                 spinlock_release(&ahci_lock);
                 return -1;
@@ -744,9 +750,9 @@ static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count) {
         }
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (loc + progress) % BYTES_PER_SECT;
-        if (chunk > BYTES_PER_SECT - offset)
-            chunk = BYTES_PER_SECT - offset;
+        uint64_t offset = (loc + progress) % BYTES_PER_BLOCK;
+        if (chunk > BYTES_PER_BLOCK - offset)
+            chunk = BYTES_PER_BLOCK - offset;
 
         kmemcpy(&ahci_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
         ahci_devices[drive].cache[slot].status = CACHE_DIRTY;
@@ -760,14 +766,13 @@ static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count) {
 static int ahci_flush(int device) {
     spinlock_acquire(&ahci_lock);
 
-    for (size_t i = 0; i < MAX_CACHED_SECTORS; i++) {
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
         if (ahci_devices[device].cache[i].status == CACHE_DIRTY) {
             int ret;
 
             ret = ahci_rw(ahci_devices[device].port,
-                (uint32_t)ahci_devices[device].cache[i].sector,
-                (ahci_devices[device].cache[i].sector >> 32),
-                1, (void *)ahci_devices[device].cache[i].cache, 1);
+                ahci_devices[device].cache[i].block * SECTORS_PER_BLOCK,
+                SECTORS_PER_BLOCK, (void *)ahci_devices[device].cache[i].cache, 1);
 
             if (ret == -1) {
                 spinlock_release(&ahci_lock);

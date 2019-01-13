@@ -726,7 +726,6 @@ int syscall_read(struct ctx_t *ctx) {
             step = SYSCALL_IO_CAP;
         size_t ret = read(process->file_handles[ctx->rdi], (void *)(ctx->rsi + ptr), step);
         ptr += ret;
-        yield(1);
         if (ret < step)
             break;
     }
@@ -765,7 +764,6 @@ int syscall_write(struct ctx_t *ctx) {
             step = SYSCALL_IO_CAP;
         size_t ret = write(process->file_handles[ctx->rdi], (void *)(ctx->rsi + ptr), step);
         ptr += ret;
-        yield(1);
         if (ret < step)
             break;
     }
