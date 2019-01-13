@@ -36,15 +36,15 @@ int syscall_getcwd(struct ctx_t *ctx) {
     char *buf = (char *)ctx->rdi;
     size_t limit = (size_t)ctx->rsi;
 
-    spinlock_acquire(process->cwd_lock);
+    spinlock_acquire(&process->cwd_lock);
     if (kstrlen(process->cwd) + 1 > limit) {
-        spinlock_release(process->cwd_lock);
+        spinlock_release(&process->cwd_lock);
         errno = ERANGE;
         return -1;
     }
 
     kstrcpy(buf, process->cwd);
-    spinlock_release(process->cwd_lock);
+    spinlock_release(&process->cwd_lock);
 
     return 0;
 }
