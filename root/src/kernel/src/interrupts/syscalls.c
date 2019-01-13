@@ -22,6 +22,33 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+char *syscall_getcwd(struct ctx_t *ctx) {
+    if (privilege_check(ctx->rdi, ctx->rsi)) {
+        errno = EFAULT;
+        return NULL;
+    }
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    char *buf = (char *)ctx->rdi;
+    size_t limit = (size_t)ctx->rsi;
+
+    spinlock_acquire(process->cwd_lock);
+    if (kstrlen(process->cwd) + 1 > limit) {
+        spinlock_release(process->cwd_lock);
+        errno = ERANGE;
+        return NULL;
+    }
+
+    kstrcpy(buf, process->cwd);
+    spinlock_release(process->cwd_lock);
+
+    return buf;
+}
+
 int syscall_readdir(struct ctx_t *ctx) {
     int fd = (int)ctx->rdi;
     struct dirent *buf = (struct dirent *)ctx->rsi;

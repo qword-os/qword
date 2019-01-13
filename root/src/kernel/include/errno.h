@@ -7,6 +7,10 @@
 
 /* Definitions from "options/posix/include/bits/posix/posix_errno.h" in mlibc */
 
+#define EDOM 1
+#define EILSEQ 2
+#define ERANGE 3
+
 #define E2BIG 1001
 #define EACCES 1002
 #define EADDRINUSE 1003

@@ -293,6 +293,8 @@ syscall_table:
     dq syscall_fcntl ;18
     extern syscall_pipe
     dq syscall_pipe ;19
+    extern syscall_getcwd
+    dq syscall_getcwd ;20
   .end:
 
 section .text
