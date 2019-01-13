@@ -22,10 +22,10 @@ static inline int privilege_check(size_t base, size_t len) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
-char *syscall_getcwd(struct ctx_t *ctx) {
+int syscall_getcwd(struct ctx_t *ctx) {
     if (privilege_check(ctx->rdi, ctx->rsi)) {
         errno = EFAULT;
-        return NULL;
+        return -1;
     }
 
     spinlock_acquire(&scheduler_lock);
@@ -40,13 +40,13 @@ char *syscall_getcwd(struct ctx_t *ctx) {
     if (kstrlen(process->cwd) + 1 > limit) {
         spinlock_release(process->cwd_lock);
         errno = ERANGE;
-        return NULL;
+        return -1;
     }
 
     kstrcpy(buf, process->cwd);
     spinlock_release(process->cwd_lock);
 
-    return buf;
+    return 0;
 }
 
 int syscall_readdir(struct ctx_t *ctx) {
