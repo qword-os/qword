@@ -1,7 +1,3 @@
-extern lapic_eoi_ptr
-
-global int_handler
-
 ; Exception handlers.
 global exc_div0_handler
 global exc_debug_handler
@@ -24,26 +20,7 @@ global exc_simd_fp_handler
 global exc_virt_handler
 global exc_security_handler
 
-extern div0_handler
-extern debug_handler
-extern nmi_handler
-extern breakpoint_handler
-extern overflow_handler
-extern bound_range_handler
-extern inv_opcode_handler
-extern no_dev_handler
-extern double_fault_handler
-extern inv_tss_handler
-extern no_segment_handler
-extern ss_fault_handler
-extern gpf_handler
-extern page_fault_handler
-extern x87_fp_handler
-extern alignment_check_handler
-extern machine_check_handler
-extern simd_fp_handler
-extern virt_handler
-extern security_handler
+extern exception_handler
 
 ; IRQs
 global irq0_handler
@@ -72,6 +49,7 @@ extern task_resched
 extern task_trigger_resched
 global syscall_entry
 extern kbd_handler
+extern lapic_eoi_ptr
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -85,22 +63,27 @@ extern kbd_handler
 %endmacro
 
 %macro except_handler_err_code 1
-    ; Since GPRs get trashed by an exception anyway we don't need to save them.
-    pop rdx
-    pop rsi
-    pop rdi
-
-    call %1
-
+    push qword [rsp+5*8]
+    push qword [rsp+5*8]
+    push qword [rsp+5*8]
+    push qword [rsp+5*8]
+    push qword [rsp+5*8]
+    pusham
+    mov rdi, %1
+    mov rsi, rsp
+    mov rdx, qword [rsp+20*8]
+    call exception_handler
+    popam
     iretq
 %endmacro
 
 %macro except_handler 1
-    pop rsi
-    pop rdi
-
-    call %1
-
+    pusham
+    mov rdi, %1
+    mov rsi, rsp
+    xor rdx, rdx
+    call exception_handler
+    popam
     iretq
 %endmacro
 
@@ -162,50 +145,52 @@ extern kbd_handler
 section .text
 bits 64
 
-int_handler:
-    common_handler dummy_int_handler
+; Exception handlers
 exc_div0_handler:
-    except_handler div0_handler
+    except_handler 0x0
 exc_debug_handler:
-    except_handler debug_handler
+    except_handler 0x1
 exc_nmi_handler:
-    except_handler nmi_handler
+    except_handler 0x2
 exc_breakpoint_handler:
-    except_handler breakpoint_handler
+    except_handler 0x3
 exc_overflow_handler:
-    except_handler overflow_handler
+    except_handler 0x4
 exc_bound_range_handler:
-    except_handler bound_range_handler
+    except_handler 0x5
 exc_inv_opcode_handler:
-    except_handler inv_opcode_handler
+    except_handler 0x6
 exc_no_dev_handler:
-    except_handler no_dev_handler
+    except_handler 0x7
 exc_double_fault_handler:
-    except_handler_err_code double_fault_handler
+    except_handler_err_code 0x8
 exc_inv_tss_handler:
-    except_handler_err_code inv_tss_handler
+    except_handler_err_code 0xa
 exc_no_segment_handler:
-    except_handler_err_code no_segment_handler
+    except_handler_err_code 0xb
 exc_ss_fault_handler:
-    except_handler_err_code ss_fault_handler
+    except_handler_err_code 0xc
 exc_gpf_handler:
-    except_handler_err_code gpf_handler
+    except_handler_err_code 0xd
 exc_page_fault_handler:
-    except_handler_err_code page_fault_handler
+    except_handler_err_code 0xe
 exc_x87_fp_handler:
-    except_handler x87_fp_handler
+    except_handler 0x10
 exc_alignment_check_handler:
-    except_handler_err_code alignment_check_handler
+    except_handler_err_code 0x11
 exc_machine_check_handler:
-    except_handler machine_check_handler
+    except_handler 0x12
 exc_simd_fp_handler:
-    except_handler simd_fp_handler
+    except_handler 0x13
 exc_virt_handler:
-    except_handler virt_handler
+    except_handler 0x14
 exc_security_handler:
-    except_handler_err_code security_handler
+    except_handler_err_code 0x1e
 
 ; IRQs
+int_handler:
+    common_handler dummy_int_handler
+
 irq0_handler:
     pusham
 

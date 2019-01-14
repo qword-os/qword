@@ -52,4 +52,10 @@ void free_address_space(struct pagemap_t *);
     cr3; \
 })
 
+#define read_cr2() ({ \
+    size_t cr2; \
+    asm volatile ("mov rax, cr2;" : "=a" (cr2)); \
+    cr2; \
+})
+
 #endif

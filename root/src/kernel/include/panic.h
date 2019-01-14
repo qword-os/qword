@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <task.h>
 
 #define stringify(x) #x
 #define expand_stringify(x) stringify(x)
@@ -15,6 +16,5 @@
     } while(0)
 
 void panic(const char *, uint64_t, uint64_t);
-void kexcept(const char *, size_t, size_t, size_t, size_t);
 
 #endif

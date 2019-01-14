@@ -23,25 +23,4 @@ void exc_simd_fp_handler(void);
 void exc_virt_handler(void);
 void exc_security_handler(void);
 
-void div0_handler(size_t, size_t);
-void debug_handler(size_t, size_t);
-void nmi_handler(size_t, size_t);
-void breakpoint_handler(size_t, size_t);
-void overflow_handler(size_t, size_t);
-void bound_range_handler(size_t, size_t);
-void inv_opcode_handler(size_t, size_t);
-void no_dev_handler(size_t, size_t);
-void double_fault_handler(size_t, size_t, size_t);
-void inv_tss_handler(size_t, size_t, size_t);
-void no_segment_handler(size_t, size_t, size_t);
-void ss_fault_handler(size_t, size_t, size_t);
-void gpf_handler(size_t, size_t, size_t);
-void page_fault_handler(size_t, size_t, size_t);
-void x87_fp_handler(size_t, size_t);
-void alignment_check_handler(size_t, size_t, size_t);
-void machine_check_handler(size_t, size_t);
-void simd_fp_handler(size_t, size_t);
-void virt_handler(size_t, size_t);
-void security_handler(size_t, size_t, size_t);
-
 #endif

@@ -27,11 +27,24 @@ echo "Make flags: $MAKEFLAGS"
 set -e
 set -x
 
+rm -rf "$PREFIX"
 mkdir -p "$PREFIX"
 export PATH="$PREFIX/bin:$PATH"
 
 mkdir -p build-toolchain
 cd build-toolchain
+
+git clone https://github.com/managarm/mlibc.git || true
+pushd mlibc
+git pull
+rm -rf build
+mkdir -p build
+cd build
+sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
+meson .. --prefix=/usr --libdir=lib --buildtype=debugoptimized --cross-file cross_file.txt -Dheaders_only=true
+ninja
+DESTDIR="$PREFIX" ninja install
+popd
 
 rm -rf gcc-$GCCVERSION binutils-$BINUTILSVERSION build-gcc build-binutils
 if [ ! -f binutils-$BINUTILSVERSION.tar.gz ]; then

@@ -1,90 +1,90 @@
 #include <stddef.h>
 #include <exceptions.h>
 #include <panic.h>
+#include <task.h>
+#include <mm.h>
+#include <klib.h>
+#include <smp.h>
 
-void div0_handler(size_t cs, size_t ip) {
-    kexcept("Divide by 0!", cs, ip, 0, 0);
-}
+#define EXC_DIV0 0x0
+#define EXC_DEBUG 0x1
+#define EXC_NMI 0x2
+#define EXC_BREAKPOINT 0x3
+#define EXC_OVERFLOW 0x4
+#define EXC_BOUND 0x5
+#define EXC_INVOPCODE 0x6
+#define EXC_NODEV 0x7
+#define EXC_DBFAULT 0x8
+#define EXC_INVTSS 0xa
+#define EXC_NOSEGMENT 0xb
+#define EXC_SSFAULT 0xc
+#define EXC_GPF 0xd
+#define EXC_PAGEFAULT 0xe
+#define EXC_FP 0x10
+#define EXC_ALIGN 0x11
+#define EXC_MACHINECHK 0x12
+#define EXC_SIMD 0x13
+#define EXC_VIRT 0x14
+#define EXC_SECURITY 0x1e
 
-void debug_handler(size_t cs, size_t ip) {
-    kexcept("Debug exception!", cs, ip, 0, 0);
-}
+static const char *exception_names[] = {
+    "Division by 0",
+    "Debug",
+    "NMI",
+    "Breakpoint",
+    "Overflow",
+    "Bound range exceeded",
+    "Invalid opcode",
+    "Device not available",
+    "Double fault",
+    "???",
+    "Invalid TSS",
+    "Segment not present",
+    "Stack-segment fault",
+    "General protection fault",
+    "Page fault",
+    "???",
+    "x87 exception",
+    "Alignment check",
+    "Machine check",
+    "SIMD exception",
+    "Virtualisation",
+    "???",
+    "???",
+    "???",
+    "???",
+    "???",
+    "???",
+    "???",
+    "???",
+    "???",
+    "Security"
+};
 
-void nmi_handler(size_t cs, size_t ip) {
-    kexcept("Non-maskable interrupt, please check your hardware!", cs, ip, 0, 0);
-}
-
-void breakpoint_handler(size_t cs, size_t ip) {
-    kexcept("Breakpoint exception!", cs, ip, 0, 0);
-}
-
-void overflow_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: Overflow", cs, ip, 0, 0);
-}
-
-void bound_range_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: Bound range exceeded!", cs, ip, 0, 0);
-}
-
-void inv_opcode_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: Invalid opcode!", cs, ip, 0, 0);
-}
-
-void no_dev_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: Device not found!", cs, ip, 0, 0);
-}
-
-void double_fault_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: Double fault!", cs, ip, error_code, 0);
-}
-
-void inv_tss_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: Invalid TSS!", cs, ip, error_code, 0);
-}
-
-void no_segment_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: Segment not present!", cs, ip, error_code, 0);
-}
-
-void ss_fault_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: Stack segment fault!", cs, ip, error_code, 0);
-}
-
-void gpf_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: General protection fault!", cs, ip, error_code, 0);
-}
-
-void page_fault_handler(size_t cs, size_t ip, size_t error_code) {
-    size_t faulting_addr;
-
-    asm volatile (
-        "mov %0, cr2"
-        : "=r" (faulting_addr)
-    );
-
-    kexcept("CPU exception: Page fault!", cs, ip, error_code, faulting_addr);
-}
-
-void x87_fp_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: x87 floating-point exception!", cs, ip, 0, 0);
-}
-
-void alignment_check_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: Alignment check!", cs, ip, error_code, 0);
-}
-
-void machine_check_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: Machine check! Possible internal processor error.", cs, ip, 0, 0);
-}
-
-void simd_fp_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: SIMD floating-point exception!", cs, ip, 0, 0);
-}
-
-void virt_handler(size_t cs, size_t ip) {
-    kexcept("CPU exception: Virtualization exception!", cs, ip, 0, 0);
-}
-
-void security_handler(size_t cs, size_t ip, size_t error_code) {
-    kexcept("CPU exception: Security exception!", cs, ip, error_code, 0);
+void exception_handler(int exception, struct ctx_t *ctx, size_t error_code) {
+    kprint(KPRN_PANIC, "Exception \"%s\" (int %x)", exception_names[exception], exception);
+    kprint(KPRN_PANIC, "Error code: %X", error_code);
+    kprint(KPRN_PANIC, "CPU #%d status at fault:", current_cpu);
+    kprint(KPRN_PANIC, "RAX:    %X", ctx->rax);
+    kprint(KPRN_PANIC, "RBX:    %X", ctx->rbx);
+    kprint(KPRN_PANIC, "RCX:    %X", ctx->rcx);
+    kprint(KPRN_PANIC, "RDX:    %X", ctx->rdx);
+    kprint(KPRN_PANIC, "RSI:    %X", ctx->rsi);
+    kprint(KPRN_PANIC, "RDI:    %X", ctx->rdi);
+    kprint(KPRN_PANIC, "RBP:    %X", ctx->rbp);
+    kprint(KPRN_PANIC, "RSP:    %X", ctx->rsp);
+    kprint(KPRN_PANIC, "R8:     %X", ctx->r8);
+    kprint(KPRN_PANIC, "R9:     %X", ctx->r9);
+    kprint(KPRN_PANIC, "R10:    %X", ctx->r10);
+    kprint(KPRN_PANIC, "R11:    %X", ctx->r11);
+    kprint(KPRN_PANIC, "R12:    %X", ctx->r12);
+    kprint(KPRN_PANIC, "R13:    %X", ctx->r13);
+    kprint(KPRN_PANIC, "R14:    %X", ctx->r14);
+    kprint(KPRN_PANIC, "R15:    %X", ctx->r15);
+    kprint(KPRN_PANIC, "RFLAGS: %X", ctx->rflags);
+    kprint(KPRN_PANIC, "RIP:    %X", ctx->rip);
+    kprint(KPRN_PANIC, "CS:     %X", ctx->cs);
+    kprint(KPRN_PANIC, "SS:     %X", ctx->ss);
+    kprint(KPRN_PANIC, "CR2:    %X", read_cr2());
+    panic("CPU exception", 0, 0);
 }
