@@ -28,6 +28,7 @@
 #define MAX_ECHFS_HANDLES 32768
 #define MAX_ECHFS_MOUNTS 1024
 #define MAX_CACHED_BLOCKS 8192
+#define MAX_CACHED_FILES 8192
 
 struct entry_t {
     uint64_t parent_id;
@@ -97,6 +98,7 @@ struct echfs_handle_t {
 };
 
 static struct echfs_handle_t **echfs_handles;
+static lock_t echfs_handle_lock = 1;
 static struct mount_t **mounts;
 static lock_t echfs_mount_lock = 1;
 
@@ -364,6 +366,12 @@ static int echfs_read(int handle, void *buf, size_t count) {
 
     spinlock_acquire(&mnt->lock);
 
+    if (echfs_handles[handle]->type == DIRECTORY_TYPE) {
+        spinlock_release(&mnt->lock);
+        errno = EISDIR;
+        return -1;
+    }
+
     if ((size_t)echfs_handles[handle]->ptr + count
       >= (size_t)echfs_handles[handle]->end) {
         count -= ((size_t)echfs_handles[handle]->ptr + count) - (size_t)echfs_handles[handle]->end;
@@ -409,6 +417,12 @@ static int echfs_write(int handle, const void *buf, size_t count) {
 
     spinlock_acquire(&mnt->lock);
 
+    if (echfs_handles[handle]->type == DIRECTORY_TYPE) {
+        spinlock_release(&mnt->lock);
+        errno = EISDIR;
+        return -1;
+    }
+
     if (echfs_handles[handle]->flags & O_APPEND)
         echfs_handles[handle]->ptr = echfs_handles[handle]->end;
 
@@ -449,6 +463,8 @@ static int echfs_write(int handle, const void *buf, size_t count) {
 }
 
 static int echfs_create_handle(struct echfs_handle_t *handle) {
+    spinlock_acquire(&echfs_handle_lock);
+
     int handle_n;
 
     /* Check for a free handle */
@@ -466,10 +482,13 @@ load_handle:
     echfs_handles[handle_n] = kalloc(sizeof(struct echfs_handle_t));
     *echfs_handles[handle_n] = *handle;
 
+    spinlock_release(&echfs_handle_lock);
     return handle_n;
 }
 
 static int echfs_create_mount(struct mount_t *mount) {
+    spinlock_acquire(&echfs_mount_lock);
+
     int mount_n;
 
     /* Check for a free handle */
@@ -487,6 +506,7 @@ load_mount:
     mounts[mount_n] = kalloc(sizeof(struct mount_t));
     *mounts[mount_n] = *mount;
 
+    spinlock_release(&echfs_mount_lock);
     return mount_n;
 }
 
@@ -650,10 +670,9 @@ cache_it:;
     if (path_result.failure)
         return NULL;
 
-    cached_files = krealloc(cached_files,
-            sizeof(struct cached_file_t) * (mnt->cached_files_ptr + 1));
-    mnt->cached_files = cached_files;
     cached_file = mnt->cached_files_ptr++;
+    if (cached_file == MAX_CACHED_FILES)
+        panic("", 0, 0);
 
     kstrcpy(cached_files[cached_file].path, path);
     cached_files[cached_file].path_res = path_result;
@@ -944,13 +963,11 @@ static int echfs_fstat(int handle, struct stat *st) {
 }
 
 static int echfs_mount(const char *source) {
-    spinlock_acquire(&echfs_mount_lock);
 
     /* open device */
     int device = open(source, O_RDWR);
     if (device == -1) {
         /* errno propagates from open */
-        spinlock_release(&echfs_mount_lock);
         return -1;
     }
 
@@ -962,7 +979,6 @@ static int echfs_mount(const char *source) {
         kprint(KPRN_ERR, "echidnaFS signature invalid, mount failed!");
         close(device);
         errno = EINVAL;
-        spinlock_release(&echfs_mount_lock);
         return -1;
     }
 
@@ -979,7 +995,7 @@ static int echfs_mount(const char *source) {
     mount.dirstart = mount.fatstart + mount.fatsize;
     mount.datastart = RESERVED_BLOCKS + mount.fatsize + mount.dirsize;
 
-    mount.cached_files = 0;
+    mount.cached_files = kalloc(MAX_CACHED_FILES * sizeof(struct cached_file_t));
     mount.cached_files_ptr = 0;
 
     mount.free = 0;
@@ -987,7 +1003,6 @@ static int echfs_mount(const char *source) {
 
     int ret = echfs_create_mount(&mount);
 
-    spinlock_release(&echfs_mount_lock);
     return ret;
 }
 
