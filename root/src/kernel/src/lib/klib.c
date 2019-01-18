@@ -444,7 +444,7 @@ int ht_init(struct hashtable_t *table, int size) {
     if (!table->buckets)
         return -1;
     for (int i = 0; i < table->size; i++)
-        table->buckets[0] = NULL;
+        table->buckets[i] = NULL;
     return 0;
 }
 
