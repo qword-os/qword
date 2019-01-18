@@ -24,6 +24,7 @@ void bios_get_time(struct s_time_t *);
 
 extern volatile uint64_t uptime_raw;
 extern volatile uint64_t uptime_sec;
+extern volatile uint64_t unix_epoch;
 
 void ksleep(uint64_t);
 uint64_t get_jdn(int, int, int);

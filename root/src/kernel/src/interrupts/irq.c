@@ -15,6 +15,7 @@
 void pit_handler(void) {
     if (!(++uptime_raw % PIT_FREQUENCY)) {
         uptime_sec++;
+        unix_epoch++;
     }
 
     return;
