@@ -67,6 +67,7 @@ struct cached_file_t {
     uint64_t total_blocks;
     int changed_entry;
     int changed_cache;
+    struct ht_entry_t table_entry;
 };
 
 struct mount_t {
@@ -81,7 +82,7 @@ struct mount_t {
     uint64_t dirsize;
     uint64_t dirstart;
     uint64_t datastart;
-    struct cached_file_t *cached_files;
+    struct hashtable_t cached_files;
     int cached_files_ptr;
 };
 
@@ -203,14 +204,14 @@ static int echfs_sync(void) {
         if (mounts[i]->free)
             continue;
         struct mount_t *mnt = mounts[i];
+        struct ht_entry_t *entry = NULL;
         spinlock_acquire(&mnt->lock);
-        size_t total_cached_files = mnt->cached_files_ptr;
+        ht_foreach(&mnt->cached_files, entry,
+            struct cached_file_t *cached_file = container_of(entry,
+                struct cached_file_t, table_entry);
+            synchronise_cached_file(mnt, cached_file);
+        )
         spinlock_release(&mnt->lock);
-        for (size_t i = 0; i < total_cached_files; i++) {
-            spinlock_acquire(&mnt->lock);
-            synchronise_cached_file(mnt, &mnt->cached_files[i]);
-            spinlock_release(&mnt->lock);
-        }
     }
     spinlock_release(&echfs_mount_lock);
     return 0;
@@ -651,58 +652,50 @@ static int echfs_close(int handle) {
 }
 
 static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
-    size_t cached_file;
-    struct cached_file_t *cached_files = mnt->cached_files;
+    struct ht_entry_t *entry = NULL;
+    uint64_t path_hash = ht_hash_str(path);
+    ht_get(&mnt->cached_files, path_hash, entry,
+            !kstrcmp(container_of(entry, struct cached_file_t, table_entry)->path,
+                path));
+    if (entry)
+        return container_of(entry, struct cached_file_t, table_entry);
 
-    if (!mnt->cached_files_ptr)
-        goto cache_it;
-
-    for (cached_file = 0; kstrcmp(cached_files[cached_file].path, path); cached_file++)
-        if (cached_file == (mnt->cached_files_ptr - 1))
-            goto cache_it;
-
-    return &cached_files[cached_file];
-
-cache_it:;
+    /* not cached */
     struct path_result_t path_result;
     path_resolver(&path_result, mnt, path);
 
     if (path_result.failure)
         return NULL;
 
-    cached_file = mnt->cached_files_ptr++;
-    if (cached_file == MAX_CACHED_FILES)
-        panic("", 0, 0);
-
-    kstrcpy(cached_files[cached_file].path, path);
-    cached_files[cached_file].path_res = path_result;
-
-    struct cached_file_t *cached_file_p = &cached_files[cached_file];
+    struct cached_file_t *cached_file = kalloc(sizeof(struct cached_file_t));
+    kstrcpy(cached_file->path, path);
+    cached_file->path_res = path_result;
 
     if (path_result.not_found || path_result.type == FILE_TYPE) {
-        cached_file_p->cached_blocks =
+        cached_file->cached_blocks =
             kalloc(MAX_CACHED_BLOCKS * sizeof(struct cached_block_t));
 
-        cached_file_p->total_blocks = 0;
-        cached_file_p->alloc_map = kalloc(sizeof(uint64_t));
+        cached_file->total_blocks = 0;
+        cached_file->alloc_map = kalloc(sizeof(uint64_t));
     }
 
     if (!path_result.not_found && path_result.type == FILE_TYPE) {
-        cached_file_p->alloc_map[0] = cached_file_p->path_res.target.payload;
+        cached_file->alloc_map[0] = cached_file->path_res.target.payload;
 
         uint64_t i;
-        for (i = 1; cached_file_p->alloc_map[i-1] != END_OF_CHAIN; i++) {
-            cached_file_p->alloc_map = krealloc(cached_file_p->alloc_map,
+        for (i = 1; cached_file->alloc_map[i-1] != END_OF_CHAIN; i++) {
+            cached_file->alloc_map = krealloc(cached_file->alloc_map,
                                                 sizeof(uint64_t) * (i + 1));
-            cached_file_p->alloc_map[i] = rd_qword(mnt->device,
+            cached_file->alloc_map[i] = rd_qword(mnt->device,
                     (mnt->fatstart * mnt->bytesperblock)
-                  + (cached_file_p->alloc_map[i-1] * sizeof(uint64_t)));
+                  + (cached_file->alloc_map[i-1] * sizeof(uint64_t)));
         }
 
-        cached_file_p->total_blocks = i - 1;
+        cached_file->total_blocks = i - 1;
     }
 
-    return cached_file_p;
+    ht_add(&mnt->cached_files, &cached_file->table_entry, path_hash);
+    return cached_file;
 }
 
 static int echfs_open(const char *path, int flags, int mnt) {
@@ -995,8 +988,7 @@ static int echfs_mount(const char *source) {
     mount.dirstart = mount.fatstart + mount.fatsize;
     mount.datastart = RESERVED_BLOCKS + mount.fatsize + mount.dirsize;
 
-    mount.cached_files = kalloc(MAX_CACHED_FILES * sizeof(struct cached_file_t));
-    mount.cached_files_ptr = 0;
+    ht_init(&mount.cached_files, 1);
 
     mount.free = 0;
     mount.lock = 1;
