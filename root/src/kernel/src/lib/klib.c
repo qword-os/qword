@@ -492,6 +492,20 @@ struct ht_entry_t *ht_get_bucket(struct hashtable_t *table, uint64_t hash) {
     return table->buckets[pos];
 }
 
+struct ht_entry_t *ht_remove_entry(struct hashtable_t *table,
+        struct ht_entry_t *entry, struct ht_entry_t *prev) {
+    if (!prev) {
+        int pos = (entry->hash & (table->size - 1));
+        table->buckets[pos] = entry->next;
+        table->num_entries--;
+        return entry;
+    }
+
+    prev->next = entry->next;
+    table->num_entries--;
+    return entry;
+}
+
 uint64_t ht_hash_str(const char *str) {
     /* djb2
      * http://www.cse.yorku.ca/~oz/hash.html
