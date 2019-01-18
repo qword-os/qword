@@ -30,6 +30,8 @@
 void kmain_thread(void *arg) {
     (void)arg;
 
+    init_net_i8254x();
+
     /* Launch the urm */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(userspace_request_monitor, 0));
 

@@ -27,6 +27,7 @@ void pci_set_device_flag(struct pci_device_t *, uint32_t, uint32_t, int);
 void pci_load_bars(struct pci_device_t *device);
 uint32_t pci_get_bar(struct pci_device_t *, size_t);
 int pci_get_device(struct pci_device_t *, uint8_t, uint8_t);
+int pci_get_device_by_vendor(struct pci_device_t *, uint16_t, uint16_t);
 void pci_find_function(uint8_t, uint8_t, uint8_t);
 void pci_init_device(uint8_t, uint8_t);
 void pci_init_bus(uint8_t);

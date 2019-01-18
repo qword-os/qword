@@ -118,6 +118,17 @@ int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass)
     return -1;
 }
 
+int pci_get_device_by_vendor(struct pci_device_t *device, uint16_t vendor, uint16_t id) {
+    for (size_t i = 0; i < device_count; i++) {
+        if ((pci_devices[i].vendor_id == vendor) && (pci_devices[i].device_id == id)) {
+            *device = pci_devices[i];
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
 void pci_init_device(uint8_t bus, uint8_t dev) {
     for (size_t func = 0; func < MAX_FUNCTION; func++) {
         pci_find_function(bus, dev, func);
