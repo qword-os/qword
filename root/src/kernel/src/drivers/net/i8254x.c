@@ -55,13 +55,10 @@ int init_net_i8254x(void) {
         if (!pci_get_device_by_vendor(&device, 0x8086, i8254x_devices[i])) {
             // Found!
             kprint(KPRN_INFO, "net: i8254x: Found NIC %x:%x", 0x8086, i8254x_devices[i]);
-            // Bail out until PCI is fixed
-            return;
-            uint32_t bar0 = pci_read_device(&device, 0x4);
-            if (!(bar0 & (1 << 2))) {
+            uint32_t bar0 = pci_read_device(&device, 0x10);
+            if (!(pci_read_device(&device, 0x4) & (1 << 2))) {
                 kprint(KPRN_DBG, "enabling busmastering");
-                bar0 |= (1 << 2);
-                pci_write_device(&device, 0x4, bar0);
+                pci_write_device(&device, 0x4, pci_read_device(&device, 0x4) & (1 << 2));
             }
             void *net_io_base = (void *)((size_t)(bar0 & 0xfffffff0));
             net_io_base += MEM_PHYS_OFFSET;

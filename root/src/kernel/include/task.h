@@ -112,6 +112,7 @@ struct process_t {
     struct child_event_t *child_events;
     size_t child_event_i;
     lock_t child_event_lock;
+    event_t child_event;
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);

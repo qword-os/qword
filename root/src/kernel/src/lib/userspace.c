@@ -171,7 +171,6 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
 
     free_address_space(process->pagemap);
 
-    /* TODO: mark process as zombie/send stuff to parent process... */
     struct child_event_t child_event;
 
     child_event.pid = exit_request->pid;

@@ -376,7 +376,6 @@ void *kmemcpy(void *dest, const void *src, size_t count) {
     uint8_t *dest2 = dest;
     const uint8_t *src2 = src;
 
-    /* Copy byte by byte */
     for (i = 0; i < count; i++) {
         dest2[i] = src2[i];
     }

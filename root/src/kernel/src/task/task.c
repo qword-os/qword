@@ -79,6 +79,7 @@ int task_send_child_event(pid_t pid, struct child_event_t *child_event) {
     process->child_events[process->child_event_i - 1] = *child_event;
 
     spinlock_release(&process->child_event_lock);
+    task_trigger_event(&process->child_event);
     return 0;
 }
 

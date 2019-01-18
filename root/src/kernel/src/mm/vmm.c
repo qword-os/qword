@@ -71,6 +71,14 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
     pt_entry_t *pd;
     pt_entry_t *pt;
 
+    struct {
+        uint8_t data[PAGE_SIZE];
+    } *pool;
+
+    size_t pool_size = 4096;
+    pool = pmm_alloc(pool_size);
+    size_t pool_ptr = 0;
+
     /* Map and copy all used pages */
     for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
         if (old_pagemap->pml4[i] & 1) {
@@ -83,9 +91,10 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                             pt = (pt_entry_t *)((pd[k] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
                             for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
                                 if (pt[l] & 1) {
-                                    size_t new_page = (size_t)pmm_alloc(1);
-                                    if (!new_page)
-                                        return (void *)0;
+                                    /* FIXME find a way to expand the pool instead of dying */
+                                    if (pool_ptr == pool_size)
+                                        panic("Fork memory pool exhausted", 0, 0);
+                                    size_t new_page = (size_t)&pool[pool_ptr++];
                                     kmemcpy((char *)(new_page + MEM_PHYS_OFFSET),
                                             (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
                                             PAGE_SIZE);
@@ -101,6 +110,8 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
             }
         }
     }
+
+    pmm_free(pool + pool_ptr, pool_size - pool_ptr);
 
     /* Map kernel into higher half */
     for (size_t i = PAGE_TABLE_ENTRIES / 2; i < PAGE_TABLE_ENTRIES; i++) {

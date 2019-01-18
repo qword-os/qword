@@ -160,7 +160,7 @@ int syscall_waitpid(struct ctx_t *ctx) {
             return 0;
         }
 
-        yield(50);
+        task_await_event(&process->child_event);
     }
 }
 
@@ -286,7 +286,6 @@ found_new_task_id:
     task_count++;
 
     spinlock_release(&scheduler_lock);
-
     return new_pid;
 }
 
