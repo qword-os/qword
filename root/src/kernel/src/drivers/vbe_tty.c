@@ -30,6 +30,7 @@ static int *esc_default = &esc_default0;
 static int raw = 0;
 static int noblock = 0;
 static int noscroll = 0;
+static int tabsize = 8;
 
 static int rows;
 static int cols;
@@ -303,6 +304,11 @@ static void vbe_tty_putchar(char c) {
             break;
         case 0x1B:
             escape = 1;
+            break;
+        case '\t':
+            if ((cursor_x / tabsize + 1) * tabsize >= cols)
+                break;
+            vbe_tty_set_cursor_pos((cursor_x / tabsize + 1) * tabsize, cursor_y);
             break;
         case 0x0A:
             if (cursor_y == (rows - 1)) {
