@@ -35,7 +35,7 @@ retry:
 int pipe(int *pipefd) {
     struct vfs_handle_t fd_read = {0};
     struct vfs_handle_t fd_write = {0};
-    struct pipe_t *new_pipe = kalloc(sizeof(struct pipe_t));
+    struct pipe_t *new_pipe = pipe_open();
 
     fd_read.used = 1;
     fd_read.type = FD_PIPE_READ;
@@ -45,7 +45,6 @@ int pipe(int *pipefd) {
     fd_write.type = FD_PIPE_WRITE;
     fd_write.pipe = new_pipe;
 
-    new_pipe->lock = 1;
     new_pipe->refcount = 2;
 
     pipefd[0] = create_fd(&fd_read);
@@ -227,7 +226,10 @@ int read(int fd, void *buf, size_t len) {
             return filesystems[fs].read(intern_fd, buf, len);
         }
         case FD_PIPE_READ:
-            return pipe_read(file_descriptors[fd].pipe, buf, len);
+            if (file_descriptors[fd].fdflags & O_NONBLOCK)
+                return pipe_read(file_descriptors[fd].pipe, buf, len, 0);
+            else
+                return pipe_read(file_descriptors[fd].pipe, buf, len, 1);
         case FD_PIPE_WRITE:
         default:
             errno = EINVAL;
@@ -244,7 +246,10 @@ int write(int fd, const void *buf, size_t len) {
             return filesystems[fs].write(intern_fd, buf, len);
         }
         case FD_PIPE_WRITE:
-            return pipe_write(file_descriptors[fd].pipe, buf, len);
+            if (file_descriptors[fd].fdflags & O_NONBLOCK)
+                return pipe_write(file_descriptors[fd].pipe, buf, len, 0);
+            else
+                return pipe_write(file_descriptors[fd].pipe, buf, len, 1);
         case FD_PIPE_READ:
         default:
             errno = EINVAL;

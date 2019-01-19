@@ -7,6 +7,7 @@
 #include <task.h>
 #include <time.h>
 #include <lock.h>
+#include <pipe.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
 #define SEEK_CUR 1
@@ -48,13 +49,6 @@ typedef int64_t blkcnt_t;
 #define FD_FILE 0
 #define FD_PIPE_READ 1
 #define FD_PIPE_WRITE 2
-
-struct pipe_t {
-    lock_t lock;
-    void *buffer;
-    size_t size;
-    int refcount;
-};
 
 struct vfs_handle_t {
     int used;
@@ -150,15 +144,9 @@ int lseek(int, off_t, int);
 int dup(int);
 int readdir(int, struct dirent *);
 int sync(void);
+int pipe(int *);
 
 void fs_sync_worker(void *);
-
-/* Special FD implementation */
-
-int pipe(int *);
-int pipe_close(struct pipe_t *);
-int pipe_read(struct pipe_t *, void *, size_t);
-int pipe_write(struct pipe_t *, const void *, size_t);
 
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
