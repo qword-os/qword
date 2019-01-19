@@ -329,12 +329,15 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
         spinlock_release(&process->cur_brk_lock);
     }
 
+    void *ptr = pmm_alloc(ctx->rsi);
+    if (!ptr) {
+        errno = ENOMEM;
+        return (void *)0;
+    }
     for (size_t i = 0; i < ctx->rsi; i++) {
-        void *ptr = pmm_alloc(1);
-        if (!ptr)
-            return (void *)0;
-        if (map_page(process->pagemap, (size_t)ptr, base_address + i * PAGE_SIZE, 0x07)) {
-            pmm_free(ptr, 1);
+        if (map_page(process->pagemap, (size_t)ptr + i * PAGE_SIZE, base_address + i * PAGE_SIZE, 0x07)) {
+            pmm_free(ptr, ctx->rsi);
+            errno = ENOMEM;
             return (void *)0;
         }
     }

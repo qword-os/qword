@@ -17,29 +17,87 @@ static volatile uint32_t *tmp_bitmap;
 /* 32 entries because initial_bitmap is a single dword */
 static size_t bitmap_entries = 32;
 
+static size_t cur_ptr = BITMAP_BASE;
+
 /* A core wishing to modify the PMM bitmap must first acquire this lock,
  * to ensure other cores cannot simultaneously modify the bitmap */
 static lock_t pmm_lock = 1;
 
-static inline int read_bitmap(size_t i) {
+static inline uint32_t read_bitmap(size_t i) {
     i -= BITMAP_BASE;
 
     size_t which_entry = i / 32;
     size_t offset = i % 32;
 
-    return (int)((mem_bitmap[which_entry] >> offset) & 1);
+    return (uint32_t)(mem_bitmap[which_entry] & offset);
 }
 
-static inline void write_bitmap(size_t i, int val) {
+static inline void set_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
 
-    size_t which_entry = i / 32;
-    size_t offset = i % 32;
+    int t = 0;
 
-    if (val)
-        mem_bitmap[which_entry] |= (1 << offset);
-    else
-        mem_bitmap[which_entry] &= ~(1 << offset);
+    size_t first_entry = i / 32;
+    size_t first_entry_offset = i % 32;
+    size_t first_entry_size = 32 - first_entry_offset;
+    if (first_entry_offset + count <= 32) {
+        first_entry_size -= 32 - (first_entry_offset + count);
+        t = 1;
+    }
+
+    mem_bitmap[first_entry] |=
+        (((1 << first_entry_size) - 1) << first_entry_offset);
+
+    if (t)
+        return;
+
+    count -= 32 - first_entry_offset;
+
+    size_t first_full_entry = first_entry + !!first_entry_offset;
+    size_t full_entry_count = count / 32;
+
+    for (size_t i = 0; i < full_entry_count; i++)
+        mem_bitmap[first_full_entry + i] = 0xffffffff;
+
+    size_t last_entry = first_full_entry + full_entry_count;
+    size_t last_entry_offset = count % 32;
+
+    mem_bitmap[last_entry] |= ((1 << last_entry_offset) - 1);
+
+    return;
+}
+
+static inline void unset_bitmap(size_t i, size_t count) {
+    i -= BITMAP_BASE;
+
+    int t = 0;
+
+    size_t first_entry = i / 32;
+    size_t first_entry_offset = i % 32;
+    size_t first_entry_size = 32 - first_entry_offset;
+    if (first_entry_offset + count <= 32) {
+        first_entry_size -= 32 - (first_entry_offset + count);
+        t = 1;
+    }
+
+    mem_bitmap[first_entry] &=
+        ~(((1 << first_entry_size) - 1) << first_entry_offset);
+
+    if (t)
+        return;
+
+    count -= 32 - first_entry_offset;
+
+    size_t first_full_entry = first_entry + !!first_entry_offset;
+    size_t full_entry_count = count / 32;
+
+    for (size_t i = 0; i < full_entry_count; i++)
+        mem_bitmap[first_full_entry + i] = 0;
+
+    size_t last_entry = first_full_entry + full_entry_count;
+    size_t last_entry_offset = count % 32;
+
+    mem_bitmap[last_entry] &= ~((1 << last_entry_offset) - 1);
 
     return;
 }
@@ -109,9 +167,9 @@ void init_pmm(void) {
             }
 
             if (e820_map[i].type == 1)
-                write_bitmap(page, 0);
+                unset_bitmap(page, 1);
             else
-                write_bitmap(page, 1);
+                set_bitmap(page, 1);
         }
     }
 
@@ -124,11 +182,12 @@ void *pmm_alloc(size_t pg_count) {
 
     /* Allocate contiguous free pages. */
     size_t counter = 0;
-    size_t i;
     size_t start;
 
-    for (i = BITMAP_BASE; i < BITMAP_BASE + bitmap_entries; i++) {
-        if (!read_bitmap(i))
+    for (size_t i = 0; i < bitmap_entries; i++) {
+        if (cur_ptr == BITMAP_BASE + bitmap_entries)
+            cur_ptr = BITMAP_BASE;
+        if (!read_bitmap(cur_ptr++))
             counter++;
         else
             counter = 0;
@@ -139,10 +198,8 @@ void *pmm_alloc(size_t pg_count) {
     return (void *)0;
 
 found:
-    start = i - (pg_count - 1);
-    for (i = start; i < (start + pg_count); i++) {
-        write_bitmap(i, 1);
-    }
+    start = (cur_ptr - 1) - (pg_count - 1);
+    set_bitmap(start, pg_count);
 
     spinlock_release(&pmm_lock);
 
@@ -161,9 +218,7 @@ void pmm_free(void *ptr, size_t pg_count) {
 
     size_t start = (size_t)ptr / PAGE_SIZE;
 
-    for (size_t i = start; i < (start + pg_count); i++) {
-        write_bitmap(i, 0);
-    }
+    unset_bitmap(start, pg_count);
 
     spinlock_release(&pmm_lock);
 
