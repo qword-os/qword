@@ -313,7 +313,7 @@ void *kalloc(size_t size) {
 
     if (size % PAGE_SIZE) page_count++;
 
-    char *ptr = pmm_alloc(page_count + 1);
+    char *ptr = pmm_allocz(page_count + 1);
 
     if (!ptr) {
         return (void *)0;
@@ -377,6 +377,20 @@ void *kmemcpy(void *dest, const void *src, size_t count) {
     const uint8_t *src2 = src;
 
     for (i = 0; i < count; i++) {
+        dest2[i] = src2[i];
+    }
+
+    return dest;
+}
+
+void *kmemcpy64(void *dest, const void *src, size_t count) {
+    size_t i = 0;
+
+    uint64_t *dest2 = dest;
+    const uint64_t *src2 = src;
+
+    size_t new_count = count / sizeof(uint64_t);
+    for (i = 0; i < new_count; i++) {
         dest2[i] = src2[i];
     }
 

@@ -304,7 +304,7 @@ found_new_pid:
     new_process->child_event_lock = 1;
 
     /* Create a new pagemap for the process */
-    pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+    pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
     if ((size_t)pml4 == MEM_PHYS_OFFSET) {
         kfree(new_process->file_handles);
         kfree(new_process->threads);
@@ -454,7 +454,7 @@ found_new_task_id:;
         size_t stack_bottom = stack_guardpage + PAGE_SIZE;
 
         /* Allocate physical memory for the stack and initialize it. */
-        char *stack_pm = pmm_alloc(STACK_SIZE / PAGE_SIZE);
+        char *stack_pm = pmm_allocz(STACK_SIZE / PAGE_SIZE);
         if (!stack_pm) {
             kfree(process_table[pid]->threads[new_tid]);
             process_table[pid]->threads[new_tid] = EMPTY;

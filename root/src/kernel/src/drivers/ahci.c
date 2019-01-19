@@ -433,7 +433,7 @@ void init_ahci(void) {
 /* Allocate space for command lists, tables etc for a given port */
 static void port_rebase(volatile struct hba_port_t *port) {
     /* allocate an area for the command list */
-    port->clb = (uint32_t)(size_t)pmm_alloc(1);
+    port->clb = (uint32_t)(size_t)pmm_allocz(1);
     port->clbu = 0;
 
     /* Reserve some memory for the hba fis receive area and setup values */
@@ -456,7 +456,7 @@ static void port_rebase(volatile struct hba_port_t *port) {
         cmd_hdr[i].prdtl = 8;
 
         /* command table base addr = 40K + 8K * portno + header index * 256 */
-        cmd_hdr[i].ctba = (uint32_t)(size_t)pmm_alloc(1);
+        cmd_hdr[i].ctba = (uint32_t)(size_t)pmm_allocz(1);
         cmd_hdr[i].ctbau = 0;
     }
 
@@ -465,7 +465,7 @@ static void port_rebase(volatile struct hba_port_t *port) {
 
 static int init_ahci_device(struct ahci_device_t *device,
         volatile struct hba_port_t *port, uint8_t cmd, size_t portno) {
-    uint16_t *identify = pmm_alloc(1);
+    uint16_t *identify = pmm_allocz(1);
     int spin = 0;
 
     int slot = find_cmdslot(port);

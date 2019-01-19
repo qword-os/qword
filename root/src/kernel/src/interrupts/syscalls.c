@@ -329,7 +329,7 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
         spinlock_release(&process->cur_brk_lock);
     }
 
-    void *ptr = pmm_alloc(ctx->rsi);
+    void *ptr = pmm_allocz(ctx->rsi);
     if (!ptr) {
         errno = ENOMEM;
         return (void *)0;

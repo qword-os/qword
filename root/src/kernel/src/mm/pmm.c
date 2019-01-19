@@ -105,7 +105,7 @@ static inline void unset_bitmap(size_t i, size_t count) {
 /* Populate bitmap using e820 data. */
 void init_pmm(void) {
     mem_bitmap = initial_bitmap;
-    if (!(tmp_bitmap = pmm_alloc(BMREALLOC_STEP))) {
+    if (!(tmp_bitmap = pmm_allocz(BMREALLOC_STEP))) {
         kprint(KPRN_ERR, "pmm_alloc failure in init_pmm(). Halted.");
         for (;;);
     }
@@ -145,7 +145,7 @@ void init_pmm(void) {
                 /* Reallocate bitmap */
                 size_t cur_bitmap_size_in_pages = ((bitmap_entries / 32) * sizeof(uint32_t)) / PAGE_SIZE;
                 size_t new_bitmap_size_in_pages = cur_bitmap_size_in_pages + BMREALLOC_STEP;
-                if (!(tmp_bitmap = pmm_alloc(new_bitmap_size_in_pages))) {
+                if (!(tmp_bitmap = pmm_allocz(new_bitmap_size_in_pages))) {
                     kprint(KPRN_ERR, "pmm_alloc failure in init_pmm(). Halted.");
                     for (;;);
                 }
@@ -178,6 +178,37 @@ void init_pmm(void) {
 
 /* Allocate physical memory. */
 void *pmm_alloc(size_t pg_count) {
+    spinlock_acquire(&pmm_lock);
+
+    /* Allocate contiguous free pages. */
+    size_t counter = 0;
+    size_t start;
+
+    for (size_t i = 0; i < bitmap_entries; i++) {
+        if (cur_ptr == BITMAP_BASE + bitmap_entries)
+            cur_ptr = BITMAP_BASE;
+        if (!read_bitmap(cur_ptr++))
+            counter++;
+        else
+            counter = 0;
+        if (counter == pg_count)
+            goto found;
+    }
+    spinlock_release(&pmm_lock);
+    return (void *)0;
+
+found:
+    start = (cur_ptr - 1) - (pg_count - 1);
+    set_bitmap(start, pg_count);
+
+    spinlock_release(&pmm_lock);
+
+    /* Return the physical address that represents the start of this physical page(s). */
+    return (void *)(start * PAGE_SIZE);
+}
+
+/* Allocate physical memory and zero it out. */
+void *pmm_allocz(size_t pg_count) {
     spinlock_acquire(&pmm_lock);
 
     /* Allocate contiguous free pages. */

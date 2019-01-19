@@ -95,7 +95,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                                     if (pool_ptr == pool_size)
                                         panic("Fork memory pool exhausted", 0, 0);
                                     size_t new_page = (size_t)&pool[pool_ptr++];
-                                    kmemcpy((char *)(new_page + MEM_PHYS_OFFSET),
+                                    kmemcpy64((char *)(new_page + MEM_PHYS_OFFSET),
                                             (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
                                             PAGE_SIZE);
                                     map_page(new_pagemap,
@@ -140,7 +140,7 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
         pdpt = (pt_entry_t *)((pagemap->pml4[pml4_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         /* Allocate a page for the pdpt. */
-        pdpt = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+        pdpt = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
         /* Catch allocation failure */
         if ((size_t)pdpt == MEM_PHYS_OFFSET)
             goto fail1;
@@ -153,7 +153,7 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
         pd = (pt_entry_t *)((pdpt[pdpt_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         /* Allocate a page for the pd. */
-        pd = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+        pd = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
         /* Catch allocation failure */
         if ((size_t)pdpt == MEM_PHYS_OFFSET)
             goto fail2;
@@ -166,7 +166,7 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
         pt = (pt_entry_t *)((pd[pd_entry] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
     } else {
         /* Allocate a page for the pt. */
-        pt = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+        pt = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
         /* Catch allocation failure */
         if ((size_t)pdpt == MEM_PHYS_OFFSET)
             goto fail3;
@@ -355,7 +355,7 @@ fail:
 /* Then use the e820 to map all the available memory (saves on allocation time and it's easier) */
 /* The physical memory is mapped at the beginning of the higher half (entry 256 of the pml4) onwards */
 void init_vmm(void) {
-    kernel_pagemap.pml4 = (pt_entry_t *)((size_t)pmm_alloc(1) + MEM_PHYS_OFFSET);
+    kernel_pagemap.pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
     if ((size_t)kernel_pagemap.pml4 == MEM_PHYS_OFFSET)
         panic("init_vmm failure", 0, 0);
 
