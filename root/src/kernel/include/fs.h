@@ -153,6 +153,13 @@ int sync(void);
 
 void fs_sync_worker(void *);
 
+/* Special FD implementation */
+
+int pipe(int *);
+int pipe_close(struct pipe_t *);
+int pipe_read(struct pipe_t *, void *, size_t);
+int pipe_write(struct pipe_t *, const void *, size_t);
+
 /* VFS specific functions */
 int vfs_get_mountpoint(const char *, char **);
 void vfs_get_absolute_path(char *, const char *, const char *);
