@@ -303,6 +303,8 @@ found_new_pid:
 
     new_process->child_event_lock = 1;
 
+    new_process->perfmon_lock = 1;
+
     /* Create a new pagemap for the process */
     pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
     if ((size_t)pml4 == MEM_PHYS_OFFSET) {

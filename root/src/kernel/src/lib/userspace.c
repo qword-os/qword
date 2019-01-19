@@ -7,6 +7,7 @@
 #include <elf.h>
 #include <lock.h>
 #include <panic.h>
+#include <perfmon.h>
 
 #define USER_REQUEST_EXECVE 1
 #define USER_REQUEST_EXIT 2
@@ -170,6 +171,9 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
         kfree(process->child_events);
 
     free_address_space(process->pagemap);
+
+    if (process->active_perfmon)
+        perfmon_unref(process->active_perfmon);
 
     struct child_event_t child_event;
 
