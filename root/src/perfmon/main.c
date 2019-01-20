@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
+    fprintf(stderr, "Time spent in syscalls: %d\n", ps.syscall_time);
     fprintf(stderr, "Time spent in MM: %d\n", ps.mman_time);
     fprintf(stderr, "Time spent in I/O: %d\n", ps.io_time);
 

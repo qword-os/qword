@@ -32,6 +32,7 @@ void perfmon_timer_stop(struct perfmon_timer_t *timer) {
 
 // Userspace ABI, has to match mlibc.
 struct perfstats {
+    uint64_t syscall_time;
     uint64_t mman_time;
     uint64_t io_time;
 };
@@ -44,6 +45,7 @@ int perfmon_read(struct perfmon_t *perfmon, void *buf, size_t count) {
 
     struct perfstats ps;
     kmemset(&ps, 0, sizeof(struct perfstats));
+    ps.syscall_time = perfmon->syscall_time;
     ps.mman_time = perfmon->mman_time;
     ps.io_time = perfmon->io_time;
 

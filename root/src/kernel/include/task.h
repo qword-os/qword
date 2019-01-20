@@ -73,6 +73,7 @@ struct thread_t {
     uint64_t yield_target;
     event_t *event_ptr;
     int active_on_cpu;
+    uint64_t syscall_entry_time;
     size_t kstack;
     size_t ustack;
     size_t errno;
@@ -100,6 +101,7 @@ struct child_event_t {
 
 struct perfmon_t {
     int refcount;
+    uint64_t syscall_time;
     uint64_t mman_time;
     uint64_t io_time;
 };

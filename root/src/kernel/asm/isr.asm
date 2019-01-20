@@ -50,6 +50,8 @@ extern task_trigger_resched
 global syscall_entry
 extern kbd_handler
 extern lapic_eoi_ptr
+extern enter_syscall
+extern leave_syscall
 
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
@@ -302,12 +304,16 @@ syscall_entry:
 
     pusham
 
-    mov rdi, rsp
-
     cmp rax, syscall_count   ; is syscall_number too big?
     jae .err
 
-    call [syscall_table + rax * 8]
+    mov rbx, rax ; move to callee-saved register
+    call enter_syscall
+    mov rdi, rsp
+    call [syscall_table + rbx * 8]
+    mov rbx, rax ; save syscall result
+    call leave_syscall
+    mov rax, rbx
 
   .out:
     popams

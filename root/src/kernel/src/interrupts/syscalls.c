@@ -18,6 +18,30 @@ static inline int privilege_check(size_t base, size_t len) {
         return 0;
 }
 
+void enter_syscall() {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+    struct thread_t *thread = task_table[current_task];
+    spinlock_release(&scheduler_lock);
+
+    thread->syscall_entry_time = uptime_raw;
+}
+
+void leave_syscall() {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct thread_t *thread = task_table[current_task];
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->syscall_time,
+                uptime_raw - thread->syscall_entry_time);
+    spinlock_release(&process->perfmon_lock);
+}
+
 /* Prototype syscall: int syscall_name(struct ctx_t *ctx) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
