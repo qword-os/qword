@@ -250,6 +250,13 @@ int syscall_fork(struct ctx_t *ctx) {
 
     new_process->pagemap = new_pagemap;
 
+    spinlock_acquire(&old_process->perfmon_lock);
+    if (old_process->active_perfmon) {
+        perfmon_ref(old_process->active_perfmon);
+        new_process->active_perfmon = old_process->active_perfmon;
+    }
+    spinlock_release(&old_process->perfmon_lock);
+
     /* Copy relevant metadata over */
     kstrcpy(new_process->cwd, old_process->cwd);
     new_process->cur_brk = old_process->cur_brk;
