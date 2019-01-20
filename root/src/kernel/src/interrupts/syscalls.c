@@ -9,6 +9,7 @@
 #include <mm.h>
 #include <time.h>
 #include <errno.h>
+#include <tty.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -21,6 +22,36 @@ static inline int privilege_check(size_t base, size_t len) {
 /* Prototype syscall: int syscall_name(struct ctx_t *ctx) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
+
+int syscall_tcgetattr(struct ctx_t *ctx) {
+    /* rdi: fd
+     * rsi struct termios*
+     */
+    if (privilege_check(ctx->rsi, sizeof(struct termios_t))) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    spinlock_acquire(&termios_lock);
+    struct termios_t *buf = (struct termios_t*) ctx->rsi;
+    kmemcpy(buf, &termios, sizeof(struct termios_t));
+    spinlock_release(&termios_lock);
+    return 0;
+}
+
+int syscall_tcsetattr(struct ctx_t *ctx) {
+    /* rdi: fd
+     * rsi: optional_actions
+     * rdx: struct termios*
+     */
+    if (privilege_check(ctx->rdx, sizeof(struct termios_t))) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    struct termios_t *new_termios = (struct termios_t*) ctx->rdx;
+    return tty_tcsetattr(ctx->rsi, new_termios);
+}
 
 int syscall_getcwd(struct ctx_t *ctx) {
     if (privilege_check(ctx->rdi, ctx->rsi)) {
@@ -822,6 +853,7 @@ int syscall_write(struct ctx_t *ctx) {
     // rdi: fd
     // rsi: buf
     // rdx: len
+    kprint(KPRN_DBG, "write()!");
     struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
 
     spinlock_acquire(&scheduler_lock);

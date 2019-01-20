@@ -12,6 +12,13 @@
 
 static int use_vbe = 0;
 
+int tty_tcsetattr(int optional_actions, struct termios_t *new_termios) {
+    spinlock_acquire(&termios_lock);
+    kmemcpy(&termios, new_termios, sizeof(struct termios_t));
+    spinlock_release(&termios_lock);
+    return 0;
+}
+
 void tty_putchar(char c) {
     tty_write(0, &c, 0, 1);
 }
@@ -45,6 +52,10 @@ static int tty_flush(int dev) {
 
 void init_tty(void) {
     char *tty_cmdline;
+
+    spinlock_acquire(&termios_lock);
+    termios.c_lflag |= (ICANON | ECHO);
+    spinlock_release(&termios_lock);
 
     if ((tty_cmdline = cmdline_get_value("display"))) {
         if (!kstrcmp(tty_cmdline, "vga")) {
