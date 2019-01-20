@@ -145,8 +145,8 @@ struct termios_t {
 	speed_t obaud;
 };
 
-static lock_t termios_lock = 1;
-static struct termios_t termios = {0};
+extern lock_t termios_lock;
+extern struct termios_t termios;
 
 void init_tty(void);
 void tty_putchar(char);

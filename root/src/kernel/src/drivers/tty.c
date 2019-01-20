@@ -12,6 +12,9 @@
 
 static int use_vbe = 0;
 
+lock_t termios_lock = 1;
+struct termios_t termios = {0};
+
 int tty_tcsetattr(int optional_actions, struct termios_t *new_termios) {
     spinlock_acquire(&termios_lock);
     kmemcpy(&termios, new_termios, sizeof(struct termios_t));
@@ -54,7 +57,7 @@ void init_tty(void) {
     char *tty_cmdline;
 
     spinlock_acquire(&termios_lock);
-    termios.c_lflag |= (ICANON | ECHO);
+    termios.c_lflag = (ICANON | ECHO);
     spinlock_release(&termios_lock);
 
     if ((tty_cmdline = cmdline_get_value("display"))) {

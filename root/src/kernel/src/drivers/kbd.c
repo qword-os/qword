@@ -62,7 +62,6 @@ void init_kbd(void) {
 static lock_t kbd_read_lock = 1;
 
 int kbd_read(char *buf, size_t count) {
-    kprint(KPRN_DBG, "calling kbd_read()");
     int wait = 1;
 
     spinlock_acquire(&termios_lock);
@@ -76,9 +75,9 @@ try_again:
             yield(10);
             goto try_again;
         }
-        buf[0] = kbd_buf[0];
-        kbd_buf[0]= '\0';
-        kbd_buf_i = 0;
+        buf[0] = kbd_buf[kbd_buf_i - 1];
+        kbd_buf[kbd_buf_i - 1]= '\0';
+        kbd_buf_i--;
         spinlock_release(&kbd_read_lock);
         return 1;
     }
@@ -170,7 +169,7 @@ void kbd_handler(uint8_t input_byte) {
                 big_buf[big_buf_i++] = kbd_buf[i];
             }
             kbd_buf_i = 0;
-            break;
+            goto out;
         case '\b':
             if (!(termios.c_lflag & ICANON))
                 goto regular_character;
@@ -182,7 +181,7 @@ void kbd_handler(uint8_t input_byte) {
                 tty_putchar(' ');
                 tty_putchar('\b');
             }
-            break;
+            goto out;
         default:
             break;
     }

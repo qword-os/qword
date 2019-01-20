@@ -853,7 +853,6 @@ int syscall_write(struct ctx_t *ctx) {
     // rdi: fd
     // rsi: buf
     // rdx: len
-    kprint(KPRN_DBG, "write()!");
     struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
 
     spinlock_acquire(&scheduler_lock);
