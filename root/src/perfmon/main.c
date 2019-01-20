@@ -6,6 +6,11 @@
 #include <unistd.h>
 
 int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "perfmon usage: perfmon COMMAND [ARGUMENTS...]\n");
+        exit(EXIT_FAILURE);
+    }
+
     int pm_fd = perfmon_create();
     if (pm_fd < 0) {
         fprintf(stderr, "perfmon: Failed to create perfmon FD. Error: %m\n");
@@ -44,8 +49,8 @@ int main(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Time spent in MM: %d\n", ps.mman_time);
-    printf("Time spent in I/O: %d\n", ps.io_time);
+    fprintf(stderr, "Time spent in MM: %d\n", ps.mman_time);
+    fprintf(stderr, "Time spent in I/O: %d\n", ps.io_time);
 
     return EXIT_SUCCESS;
 }
