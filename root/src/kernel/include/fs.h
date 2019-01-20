@@ -7,6 +7,7 @@
 #include <task.h>
 #include <time.h>
 #include <lock.h>
+#include <perfmon.h>
 #include <pipe.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
@@ -49,6 +50,7 @@ typedef int64_t blkcnt_t;
 #define FD_FILE 0
 #define FD_PIPE_READ 1
 #define FD_PIPE_WRITE 2
+#define FD_PERFMON 3
 
 struct vfs_handle_t {
     int used;
@@ -56,7 +58,10 @@ struct vfs_handle_t {
     int fs;
     int intern_fd;
     int fdflags;
-    struct pipe_t *pipe;
+    union {
+        struct pipe_t *pipe;
+        struct perfmon_t *perfmon;
+    };
 };
 
 struct mnt_t {

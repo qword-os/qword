@@ -53,6 +53,44 @@ int pipe(int *pipefd) {
     return 0;
 }
 
+int perfmon_create() {
+    struct vfs_handle_t fd;
+    struct perfmon_t *perfmon = kalloc(sizeof(struct perfmon_t));
+    perfmon->refcount = 1;
+
+    fd.used = 1;
+    fd.type = FD_PERFMON;
+    fd.perfmon = perfmon;
+
+    return create_fd(&fd);
+}
+
+int perfmon_attach(int fd) {
+    if (file_descriptors[fd].type != FD_PERFMON) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct perfmon_t *perfmon = file_descriptors[fd].perfmon;
+    perfmon_ref(file_descriptors[fd].perfmon);
+
+    spinlock_acquire(&scheduler_lock);
+    struct process_t *process = process_table[CURRENT_PROCESS];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon) {
+        spinlock_release(&process->perfmon_lock);
+        perfmon_unref(perfmon);
+        errno = EINVAL;
+        return -1;
+    }
+
+    process->active_perfmon = perfmon;
+    spinlock_release(&process->perfmon_lock);
+    return 0;
+}
+
 /* Return index into mountpoints array corresponding to the mountpoint
    inside which this file/path is located.
    char **local_path will return a pointer (in *local_path) to the
@@ -195,6 +233,11 @@ int dup(int fd) {
             spinlock_release(&pipe->lock);
             return create_fd(&file_descriptors[fd]);
         }
+        case FD_PERFMON: {
+            struct pipe_t *perfmon = file_descriptors[fd].perfmon;
+            perfmon_ref(perfmon);
+            return create_fd(&file_descriptors[fd]);
+        }
         default:
             errno = EINVAL;
             return -1;
@@ -231,6 +274,10 @@ int read(int fd, void *buf, size_t len) {
             else
                 return pipe_read(file_descriptors[fd].pipe, buf, len, 1);
         case FD_PIPE_WRITE:
+            errno = EINVAL;
+            return -1;
+        case FD_PERFMON:
+            return perfmon_read(file_descriptors[fd].perfmon, buf, len);
         default:
             errno = EINVAL;
             return -1;
@@ -273,6 +320,10 @@ int close(int fd) {
         case FD_PIPE_WRITE:
         case FD_PIPE_READ:
             pipe_close(file_descriptors[fd].pipe);
+            ret = 0;
+            break;
+        case FD_PERFMON:
+            perfmon_unref(file_descriptors[fd].perfmon);
             ret = 0;
             break;
         default:

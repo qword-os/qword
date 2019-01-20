@@ -138,7 +138,8 @@ int syscall_waitpid(struct ctx_t *ctx) {
                 // found our event
                 pid_t child_pid = process->child_events[i].pid;
                 struct process_t *child_process = process_table[child_pid];
-                *status = process->child_events[i].status;
+                if (status)
+                    *status = process->child_events[i].status;
                 process->child_event_i--;
                 for (size_t j = i; j < process->child_event_i; j++)
                     process->child_events[j] = process->child_events[j + 1];
@@ -218,6 +219,8 @@ int syscall_execve(struct ctx_t *ctx) {
 }
 
 int syscall_fork(struct ctx_t *ctx) {
+    struct perfmon_timer_t mm_timer = PERFMON_TIMER_INITIALIZER;
+
     spinlock_acquire(&scheduler_lock);
 
     pid_t current_task = cpu_locals[current_cpu].current_task;
@@ -234,7 +237,9 @@ int syscall_fork(struct ctx_t *ctx) {
         return -1;
     spinlock_acquire(&scheduler_lock);
 
+    perfmon_timer_start(&mm_timer);
     struct pagemap_t *new_pagemap = fork_address_space(old_process->pagemap);
+    perfmon_timer_stop(&mm_timer);
 
     struct process_t *new_process = process_table[new_pid];
 
@@ -286,6 +291,12 @@ found_new_task_id:
     task_count++;
 
     spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&old_process->perfmon_lock);
+    if (old_process->active_perfmon)
+        atomic_add_uint64_relaxed(&old_process->active_perfmon->mman_time, mm_timer.elapsed);
+    spinlock_release(&old_process->perfmon_lock);
+
     return new_pid;
 }
 
@@ -307,6 +318,7 @@ int syscall_set_fs_base(struct ctx_t *ctx) {
 void *syscall_alloc_at(struct ctx_t *ctx) {
     // rdi: virtual address / 0 for sbrk-like allocation
     // rsi: page count
+    struct perfmon_timer_t mm_timer = PERFMON_TIMER_INITIALIZER;
 
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -329,6 +341,7 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
         spinlock_release(&process->cur_brk_lock);
     }
 
+    perfmon_timer_start(&mm_timer);
     void *ptr = pmm_allocz(ctx->rsi);
     if (!ptr) {
         errno = ENOMEM;
@@ -341,6 +354,12 @@ void *syscall_alloc_at(struct ctx_t *ctx) {
             return (void *)0;
         }
     }
+    perfmon_timer_stop(&mm_timer);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->mman_time, mm_timer.elapsed);
+    spinlock_release(&process->perfmon_lock);
 
     return (void *)base_address;
 }
@@ -729,6 +748,7 @@ int syscall_read(struct ctx_t *ctx) {
     // rdi: fd
     // rsi: buf
     // rdx: len
+    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
 
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -746,6 +766,7 @@ int syscall_read(struct ctx_t *ctx) {
         return -1;
     }
 
+    perfmon_timer_start(&io_timer);
     size_t ptr = 0;
     while (ptr < ctx->rdx) {
         size_t step;
@@ -758,8 +779,15 @@ int syscall_read(struct ctx_t *ctx) {
         if (ret < step)
             break;
     }
+    perfmon_timer_stop(&io_timer);
 
     spinlock_release(&process->file_handles_lock);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
+    spinlock_release(&process->perfmon_lock);
+
     return ptr;
 }
 
@@ -767,6 +795,7 @@ int syscall_write(struct ctx_t *ctx) {
     // rdi: fd
     // rsi: buf
     // rdx: len
+    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
 
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -784,6 +813,7 @@ int syscall_write(struct ctx_t *ctx) {
         return -1;
     }
 
+    perfmon_timer_start(&io_timer);
     size_t ptr = 0;
     while (ptr < ctx->rdx) {
         size_t step;
@@ -796,7 +826,61 @@ int syscall_write(struct ctx_t *ctx) {
         if (ret < step)
             break;
     }
+    perfmon_timer_stop(&io_timer);
 
     spinlock_release(&process->file_handles_lock);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
+    spinlock_release(&process->perfmon_lock);
+
     return ptr;
+}
+
+int syscall_perfmon_create(struct ctx_t *ctx) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    int sys_fd = perfmon_create();
+    if (sys_fd == -1)
+        return -1;
+
+    spinlock_acquire(&process->file_handles_lock);
+
+    int local_fd;
+    for (local_fd = 0; process->file_handles[local_fd] != -1; local_fd++)
+        if (local_fd + 1 == MAX_FILE_HANDLES) {
+            close(sys_fd);
+            spinlock_release(&process->file_handles_lock);
+            return -1;
+        }
+    process->file_handles[local_fd] = sys_fd;
+
+    spinlock_release(&process->file_handles_lock);
+    return local_fd;
+}
+
+int syscall_perfmon_attach(struct ctx_t *ctx) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    if (perfmon_attach(process->file_handles[ctx->rdi])) {
+        spinlock_release(&process->file_handles_lock);
+        return -1;
+    }
+
+    spinlock_release(&process->file_handles_lock);
+    return 0;
 }

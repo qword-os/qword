@@ -15,6 +15,25 @@
 
 #define EMPTY ((void *)(size_t)(-1))
 
+__attribute__((always_inline)) inline void atomic_fetch_add_int(int *p, int *v, int x) {
+    int h = x;
+    asm volatile (
+        "lock xadd dword ptr [%1], %0;"
+        : "+r" (h)
+        : "r" (p)
+        : "memory"
+    );
+    *v = h;
+}
+
+__attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p, uint64_t x) {
+    asm volatile (
+        "lock xadd qword ptr [%1], %0;"
+        : "+r" (x)
+        : "r" (p)
+    );
+}
+
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})

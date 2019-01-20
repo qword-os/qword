@@ -98,6 +98,12 @@ struct child_event_t {
     int status;
 };
 
+struct perfmon_t {
+    int refcount;
+    uint64_t mman_time;
+    uint64_t io_time;
+};
+
 struct process_t {
     pid_t pid;
     pid_t ppid;
@@ -113,6 +119,8 @@ struct process_t {
     size_t child_event_i;
     lock_t child_event_lock;
     event_t child_event;
+    lock_t perfmon_lock;
+    struct perfmon_t *active_perfmon;
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);
