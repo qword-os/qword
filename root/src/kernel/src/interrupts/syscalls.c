@@ -50,6 +50,8 @@ int syscall_getcwd(struct ctx_t *ctx) {
 }
 
 int syscall_readdir(struct ctx_t *ctx) {
+    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
+
     int fd = (int)ctx->rdi;
     struct dirent *buf = (struct dirent *)ctx->rsi;
 
@@ -69,9 +71,17 @@ int syscall_readdir(struct ctx_t *ctx) {
         return -1;
     }
 
+    perfmon_timer_start(&io_timer);
     size_t ret = readdir(process->file_handles[fd], buf);
+    perfmon_timer_stop(&io_timer);
 
     spinlock_release(&process->file_handles_lock);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
+    spinlock_release(&process->perfmon_lock);
+
     return ret;
 }
 
@@ -449,6 +459,7 @@ int syscall_pipe(struct ctx_t *ctx) {
 int syscall_open(struct ctx_t *ctx) {
     // rdi: path
     // rsi: mode
+    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
 
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -472,7 +483,16 @@ int syscall_open(struct ctx_t *ctx) {
     spinlock_acquire(&process->cwd_lock);
     vfs_get_absolute_path(abs_path, (const char *)ctx->rdi, process->cwd);
     spinlock_release(&process->cwd_lock);
+
+    perfmon_timer_start(&io_timer);
     int fd = open(abs_path, ctx->rsi);
+    perfmon_timer_stop(&io_timer);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
+    spinlock_release(&process->perfmon_lock);
+
     if (fd < 0) {
         spinlock_release(&process->file_handles_lock);
         return fd;
