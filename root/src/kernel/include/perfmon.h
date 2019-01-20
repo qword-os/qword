@@ -4,7 +4,7 @@
 void perfmon_ref(struct perfmon_t *);
 void perfmon_unref(struct perfmon_t *);
 
-int perfmon_create();
+int perfmon_create(void);
 int perfmon_attach(int);
 int perfmon_read(struct perfmon_t *, void *, size_t);
 

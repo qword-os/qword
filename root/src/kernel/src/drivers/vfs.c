@@ -53,7 +53,7 @@ int pipe(int *pipefd) {
     return 0;
 }
 
-int perfmon_create() {
+int perfmon_create(void) {
     struct vfs_handle_t fd;
     struct perfmon_t *perfmon = kalloc(sizeof(struct perfmon_t));
     perfmon->refcount = 1;
