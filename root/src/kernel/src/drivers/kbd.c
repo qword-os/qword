@@ -75,11 +75,14 @@ try_again:
             yield(10);
             goto try_again;
         }
-        buf[0] = kbd_buf[kbd_buf_i - 1];
-        kbd_buf[kbd_buf_i - 1]= '\0';
-        kbd_buf_i--;
+        size_t i = 0;
+        for (; i < kbd_buf_i; i++) {
+            buf[i] = kbd_buf[i];
+            kbd_buf[i] = '\0';
+        }
+        kbd_buf_i = 0;
         spinlock_release(&kbd_read_lock);
-        return 1;
+        return i;
     }
     spinlock_release(&termios_lock);
 
