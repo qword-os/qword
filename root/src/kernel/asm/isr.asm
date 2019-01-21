@@ -286,6 +286,10 @@ syscall_table:
     dq syscall_perfmon_create ;21
     extern syscall_perfmon_attach
     dq syscall_perfmon_attach ;22
+    extern syscall_tcsetattr
+    dq syscall_tcsetattr ;23
+    extern syscall_tcgetattr
+    dq syscall_tcgetattr ;24
   .end:
 
 section .text

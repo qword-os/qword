@@ -64,10 +64,31 @@ static lock_t kbd_read_lock = 1;
 int kbd_read(char *buf, size_t count) {
     int wait = 1;
 
+    spinlock_acquire(&termios_lock);
+    if (!(termios.c_lflag & ICANON)) {
+        spinlock_release(&termios_lock);
+try_again:
+        while (!spinlock_test_and_acquire(&kbd_read_lock))
+            yield(10);
+        if (!kbd_buf_i) {
+            spinlock_release(&kbd_read_lock);
+            yield(10);
+            goto try_again;
+        }
+        size_t i = 0;
+        for (; i < kbd_buf_i; i++) {
+            buf[i] = kbd_buf[i];
+            kbd_buf[i] = '\0';
+        }
+        kbd_buf_i = 0;
+        spinlock_release(&kbd_read_lock);
+        return i;
+    }
+    spinlock_release(&termios_lock);
+
     while (!spinlock_test_and_acquire(&kbd_read_lock)) {
         yield(10);
     }
-
     for (size_t i = 0; i < count; ) {
         if (big_buf_i) {
             buf[i++] = big_buf[0];
@@ -135,36 +156,46 @@ void kbd_handler(uint8_t input_byte) {
         }
     }
 
+    spinlock_acquire(&termios_lock);
     switch (c) {
         case '\n':
+            if (!(termios.c_lflag & ICANON))
+                goto regular_character;
             if (kbd_buf_i == KBD_BUF_SIZE)
                 break;
             kbd_buf[kbd_buf_i++] = c;
-            tty_putchar(c);
+            if (termios.c_lflag & ECHO)
+                tty_putchar(c);
             for (size_t i = 0; i < kbd_buf_i; i++) {
                 if (big_buf_i == BIG_BUF_SIZE)
                     break;
                 big_buf[big_buf_i++] = kbd_buf[i];
             }
             kbd_buf_i = 0;
-            break;
+            goto out;
         case '\b':
+            if (!(termios.c_lflag & ICANON))
+                goto regular_character;
             if (!kbd_buf_i)
                 break;
             kbd_buf[--kbd_buf_i] = 0;
-            tty_putchar('\b');
-            tty_putchar(' ');
-            tty_putchar('\b');
-            break;
+            if (termios.c_lflag & ECHO) {
+                tty_putchar('\b');
+                tty_putchar(' ');
+                tty_putchar('\b');
+            }
+            goto out;
         default:
-            if (kbd_buf_i == KBD_BUF_SIZE)
-                break;
-            kbd_buf[kbd_buf_i++] = c;
-            tty_putchar(c);
             break;
     }
-
+regular_character:
+    if (kbd_buf_i == KBD_BUF_SIZE)
+        goto out;
+    kbd_buf[kbd_buf_i++] = c;
+    if (termios.c_lflag & ECHO)
+        tty_putchar(c);
 out:
+    spinlock_release(&termios_lock);
     spinlock_release(&kbd_read_lock);
     return;
 }
