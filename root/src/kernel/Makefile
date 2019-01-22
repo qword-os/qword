@@ -36,7 +36,7 @@ CLINKFLAGS := -nostdlib -no-pie
 
 REAL_FILES := $(shell find ./real -type f -name '*.real')
 BINS := $(REAL_FILES:.real=.bin)
-C_FILES := $(shell find ./src -type f -name '*.c')
+C_FILES := $(shell find ./ -type f -name '*.c')
 ASM_FILES := $(shell find ./asm -type f -name '*.asm')
 OBJ := $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
 H_FILES := $(shell find ./include -type f -name '*.h')

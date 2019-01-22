@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <ahci.h>
-#include "ahci_mmio.h"
+#include "ahci.h"
 #include <pci.h>
 #include <klib.h>
 #include <dev.h>
