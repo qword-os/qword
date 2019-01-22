@@ -1046,5 +1046,5 @@ int init_fs_echfs(void) {
     echfs.readdir = echfs_readdir;
     echfs.sync = echfs_sync;
 
-    vfs_install_fs(echfs);
+    vfs_install_fs(&echfs);
 }

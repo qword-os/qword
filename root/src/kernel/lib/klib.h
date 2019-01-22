@@ -34,6 +34,43 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
     );
 }
 
+#define dynarray_new(type, name) \
+    static type **name; \
+    static size_t name##_i = 0; \
+    static lock_t name##_lock = 1;
+
+#define dynarray_add(type, name, element) ({ \
+    __label__ fnd; \
+    __label__ out; \
+    int ret = -1; \
+        \
+    spinlock_acquire(&name##_lock); \
+        \
+    size_t i; \
+    for (i = 0; i < name##_i; i++) { \
+        if (!name[i]) \
+            goto fnd; \
+    } \
+        \
+    name##_i += 256; \
+    void *tmp = krealloc(name, name##_i * sizeof(type *)); \
+    if (!tmp) \
+        goto out; \
+    name = tmp; \
+        \
+fnd: \
+    name[i] = kalloc(sizeof(type)); \
+    if (!name[i]) \
+        goto out; \
+    *name[i] = *element; \
+        \
+    ret = i; \
+        \
+out: \
+    spinlock_release(&name##_lock); \
+    ret; \
+})
+
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
@@ -99,5 +136,7 @@ struct ht_entry_t *ht_get_bucket(struct hashtable_t *, uint64_t);
 struct ht_entry_t *ht_remove_entry(struct hashtable_t*,
         struct ht_entry_t*, struct ht_entry_t*);
 uint64_t ht_hash_str(const char *);
+
+typedef int64_t off_t;
 
 #endif

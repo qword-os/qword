@@ -891,5 +891,5 @@ int init_fs_iso9660(void) {
     iso9660.readdir = iso9660_readdir;
     iso9660.sync = iso9660_sync;
 
-    vfs_install_fs(iso9660);
+    vfs_install_fs(&iso9660);
 }

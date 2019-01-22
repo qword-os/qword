@@ -5,6 +5,8 @@
 #include <user/task.h>
 #include <lib/lock.h>
 #include <fd/vfs/vfs.h>
+#include <fd/pipe/pipe.h>
+#include <fd/perfmon/perfmon.h>
 #include <user/task.h>
 #include <mm/mm.h>
 #include <lib/time.h>
@@ -554,7 +556,7 @@ int syscall_open(struct ctx_t *ctx) {
     }
 
     process->file_handles[local_fd] = fd;
-    file_descriptors[fd].fdflags = (int)ctx->rsi;
+    //file_descriptors[fd].fdflags = (int)ctx->rsi;
 
     spinlock_release(&process->file_handles_lock);
     return local_fd;
@@ -623,9 +625,10 @@ static int fcntl_getfd(int fd) {
         return -1;
     }
 
-    int ret = file_descriptors[fd_sys].fdflags;
+    //int ret = file_descriptors[fd_sys].fdflags;
 
-    return ret;
+    //return ret;
+    return 0;
 }
 
 static int fcntl_setfd(int fd, int fdflags) {
@@ -643,7 +646,7 @@ static int fcntl_setfd(int fd, int fdflags) {
         return -1;
     }
 
-    file_descriptors[fd_sys].fdflags = fdflags;
+    //file_descriptors[fd_sys].fdflags = fdflags;
 
     return 0;
 }

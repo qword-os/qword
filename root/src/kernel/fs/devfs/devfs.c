@@ -369,5 +369,5 @@ int init_fs_devfs(void) {
     devfs.readdir = devfs_readdir;
     devfs.sync = devfs_sync;
 
-    vfs_install_fs(devfs);
+    vfs_install_fs(&devfs);
 }
