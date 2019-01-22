@@ -1023,7 +1023,7 @@ static int echfs_mount(const char *source) {
     return ret;
 }
 
-void init_echfs(void) {
+int init_fs_echfs(void) {
     echfs_handles = kalloc(MAX_ECHFS_HANDLES * sizeof(void *));
     if (!echfs_handles)
         panic("out of memory while allocating echfs_handles", 0, 0);

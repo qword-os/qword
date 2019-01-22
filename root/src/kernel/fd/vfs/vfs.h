@@ -159,10 +159,6 @@ void vfs_get_absolute_path(char *, const char *, const char *);
 int vfs_install_fs(struct fs_t);
 void init_vfs(void);
 
-void init_devfs(void);
-void init_echfs(void);
-void init_iso9660(void);
-
 extern struct vfs_handle_t *file_descriptors;
 
 #endif

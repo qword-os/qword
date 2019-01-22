@@ -348,7 +348,7 @@ int devfs_sync(void) {
     return 0;
 }
 
-void init_devfs(void) {
+int init_fs_devfs(void) {
     struct fs_t devfs = {0};
     devfs_handles = kalloc(DEVFS_HANDLES_STEP * sizeof(struct devfs_handle_t));
     devfs_handles_i = DEVFS_HANDLES_STEP;

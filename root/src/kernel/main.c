@@ -26,6 +26,7 @@
 #include <misc/kbd.h>
 #include <sys/irq.h>
 #include <sys/panic.h>
+#include <fs/fs.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -172,9 +173,7 @@ void kmain(void) {
     init_vfs();
 
     /* Initialise filesystem drivers */
-    init_devfs();
-    init_echfs();
-    init_iso9660();
+    init_fs();
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);

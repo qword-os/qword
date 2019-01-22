@@ -876,7 +876,7 @@ int iso9660_sync(void) {
     return 0;
 }
 
-void init_iso9660(void) {
+int init_fs_iso9660(void) {
     struct fs_t iso9660 = {0};
 
     kstrcpy(iso9660.type, "iso9660");
