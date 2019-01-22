@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include <apic.h>
-#include <pic_8259.h>
-#include <pic.h>
-#include <panic.h>
+#include <sys/apic.h>
+#include <sys/pic_8259.h>
+#include <sys/pic.h>
+#include <sys/panic.h>
 
 void init_pic(void) {
     if (apic_supported()) {

@@ -1,14 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <tty.h>
-#include <klib.h>
-#include <vbe.h>
-#include <vga_textmode.h>
-#include <vbe_tty.h>
-#include <cmdline.h>
-#include <kbd.h>
-#include <dev.h>
-#include <lock.h>
+#include <misc/tty.h>
+#include <lib/klib.h>
+#include <misc/vbe.h>
+#include <misc/vga_textmode.h>
+#include <misc/vbe_tty.h>
+#include <lib/cmdline.h>
+#include <misc/kbd.h>
+#include <devices/dev.h>
+#include <lib/lock.h>
 
 static int use_vbe = 0;
 

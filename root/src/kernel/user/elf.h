@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <task.h>
-#include <mm.h>
+#include <user/task.h>
+#include <mm/mm.h>
 
 #define PT_LOAD     0x00000001
 #define PT_INTERP   0x00000003

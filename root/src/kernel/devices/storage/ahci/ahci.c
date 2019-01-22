@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <ahci.h>
-#include "ahci.h"
-#include <pci.h>
-#include <klib.h>
-#include <dev.h>
+#include <devices/storage/ahci/ahci.h>
+#include "ahci_private.h"
+#include <misc/pci.h>
+#include <lib/klib.h>
+#include <devices/dev.h>
 
 static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);

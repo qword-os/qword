@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <lock.h>
-#include <cio.h>
-#include <serial.h>
+#include <lib/lock.h>
+#include <lib/cio.h>
+#include <misc/serial.h>
 
 static uint16_t serial_ports[] = { 0x3f8, 0x2f8, 0x3e8, 0x2e8 };
 

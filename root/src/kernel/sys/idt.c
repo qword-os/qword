@@ -1,10 +1,9 @@
-#include <idt.h>
-#include <klib.h>
-#include <cio.h>
-#include <exceptions.h>
-#include <irq.h>
-#include <ipi.h>
-#include <syscall.h>
+#include <sys/idt.h>
+#include <lib/klib.h>
+#include <lib/cio.h>
+#include <sys/exceptions.h>
+#include <sys/irq.h>
+#include <sys/ipi.h>
 
 static struct idt_entry_t idt[256];
 

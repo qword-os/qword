@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <fs.h>
-#include <task.h>
-#include <klib.h>
-#include <smp.h>
-#include <errno.h>
+#include <fd/vfs/vfs.h>
+#include <user/task.h>
+#include <lib/klib.h>
+#include <sys/smp.h>
+#include <lib/errno.h>
 
 struct fs_t *filesystems;
 struct mnt_t *mountpoints;

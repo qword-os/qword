@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <cio.h>
-#include <klib.h>
-#include <pic_8259.h>
+#include <lib/cio.h>
+#include <lib/klib.h>
+#include <sys/pic_8259.h>
 
 #define CMD_INIT 0x11
 #define MODE_8086 0x01

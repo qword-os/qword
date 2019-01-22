@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <mm.h>
-#include <klib.h>
-#include <e820.h>
-#include <lock.h>
-#include <panic.h>
+#include <mm/mm.h>
+#include <lib/klib.h>
+#include <sys/e820.h>
+#include <lib/lock.h>
+#include <sys/panic.h>
 
 struct pagemap_t kernel_pagemap;
 

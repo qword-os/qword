@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <cio.h>
-#include <klib.h>
-#include <pci.h>
-#include <mm.h>
+#include <lib/cio.h>
+#include <lib/klib.h>
+#include <misc/pci.h>
+#include <mm/mm.h>
 
 static const uint16_t i8254x_devices[] = {
     // list of valid i8254x devices, vendor is 0x8086 (Intel)

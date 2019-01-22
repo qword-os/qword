@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <cio.h>
-#include <vga_textmode.h>
-#include <mm.h>
+#include <lib/cio.h>
+#include <misc/vga_textmode.h>
+#include <mm/mm.h>
 
 #define VIDEO_BOTTOM ((VD_ROWS * VD_COLS) - 1)
 #define VD_COLS (80 * 2)

@@ -1,6 +1,6 @@
 #include <stddef.h>
-#include <klib.h>
-#include <cmdline.h>
+#include <lib/klib.h>
+#include <lib/cmdline.h>
 
 static char value[256];
 

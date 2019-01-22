@@ -1,9 +1,8 @@
-
-#include <errno.h>
-#include <fs.h>
-#include <klib.h>
-#include <panic.h>
-#include <time.h>
+#include <lib/errno.h>
+#include <fd/vfs/vfs.h>
+#include <lib/klib.h>
+#include <sys/panic.h>
+#include <lib/time.h>
 
 void perfmon_ref(struct perfmon_t *perfmon) {
     int refs;

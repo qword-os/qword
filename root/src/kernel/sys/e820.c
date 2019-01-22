@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <e820.h>
-#include <klib.h>
+#include <sys/e820.h>
+#include <lib/klib.h>
 
 void get_e820(void *);
 

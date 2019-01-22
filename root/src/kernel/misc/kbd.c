@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <klib.h>
-#include <apic.h>
-#include <tty.h>
-#include <lock.h>
+#include <lib/klib.h>
+#include <sys/apic.h>
+#include <misc/tty.h>
+#include <lib/lock.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a

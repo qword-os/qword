@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <acpi.h>
+#include <acpi/acpi.h>
 #include <acpi/madt.h>
-#include <klib.h>
+#include <lib/klib.h>
 
 int madt_available = 0;
 struct madt_t *madt;

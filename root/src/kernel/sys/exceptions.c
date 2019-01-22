@@ -1,10 +1,10 @@
 #include <stddef.h>
-#include <exceptions.h>
-#include <panic.h>
-#include <task.h>
-#include <mm.h>
-#include <klib.h>
-#include <smp.h>
+#include <sys/exceptions.h>
+#include <sys/panic.h>
+#include <user/task.h>
+#include <mm/mm.h>
+#include <lib/klib.h>
+#include <sys/smp.h>
 
 #define EXC_DIV0 0x0
 #define EXC_DEBUG 0x1

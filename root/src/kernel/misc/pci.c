@@ -1,7 +1,7 @@
-#include <cio.h>
+#include <lib/cio.h>
 #include <stdint.h>
-#include <pci.h>
-#include <klib.h>
+#include <misc/pci.h>
+#include <lib/klib.h>
 
 #define MAX_FUNCTION 8
 #define MAX_DEVICE 32

@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <klib.h>
-#include <fs.h>
-#include <dev.h>
-#include <lock.h>
-#include <errno.h>
+#include <lib/klib.h>
+#include <fd/vfs/vfs.h>
+#include <devices/dev.h>
+#include <lib/lock.h>
+#include <lib/errno.h>
 
 #define DEVFS_HANDLES_STEP 1024
 

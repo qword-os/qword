@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <klib.h>
-#include <fs.h>
-#include <lock.h>
-#include <errno.h>
-#include <panic.h>
+#include <lib/klib.h>
+#include <fd/vfs/vfs.h>
+#include <lib/lock.h>
+#include <lib/errno.h>
+#include <sys/panic.h>
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff

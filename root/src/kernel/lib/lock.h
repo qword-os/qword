@@ -2,7 +2,7 @@
 #define __LOCK_H__
 
 #include <stdint.h>
-#include <qemu.h>
+#include <lib/qemu.h>
 
 typedef volatile int64_t lock_t;
 

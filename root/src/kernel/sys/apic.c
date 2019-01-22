@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <apic.h>
-#include <klib.h>
+#include <sys/apic.h>
+#include <lib/klib.h>
 #include <cpuid.h>
 #include <acpi/madt.h>
-#include <mm.h>
-#include <smp.h>
+#include <mm/mm.h>
+#include <sys/smp.h>
 
 #define APIC_CPUID_BIT (1 << 9)
 

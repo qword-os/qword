@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <fs.h>
-#include <klib.h>
-#include <task.h>
+#include <fd/vfs/vfs.h>
+#include <lib/klib.h>
+#include <user/task.h>
 
 struct pipe_t *pipe_open(void) {
     struct pipe_t *new_pipe = kalloc(sizeof(struct pipe_t));

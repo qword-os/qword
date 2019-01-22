@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <mm.h>
-#include <fs.h>
-#include <task.h>
-#include <klib.h>
-#include <elf.h>
-#include <lock.h>
-#include <panic.h>
-#include <perfmon.h>
+#include <mm/mm.h>
+#include <fd/vfs/vfs.h>
+#include <user/task.h>
+#include <lib/klib.h>
+#include <user/elf.h>
+#include <lib/lock.h>
+#include <sys/panic.h>
+#include <fd/perfmon/perfmon.h>
 
 #define USER_REQUEST_EXECVE 1
 #define USER_REQUEST_EXIT 2

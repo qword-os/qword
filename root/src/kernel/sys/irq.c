@@ -1,15 +1,15 @@
-#include <irq.h>
-#include <pic.h>
-#include <apic.h>
+#include <sys/irq.h>
+#include <sys/pic.h>
+#include <sys/apic.h>
 #include <acpi/madt.h>
-#include <pic_8259.h>
-#include <klib.h>
-#include <time.h>
-#include <pit.h>
-#include <cio.h>
-#include <task.h>
-#include <smp.h>
-#include <panic.h>
+#include <sys/pic_8259.h>
+#include <lib/klib.h>
+#include <lib/time.h>
+#include <misc/pit.h>
+#include <lib/cio.h>
+#include <user/task.h>
+#include <sys/smp.h>
+#include <sys/panic.h>
 
 /* Interrupts should be OFF */
 void pit_handler(void) {

@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <mm.h>
-#include <klib.h>
-#include <lock.h>
-#include <e820.h>
+#include <mm/mm.h>
+#include <lib/klib.h>
+#include <lib/lock.h>
+#include <sys/e820.h>
 
 #define MEMORY_BASE 0x1000000
 #define BITMAP_BASE (MEMORY_BASE / PAGE_SIZE)

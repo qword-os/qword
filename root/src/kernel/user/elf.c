@@ -1,9 +1,9 @@
-#include <elf.h>
-#include <klib.h>
-#include <task.h>
-#include <fs.h>
-#include <mm.h>
-#include <panic.h>
+#include <user/elf.h>
+#include <lib/klib.h>
+#include <user/task.h>
+#include <fd/vfs/vfs.h>
+#include <mm/mm.h>
+#include <sys/panic.h>
 
 /* Execute an ELF file given some file data
    out_ld_path: If non-null, returns path of the dynamic linker as kalloc()ed string */

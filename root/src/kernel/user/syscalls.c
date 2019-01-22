@@ -1,15 +1,15 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <klib.h>
-#include <smp.h>
-#include <task.h>
-#include <lock.h>
-#include <fs.h>
-#include <task.h>
-#include <mm.h>
-#include <time.h>
-#include <errno.h>
-#include <tty.h>
+#include <lib/klib.h>
+#include <sys/smp.h>
+#include <user/task.h>
+#include <lib/lock.h>
+#include <fd/vfs/vfs.h>
+#include <user/task.h>
+#include <mm/mm.h>
+#include <lib/time.h>
+#include <lib/errno.h>
+#include <misc/tty.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000

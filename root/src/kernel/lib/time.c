@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <time.h>
-#include <pit.h>
+#include <lib/time.h>
+#include <misc/pit.h>
 
 volatile uint64_t uptime_raw = 0;
 volatile uint64_t uptime_sec = 0;

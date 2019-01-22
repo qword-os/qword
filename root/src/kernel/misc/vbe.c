@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <vbe.h>
-#include <klib.h>
-#include <cmdline.h>
-#include <mm.h>
+#include <misc/vbe.h>
+#include <lib/klib.h>
+#include <lib/cmdline.h>
+#include <mm/mm.h>
 
 static struct vbe_info_struct_t vbe_info_struct;
 static struct edid_info_struct_t edid_info_struct;

@@ -1,17 +1,17 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <task.h>
-#include <mm.h>
-#include <klib.h>
-#include <panic.h>
-#include <smp.h>
-#include <lock.h>
+#include <user/task.h>
+#include <mm/mm.h>
+#include <lib/klib.h>
+#include <sys/panic.h>
+#include <sys/smp.h>
+#include <lib/lock.h>
 #include <acpi/madt.h>
-#include <apic.h>
-#include <ipi.h>
-#include <fs.h>
-#include <time.h>
-#include <pit.h>
+#include <sys/apic.h>
+#include <sys/ipi.h>
+#include <fd/vfs/vfs.h>
+#include <lib/time.h>
+#include <misc/pit.h>
 
 #define SMP_TIMESLICE_MS 5
 

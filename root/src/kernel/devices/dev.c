@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <dev.h>
-#include <klib.h>
+#include <devices/dev.h>
+#include <lib/klib.h>
 
 struct device devices[MAX_DEVICES];
 

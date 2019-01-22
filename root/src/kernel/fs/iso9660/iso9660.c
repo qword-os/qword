@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include <fs.h>
-#include <time.h>
-#include <klib.h>
-#include <lock.h>
-#include <errno.h>
+#include <fd/vfs/vfs.h>
+#include <lib/time.h>
+#include <lib/klib.h>
+#include <lib/lock.h>
+#include <lib/errno.h>
 
 #define SECTOR_SIZE 2048
 #define FILE_TYPE 0

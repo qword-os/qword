@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <lock.h>
+#include <lib/lock.h>
 
 #define PAGE_SIZE ((size_t)4096)
 

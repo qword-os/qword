@@ -1,14 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <klib.h>
-#include <apic.h>
-#include <acpi.h>
+#include <lib/klib.h>
+#include <sys/apic.h>
+#include <acpi/acpi.h>
 #include <acpi/madt.h>
-#include <panic.h>
-#include <smp.h>
-#include <time.h>
-#include <mm.h>
-#include <task.h>
+#include <sys/panic.h>
+#include <sys/smp.h>
+#include <lib/time.h>
+#include <mm/mm.h>
+#include <user/task.h>
 
 #define CPU_STACK_SIZE 16384
 

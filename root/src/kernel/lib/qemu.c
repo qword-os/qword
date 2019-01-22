@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <qemu.h>
-#include <cio.h>
-#include <lock.h>
+#include <lib/qemu.h>
+#include <lib/cio.h>
+#include <lib/lock.h>
 
 static lock_t qemu_debug_lock = 1;
 

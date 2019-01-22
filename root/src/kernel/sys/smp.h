@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <task.h>
+#include <user/task.h>
 
 #define MAX_CPUS 128
 

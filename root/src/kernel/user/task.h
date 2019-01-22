@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <mm.h>
-#include <lock.h>
+#include <mm/mm.h>
+#include <lib/lock.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024

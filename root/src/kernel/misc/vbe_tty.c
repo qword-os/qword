@@ -1,10 +1,10 @@
 #include <stdint.h>
-#include <vbe_tty.h>
-#include <klib.h>
-#include <tty.h>
-#include <vbe.h>
-#include <panic.h>
-#include <lock.h>
+#include <misc/vbe_tty.h>
+#include <lib/klib.h>
+#include <misc/tty.h>
+#include <misc/vbe.h>
+#include <sys/panic.h>
+#include <lib/lock.h>
 
 int vbe_tty_available = 0;
 

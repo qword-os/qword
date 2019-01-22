@@ -1,11 +1,11 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <cio.h>
-#include <klib.h>
-#include <dev.h>
-#include <pci.h>
-#include <ata.h>
-#include <mm.h>
+#include <lib/cio.h>
+#include <lib/klib.h>
+#include <devices/dev.h>
+#include <misc/pci.h>
+#include <devices/storage/ata/ata.h>
+#include <mm/mm.h>
 
 #define DEVICE_COUNT 4
 #define BYTES_PER_SECT 512

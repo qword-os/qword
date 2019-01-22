@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <acpi.h>
+#include <acpi/acpi.h>
 
 struct madt_t {
     struct sdt_t sdt;

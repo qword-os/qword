@@ -1,7 +1,7 @@
 #ifndef __TTY_H__
 #define __TTY_H__
 
-#include <lock.h>
+#include <lib/lock.h>
 
 typedef unsigned int cc_t;
 typedef unsigned int speed_t;

@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <klib.h>
-#include <acpi.h>
+#include <lib/klib.h>
+#include <acpi/acpi.h>
 #include <acpi/madt.h>
-#include <mm.h>
+#include <mm/mm.h>
 
 int acpi_available = 0;
 

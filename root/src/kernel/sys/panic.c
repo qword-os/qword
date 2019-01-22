@@ -1,11 +1,11 @@
 #include <stddef.h>
 #include <stdint.h>
-#include <panic.h>
-#include <klib.h>
-#include <lock.h>
-#include <smp.h>
-#include <task.h>
-#include <apic.h>
+#include <sys/panic.h>
+#include <lib/klib.h>
+#include <lib/lock.h>
+#include <sys/smp.h>
+#include <user/task.h>
+#include <sys/apic.h>
 
 static lock_t panic_lock = 1;
 

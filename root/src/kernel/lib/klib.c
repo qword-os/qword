@@ -1,13 +1,13 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <lock.h>
-#include <klib.h>
-#include <qemu.h>
-#include <tty.h>
-#include <mm.h>
-#include <time.h>
-#include <fs.h>
+#include <lib/lock.h>
+#include <lib/klib.h>
+#include <lib/qemu.h>
+#include <misc/tty.h>
+#include <mm/mm.h>
+#include <lib/time.h>
+#include <fd/vfs/vfs.h>
 
 int ktolower(int c) {
     if (c >= 0x41 && c <= 0x5a)

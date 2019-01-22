@@ -3,12 +3,12 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <dev.h>
-#include <task.h>
-#include <time.h>
-#include <lock.h>
-#include <perfmon.h>
-#include <pipe.h>
+#include <devices/dev.h>
+#include <user/task.h>
+#include <lib/time.h>
+#include <lib/lock.h>
+#include <fd/perfmon/perfmon.h>
+#include <fd/pipe/pipe.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
 #define SEEK_CUR 1

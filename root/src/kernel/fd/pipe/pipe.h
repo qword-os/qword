@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <lock.h>
-#include <task.h>
+#include <lib/lock.h>
+#include <user/task.h>
 
 #define PIPE_BUFFER_STEP    32768
 

@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include <cio.h>
-#include <klib.h>
-#include <pit.h>
-#include <apic.h>
+#include <lib/cio.h>
+#include <lib/klib.h>
+#include <misc/pit.h>
+#include <sys/apic.h>
 
 void init_pit(void) {
     kprint(KPRN_INFO, "pit: Setting frequency to %uHz", (uint64_t)PIT_FREQUENCY);
