@@ -2,6 +2,10 @@
 
 set -e
 
+if [ "$1" = "clean" ]; then
+    exit 0
+fi
+
 QWORD_ROOT=$(realpath ../..)
 
 if [ ! "$OSTYPE" = "qword" ]; then

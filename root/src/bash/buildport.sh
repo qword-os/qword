@@ -9,6 +9,11 @@ PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.gz
 PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
 PKG_PREFIX=/
 
+if [ "$1" = "clean" ]; then
+    rm -rf $PKG_ARCHIVE_DIR
+    exit 0
+fi
+
 QWORD_ROOT=$(realpath ../..)
 
 if [ ! "$OSTYPE" = "qword" ]; then

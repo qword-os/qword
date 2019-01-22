@@ -1,18 +1,13 @@
-# qword - A modern and fast unix-like operating system, written in C and Assembly for x86_64.
+# qword - A KISS Unix-like operating system, written in C and Assembly for x86_64.
 
 [![goto counter](https://img.shields.io/github/search/qword-os/qword/goto.svg)](https://github.com/qword-os/qword/search?q=goto)
 
 ## Features
-- Paging support with higher-half kernel.
-- SMP compliant scheduler supporting thread scheduling.
+- SMP (multicore) scheduler supporting thread scheduling.
 - Program loading with minimal userspace.
-- ATA PIO disk support.
-- Fully functional VFS and devfs with support for the echidnaFS filesystem.
-
-## Planned features
+- Fully functional VFS with support for several filesystems.
 - Support for AHCI/SATA.
-- Support for `pthreads` and other elements of POSIX, to allow porting common programs.
-
+- ATA disk support.
 
 ## Build requirements
 In order to build qword, make sure to have the following installed:
@@ -46,17 +41,13 @@ cd ../toolchain
 ./make_toolchain.sh
 # Go back to the root of the tree
 cd ../..
-# You might want to build important ports such as bash or binutils
+# Build the ports distribution
 cd root/src
-cd binutils
-./buildport.sh
-cd ../bash
-./buildport.sh
-cd ../../..
-# You might also wanna remove the archive directories from the port
-# dirs else the image will take longer to make.
+./makeworld.sh -j4
+./makeworld.sh clean
 # Now to build qword itself
-make clean && make img && sync
+cd ../..
+make clean && make DEBUG=qemu img && sync
 ```
 
 You've now built qword, a flat `qword.img` disk image has been generated.
