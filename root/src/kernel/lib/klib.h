@@ -35,53 +35,101 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
 }
 
 #define dynarray_new(type, name) \
-    static type **name; \
+    static struct { \
+        lock_t refcount; \
+        type *data; \
+    } **name; \
     static size_t name##_i = 0; \
     static lock_t name##_lock = 1;
 
 #define public_dynarray_new(type, name) \
-    type **name; \
+    struct __name##_struct **name; \
     size_t name##_i = 0; \
     lock_t name##_lock = 1;
 
 #define public_dynarray_prototype(type, name) \
-    extern type **name; \
+    struct __name##_struct { \
+        lock_t refcount; \
+        type *data; \
+    }; \
+    extern struct __name##_struct **name; \
     extern size_t name##_i; \
     extern lock_t name##_lock;
 
-#define dynarray_add(type, name, element) ({ \
+#define dynarray_remove(dynarray, element) ({ \
+    spinlock_acquire(&dynarray##_lock); \
+    while (spinlock_read(&dynarray[element]->refcount)) { \
+        spinlock_release(&dynarray##_lock); \
+        yield(5); \
+        spinlock_acquire(&dynarray##_lock); \
+    } \
+        \
+    kfree(dynarray[element]->data); \
+    kfree(dynarray[element]); \
+    dynarray[element] = 0; \
+        \
+    spinlock_release(&dynarray##_lock); \
+})
+
+#define dynarray_ref(dynarray, element) ({ \
+    spinlock_acquire(&dynarray##_lock); \
+    spinlock_inc(&dynarray[element]->refcount); \
+    spinlock_release(&dynarray##_lock); \
+})
+
+#define dynarray_unref(dynarray, element) ({ \
+    spinlock_acquire(&dynarray##_lock); \
+    spinlock_dec(&dynarray[element]->refcount); \
+    spinlock_release(&dynarray##_lock); \
+})
+
+#define dynarray_getelem(type, dynarray, element) ({ \
+    dynarray_ref(dynarray, element); \
+    spinlock_acquire(&dynarray##_lock); \
+    type *ptr; \
+    ptr = dynarray[element]->data; \
+    spinlock_release(&dynarray##_lock); \
+    ptr; \
+})
+
+#define dynarray_add(type, dynarray, element) ({ \
     __label__ fnd; \
     __label__ out; \
     int ret = -1; \
         \
-    spinlock_acquire(&name##_lock); \
+    spinlock_acquire(&dynarray##_lock); \
         \
     size_t i; \
-    for (i = 0; i < name##_i; i++) { \
-        if (!name[i]) \
+    for (i = 0; i < dynarray##_i; i++) { \
+        if (!dynarray[i]) \
             goto fnd; \
     } \
         \
-    name##_i += 256; \
-    void *tmp = krealloc(name, name##_i * sizeof(type *)); \
+    dynarray##_i += 256; \
+    void *tmp = krealloc(dynarray, dynarray##_i * sizeof(void *)); \
     if (!tmp) \
         goto out; \
-    name = tmp; \
+    dynarray = tmp; \
         \
 fnd: \
-    name[i] = kalloc(sizeof(type)); \
-    if (!name[i]) \
+    dynarray[i] = kalloc(sizeof(**dynarray)); \
+    if (!dynarray[i]) \
         goto out; \
-    *name[i] = *element; \
+    dynarray[i]->data = kalloc(sizeof(type)); \
+    if (!dynarray[i]->data) { \
+        kfree(dynarray[i]); \
+        goto out; \
+    } \
+    *((type *)dynarray[i]->data) = *element; \
         \
     ret = i; \
         \
 out: \
-    spinlock_release(&name##_lock); \
+    spinlock_release(&dynarray##_lock); \
     ret; \
 })
 
-#define dynarray_search(type, name, cond) ({ \
+#define dynarray_search(name, cond) ({ \
     __label__ fnd; \
     __label__ out; \
     int ret = -1; \

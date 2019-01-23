@@ -33,11 +33,11 @@ static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
         if (!mountpoints[i])
             continue;
 
-        size_t len = kstrlen(mountpoints[i]->mntpt);
+        size_t len = kstrlen(mountpoints[i]->data->mntpt);
 
-        if (!kstrncmp(path, mountpoints[i]->mntpt, len)) {
+        if (!kstrncmp(path, mountpoints[i]->data->mntpt, len)) {
             if ( (((path[len] == '/') || (path[len] == '\0'))
-                 || (!kstrcmp(mountpoints[i]->mntpt, "/")))
+                 || (!kstrcmp(mountpoints[i]->data->mntpt, "/")))
                && (len > guess_size)) {
                 guess = i;
                 guess_size = len;
@@ -55,7 +55,7 @@ static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
 
     spinlock_release(&mountpoints_lock);
     if (guess != -1)
-        return mountpoints[guess];
+        return mountpoints[guess]->data;
     else
         return NULL;
 }
@@ -133,7 +133,7 @@ int vfs_sync(void) {
     for (size_t i = 0; i < filesystems_i; i++) {
         if (!filesystems[i])
             continue;
-        filesystems[i]->sync();
+        filesystems[i]->data->sync();
     }
     spinlock_release(&filesystems_lock);
     return 0;
@@ -168,55 +168,55 @@ int vfs_install_fs(struct fs_t *filesystem) {
 }
 
 static int vfs_dup(int fd) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    if (filesystems[fs]->dup(intern_fd))
+    if (filesystems[fs]->data->dup(intern_fd))
         return -1;
 
-    return dynarray_add(struct vfs_handle_t, vfs_handles, vfs_handles[fd]);
+    return dynarray_add(struct vfs_handle_t, vfs_handles, vfs_handles[fd]->data);
 }
 
 static int vfs_readdir(int fd, struct dirent *buf) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    return filesystems[fs]->readdir(intern_fd, buf);
+    return filesystems[fs]->data->readdir(intern_fd, buf);
 }
 
 static int vfs_read(int fd, void *buf, size_t len) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    return filesystems[fs]->read(intern_fd, buf, len);
+    return filesystems[fs]->data->read(intern_fd, buf, len);
 }
 
 static int vfs_write(int fd, const void *buf, size_t len) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    return filesystems[fs]->write(intern_fd, buf, len);
+    return filesystems[fs]->data->write(intern_fd, buf, len);
 }
 
 static int vfs_close(int fd) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    return filesystems[fs]->close(intern_fd);
+    return filesystems[fs]->data->close(intern_fd);
 }
 
 static int vfs_lseek(int fd, off_t offset, int type) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    return filesystems[fs]->lseek(intern_fd, offset, type);
+    return filesystems[fs]->data->lseek(intern_fd, offset, type);
 }
 
 static int vfs_fstat(int fd, struct stat *st) {
-    int fs = vfs_handles[fd]->fs;
-    int intern_fd = vfs_handles[fd]->intern_fd;
+    int fs = vfs_handles[fd]->data->fs;
+    int intern_fd = vfs_handles[fd]->data->intern_fd;
 
-    return filesystems[fs]->fstat(intern_fd, st);
+    return filesystems[fs]->data->fstat(intern_fd, st);
 }
 
 static struct fd_handler_t vfs_functions = {
@@ -241,7 +241,7 @@ int open(const char *path, int mode) {
     int magic = mountpoint->magic;
     int fs = mountpoint->fs;
 
-    int intern_fd = filesystems[fs]->open(loc_path, mode, magic);
+    int intern_fd = filesystems[fs]->data->open(loc_path, mode, magic);
     if (intern_fd == -1)
         return -1;
 
@@ -270,14 +270,14 @@ int mount(const char *source, const char *target,
     for (i = 0; i < filesystems_i; i++) {
         if (!filesystems[i])
             continue;
-        if (!kstrcmp(filesystems[i]->type, fs_type))
+        if (!kstrcmp(filesystems[i]->data->type, fs_type))
             goto fnd;
     }
     spinlock_release(&filesystems_lock);
     return -1;
 
 fnd:;
-    struct fs_t *fs = filesystems[i];
+    struct fs_t *fs = filesystems[i]->data;
     spinlock_release(&filesystems_lock);
 
     int res = fs->mount(source, m_flags, data);

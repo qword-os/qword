@@ -22,7 +22,7 @@ dynarray_new(struct pipe_t, pipes);
 
 static int pipe_close(int fd) {
     spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd];
+    struct pipe_t *pipe = pipes[fd]->data;
     spinlock_release(&pipes_lock);
 
     spinlock_acquire(&pipe->lock);
@@ -42,7 +42,7 @@ static int pipe_close(int fd) {
 
 static int pipe_read(int fd, void *buf, size_t count) {
     spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd];
+    struct pipe_t *pipe = pipes[fd]->data;
     spinlock_release(&pipes_lock);
 
     spinlock_acquire(&pipe->lock);
@@ -82,7 +82,7 @@ static int pipe_read(int fd, void *buf, size_t count) {
 
 static int pipe_write(int fd, const void *buf, size_t count) {
     spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd];
+    struct pipe_t *pipe = pipes[fd]->data;
     spinlock_release(&pipes_lock);
 
     spinlock_acquire(&pipe->lock);
@@ -115,7 +115,7 @@ static int pipe_lseek(int fd, off_t offset, int type) {
 
 static int pipe_dup(int fd) {
     spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd];
+    struct pipe_t *pipe = pipes[fd]->data;
     spinlock_release(&pipes_lock);
     spinlock_acquire(&pipe->lock);
     pipe->refcount++;

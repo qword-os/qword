@@ -23,8 +23,8 @@ void perfmon_unref(struct perfmon_t *perfmon) {
 }
 
 int perfmon_attach(int fd) {
-    int intern_fd = file_descriptors[fd]->intern_fd;
-    struct perfmon_t *perfmon = perfmons[intern_fd];
+    int intern_fd = file_descriptors[fd]->data->intern_fd;
+    struct perfmon_t *perfmon = perfmons[intern_fd]->data;
     perfmon_ref(perfmon);
 
     spinlock_acquire(&scheduler_lock);
@@ -63,7 +63,7 @@ struct perfstats {
 };
 
 static int perfmon_read(int fd, void *buf, size_t count) {
-    struct perfmon_t *perfmon = perfmons[fd];
+    struct perfmon_t *perfmon = perfmons[fd]->data;
 
     if (count < sizeof(struct perfstats)) {
         errno = EINVAL;
@@ -81,7 +81,7 @@ static int perfmon_read(int fd, void *buf, size_t count) {
 }
 
 static int perfmon_dup(int fd) {
-    struct perfmon_t *perfmon = perfmons[fd];
+    struct perfmon_t *perfmon = perfmons[fd]->data;
     perfmon_ref(perfmon);
     return fd;
 }
@@ -104,7 +104,7 @@ static int perfmon_write(int fd, const void *buf, size_t len) {
 }
 
 static int perfmon_close(int fd) {
-    struct perfmon_t *perfmon = perfmons[fd];
+    struct perfmon_t *perfmon = perfmons[fd]->data;
     perfmon_unref(perfmon);
     return 0;
 }
@@ -150,7 +150,7 @@ int perfmon_create(void) {
     fd.fd_handler = perfmon_functions;
 
     int glob_fd = fd_create(&fd);
-    perfmons[x]->glob_fd = glob_fd;
+    perfmons[x]->data->glob_fd = glob_fd;
 
     return glob_fd;
 }
