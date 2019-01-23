@@ -39,6 +39,16 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
     static size_t name##_i = 0; \
     static lock_t name##_lock = 1;
 
+#define public_dynarray_new(type, name) \
+    type **name; \
+    size_t name##_i = 0; \
+    lock_t name##_lock = 1;
+
+#define public_dynarray_prototype(type, name) \
+    extern type **name; \
+    extern size_t name##_i; \
+    extern lock_t name##_lock;
+
 #define dynarray_add(type, name, element) ({ \
     __label__ fnd; \
     __label__ out; \
@@ -64,6 +74,30 @@ fnd: \
         goto out; \
     *name[i] = *element; \
         \
+    ret = i; \
+        \
+out: \
+    spinlock_release(&name##_lock); \
+    ret; \
+})
+
+#define dynarray_search(type, name, cond) ({ \
+    __label__ fnd; \
+    __label__ out; \
+    int ret = -1; \
+        \
+    spinlock_acquire(&name##_lock); \
+        \
+    size_t i; \
+    for (i = 0; i < name##_i; i++) { \
+        if (!name[i]) \
+            continue; \
+        if (name[i]->cond) \
+            goto fnd; \
+    } \
+    goto out; \
+        \
+fnd: \
     ret = i; \
         \
 out: \

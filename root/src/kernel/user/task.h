@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <mm/mm.h>
 #include <lib/lock.h>
+#include <fd/perfmon/perfmon.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -97,13 +98,6 @@ struct auxval_t {
 struct child_event_t {
     pid_t pid;
     int status;
-};
-
-struct perfmon_t {
-    int refcount;
-    uint64_t syscall_time;
-    uint64_t mman_time;
-    uint64_t io_time;
 };
 
 struct process_t {

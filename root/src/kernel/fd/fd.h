@@ -105,6 +105,8 @@ struct file_descriptor_t {
     struct fd_handler_t fd_handler;
 };
 
+public_dynarray_prototype(struct file_descriptor_t, file_descriptors);
+
 int fd_create(struct file_descriptor_t *);
 int close(int);
 int fstat(int, struct stat *);
