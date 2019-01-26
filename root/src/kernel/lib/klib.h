@@ -37,6 +37,7 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
 #define dynarray_new(type, name) \
     static struct { \
         lock_t refcount; \
+        int present; \
         type *data; \
     } **name; \
     static size_t name##_i = 0; \
@@ -50,6 +51,7 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
 #define public_dynarray_prototype(type, name) \
     struct __name##_struct { \
         lock_t refcount; \
+        int present; \
         type *data; \
     }; \
     extern struct __name##_struct **name; \
@@ -58,16 +60,12 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
 
 #define dynarray_remove(dynarray, element) ({ \
     spinlock_acquire(&dynarray##_lock); \
-    while (spinlock_read(&dynarray[element]->refcount)) { \
-        spinlock_release(&dynarray##_lock); \
-        yield(5); \
-        spinlock_acquire(&dynarray##_lock); \
+    dynarray[element]->present = 0; \
+    if (!spinlock_dec(&dynarray[element]->refcount)) { \
+        kfree(dynarray[element]->data); \
+        kfree(dynarray[element]); \
+        dynarray[element] = 0; \
     } \
-        \
-    kfree(dynarray[element]->data); \
-    kfree(dynarray[element]); \
-    dynarray[element] = 0; \
-        \
     spinlock_release(&dynarray##_lock); \
 })
 
@@ -79,15 +77,21 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
 
 #define dynarray_unref(dynarray, element) ({ \
     spinlock_acquire(&dynarray##_lock); \
-    spinlock_dec(&dynarray[element]->refcount); \
+    if (!spinlock_dec(&dynarray[element]->refcount)) { \
+        kfree(dynarray[element]->data); \
+        kfree(dynarray[element]); \
+        dynarray[element] = 0; \
+    } \
     spinlock_release(&dynarray##_lock); \
 })
 
 #define dynarray_getelem(type, dynarray, element) ({ \
-    dynarray_ref(dynarray, element); \
     spinlock_acquire(&dynarray##_lock); \
-    type *ptr; \
-    ptr = dynarray[element]->data; \
+    type *ptr = NULL; \
+    if (dynarray[element]->present) { \
+        ptr = dynarray[element]->data; \
+        spinlock_inc(&dynarray[element]->refcount); \
+    } \
     spinlock_release(&dynarray##_lock); \
     ptr; \
 })
@@ -120,6 +124,8 @@ fnd: \
         kfree(dynarray[i]); \
         goto out; \
     } \
+    dynarray[i]->refcount = 1; \
+    dynarray[i]->present = 1; \
     *((type *)dynarray[i]->data) = *element; \
         \
     ret = i; \
@@ -139,6 +145,8 @@ out: \
     size_t i; \
     for (i = 0; i < name##_i; i++) { \
         if (!name[i]) \
+            continue; \
+        if (!name[i]->present) \
             continue; \
         if (name[i]->cond) \
             goto fnd; \

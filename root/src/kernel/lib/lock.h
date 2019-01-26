@@ -15,11 +15,13 @@ typedef volatile int64_t lock_t;
 })
 
 #define spinlock_dec(lock) ({ \
+    int nz; \
     asm volatile ( \
         "lock dec qword ptr ds:[rbx];" \
-        : \
+        : "=@ccnz" (nz) \
         : "b" (lock) \
     ); \
+    nz; \
 })
 
 #define spinlock_read(lock) ({ \
