@@ -313,6 +313,9 @@ static void vbe_tty_putchar(char c) {
         case '\r':
             vbe_tty_set_cursor_pos(0, cursor_y);
             break;
+        case '\a':
+            // dummy handler for bell
+            break;
         case 0x0A:
             if (cursor_y == (rows - 1)) {
                 vbe_tty_set_cursor_pos(0, (rows - 1));
