@@ -25,6 +25,7 @@ struct cpu_local_t {
     tid_t current_task;
     pid_t current_process;
     tid_t current_thread;
+    int64_t last_schedule_time;
     uint8_t lapic_id;
 };
 

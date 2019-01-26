@@ -193,9 +193,13 @@ void task_resched(struct ctx_t *ctx) {
         current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
         /* Save errno */
         current_thread->errno = cpu_locals[current_cpu].thread_errno;
+        /* Update statistics. */
+        current_thread->total_cputime += uptime_raw - cpu_locals[current_cpu].last_schedule_time;
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
     }
+
+    cpu_locals[current_cpu].last_schedule_time = uptime_raw;
 
     /* Get to the next task */
     current_task = task_get_next(current_task);

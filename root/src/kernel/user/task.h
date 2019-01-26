@@ -75,6 +75,7 @@ struct thread_t {
     event_t *event_ptr;
     int active_on_cpu;
     uint64_t syscall_entry_time;
+    int64_t total_cputime;
     size_t kstack;
     size_t ustack;
     size_t errno;
