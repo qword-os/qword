@@ -76,6 +76,7 @@ struct thread_t {
     int active_on_cpu;
     uint64_t syscall_entry_time;
     int64_t total_cputime;
+    int64_t accounted_cputime;
     size_t kstack;
     size_t ustack;
     size_t errno;

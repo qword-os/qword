@@ -24,8 +24,19 @@ static inline int privilege_check(size_t base, size_t len) {
 void enter_syscall() {
     spinlock_acquire(&scheduler_lock);
     pid_t current_task = cpu_locals[current_cpu].current_task;
+    pid_t current_process = cpu_locals[current_cpu].current_process;
     struct thread_t *thread = task_table[current_task];
+    struct process_t *process = process_table[current_process];
+
+    /* Account thread statistics since last syscall. */
+    int64_t cputime_delta = thread->total_cputime - thread->accounted_cputime;
+    thread->accounted_cputime = thread->total_cputime;
     spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->perfmon_lock);
+    if (process->active_perfmon)
+        atomic_add_uint64_relaxed(&process->active_perfmon->cpu_time, cputime_delta);
+    spinlock_release(&process->perfmon_lock);
 
     thread->syscall_entry_time = uptime_raw;
 }
