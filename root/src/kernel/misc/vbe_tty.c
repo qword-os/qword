@@ -310,6 +310,9 @@ static void vbe_tty_putchar(char c) {
                 break;
             vbe_tty_set_cursor_pos((cursor_x / tabsize + 1) * tabsize, cursor_y);
             break;
+        case '\r':
+            vbe_tty_set_cursor_pos(0, cursor_y);
+            break;
         case 0x0A:
             if (cursor_y == (rows - 1)) {
                 vbe_tty_set_cursor_pos(0, (rows - 1));
