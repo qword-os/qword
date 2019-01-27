@@ -6,6 +6,7 @@
 #include <mm/mm.h>
 #include <lib/lock.h>
 #include <fd/perfmon/perfmon.h>
+#include <lib/time.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -119,6 +120,9 @@ struct process_t {
     event_t child_event;
     lock_t perfmon_lock;
     struct perfmon_t *active_perfmon;
+    lock_t usage_lock;
+    struct rusage_t own_usage;
+    struct rusage_t child_usage;
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);

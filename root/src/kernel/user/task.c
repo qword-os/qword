@@ -309,6 +309,10 @@ found_new_pid:
 
     new_process->perfmon_lock = 1;
 
+    kmemset(&new_process->own_usage, 0, sizeof(struct rusage_t));
+    kmemset(&new_process->child_usage, 0, sizeof(struct rusage_t));
+    new_process->usage_lock = 1;
+
     /* Create a new pagemap for the process */
     pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
     if ((size_t)pml4 == MEM_PHYS_OFFSET) {

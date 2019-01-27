@@ -49,6 +49,13 @@ void leave_syscall() {
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
+    spinlock_acquire(&process->usage_lock);
+    process->own_usage.ru_stime.tv_nsec += (uptime_raw - thread->syscall_entry_time) *
+        1000;
+    process->own_usage.ru_stime.tv_sec = process->own_usage.ru_stime.tv_nsec /
+        1000000000;
+    spinlock_release(&process->usage_lock);
+
     spinlock_acquire(&process->perfmon_lock);
     if (process->active_perfmon)
         atomic_add_uint64_relaxed(&process->active_perfmon->syscall_time,
@@ -59,6 +66,54 @@ void leave_syscall() {
 /* Prototype syscall: int syscall_name(struct ctx_t *ctx) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
+
+int syscall_getrusage(struct ctx_t *ctx) {
+    /* rdi: who
+     * rsi: usage
+     */
+    if (privilege_check(ctx->rsi, sizeof(struct rusage_t))) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    struct rusage_t *usage = (struct rusage_t*) ctx->rsi;
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+    spinlock_acquire(&process->usage_lock);
+
+    switch (ctx->rdi) {
+    case RUSAGE_SELF:
+        kmemcpy(usage, &process->own_usage, sizeof(struct rusage_t));
+        break;
+    case RUSAGE_CHILDREN:
+        kmemcpy(usage, &process->child_usage, sizeof(struct rusage_t));
+        break;
+    default:
+        spinlock_release(process->usage_lock);
+        errno = ENOSYS;
+        return -1;
+    }
+
+    spinlock_release(&process->usage_lock);
+    return 0;
+}
+
+int syscall_clock_gettime(struct ctx_t *ctx) {
+    /* rdi: clk_id
+     * rsi: timespec
+     */
+    if (privilege_check(ctx->rsi, sizeof(struct timespec))) {
+        errno = EFAULT;
+        return -1;
+    }
+
+    struct timespec *tp = (struct timespec*) ctx->rsi;
+    tp->tv_sec = unix_epoch;
+    tp->tv_nsec = 0;
+    return 0;
+}
 
 int syscall_tcgetattr(struct ctx_t *ctx) {
     /* rdi: fd

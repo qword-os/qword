@@ -290,6 +290,10 @@ syscall_table:
     dq syscall_tcsetattr ;23
     extern syscall_tcgetattr
     dq syscall_tcgetattr ;24
+    extern syscall_clock_gettime
+    dq syscall_clock_gettime ;25
+    extern syscall_getrusage
+    dq syscall_getrusage ; 26
   .end:
 
 section .text
