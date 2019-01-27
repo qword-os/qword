@@ -76,7 +76,7 @@ int syscall_getrusage(struct ctx_t *ctx) {
         return -1;
     }
 
-    struct rusage_t *usage = (struct rusage_t*) ctx->rsi;
+    struct rusage_t *usage = (struct rusage_t *)ctx->rsi;
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
@@ -84,16 +84,16 @@ int syscall_getrusage(struct ctx_t *ctx) {
     spinlock_acquire(&process->usage_lock);
 
     switch (ctx->rdi) {
-    case RUSAGE_SELF:
-        kmemcpy(usage, &process->own_usage, sizeof(struct rusage_t));
-        break;
-    case RUSAGE_CHILDREN:
-        kmemcpy(usage, &process->child_usage, sizeof(struct rusage_t));
-        break;
-    default:
-        spinlock_release(process->usage_lock);
-        errno = ENOSYS;
-        return -1;
+        case RUSAGE_SELF:
+            *usage = process->own_usage;
+            break;
+        case RUSAGE_CHILDREN:
+            *usage = process->child_usage;
+            break;
+        default:
+            spinlock_release(&process->usage_lock);
+            errno = ENOSYS;
+            return -1;
     }
 
     spinlock_release(&process->usage_lock);
@@ -109,7 +109,7 @@ int syscall_clock_gettime(struct ctx_t *ctx) {
         return -1;
     }
 
-    struct timespec *tp = (struct timespec*) ctx->rsi;
+    struct timespec *tp = (struct timespec *)ctx->rsi;
     tp->tv_sec = unix_epoch;
     tp->tv_nsec = 0;
     return 0;
@@ -125,8 +125,8 @@ int syscall_tcgetattr(struct ctx_t *ctx) {
     }
 
     spinlock_acquire(&termios_lock);
-    struct termios_t *buf = (struct termios_t*) ctx->rsi;
-    kmemcpy(buf, &termios, sizeof(struct termios_t));
+    struct termios_t *buf = (struct termios_t *)ctx->rsi;
+    *buf = termios;
     spinlock_release(&termios_lock);
     return 0;
 }
