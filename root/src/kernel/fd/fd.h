@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <lib/time.h>
 #include <lib/klib.h>
-#include <devices/dev.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
 #define SEEK_CUR 1
@@ -33,6 +32,7 @@
 #define O_SYNC 0x2000
 #define O_CLOEXEC 0x4000
 
+typedef uint64_t dev_t;
 typedef uint64_t ino_t;
 typedef int32_t mode_t;
 typedef int32_t nlink_t;

@@ -5,6 +5,7 @@
 #include <misc/pci.h>
 #include <lib/klib.h>
 #include <devices/dev.h>
+#include <lib/errno.h>
 
 static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);
@@ -154,12 +155,14 @@ void init_ahci(void) {
                 if (ret == -1) {
                     kprint(KPRN_WARN, "failed to initialise sata device at index %u", i);
                 } else {
-                    device_add(ahci_names[i],
-                            i,
-                            ahci_devices[i].sector_count * 512,
-                            &ahci_read,
-                            &ahci_write,
-                            &ahci_flush);
+                    struct device_t device = {0};
+                    kstrcpy(device.name, ahci_names[i]);
+                    device.intern_fd = i;
+                    device.size = ahci_devices[i].sector_count * 512;
+                    device.calls.read = ahci_read;
+                    device.calls.write = ahci_write;
+                    device.calls.flush = ahci_flush;
+                    device_add(&device);
                 }
                 break;
             default:

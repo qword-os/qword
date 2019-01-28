@@ -47,11 +47,7 @@ void kmain_thread(void *arg) {
     char *root = cmdline_get_value("root");
     char new_root[64];
     if (!root) {
-        char *dev;
         kprint(KPRN_WARN, "kmain: Command line argument \"root\" not specified.");
-        kprint(KPRN_INFO, "List of available devices:");
-        for (size_t i = 0; (dev = device_list(i)); i++)
-            kprint(KPRN_INFO, "/dev/%s", dev);
         readline(tty, "Select root device: ", new_root, 64);
         root = new_root;
     } else {
@@ -111,10 +107,6 @@ void kmain_thread(void *arg) {
 void kmain(void) {
     init_idt();
 
-    init_vga_textmode();
-
-    init_tty();
-
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
@@ -127,6 +119,8 @@ void kmain(void) {
     /* Early inits */
     init_vbe();
     init_vbe_tty();
+    init_vga_textmode();
+    init_tty();
 
     /* Time stuff */
     struct s_time_t s_time;

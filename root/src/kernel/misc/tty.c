@@ -27,6 +27,7 @@ void tty_putchar(char c) {
 }
 
 int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
+    (void)magic;
     char *buf = (char *)data;
 
     if (use_vbe) {
@@ -43,12 +44,12 @@ int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
 }
 
 int tty_read(int magic, void *data, uint64_t loc, size_t count) {
+    (void)magic;
     int res = (int)kbd_read(data, count);
 
     return res;
 }
 
-/* Stub for now */
 static int tty_flush(int dev) {
     return 1;
 }
@@ -72,7 +73,15 @@ void init_tty(void) {
         use_vbe = 1;
     }
 
-    dev_t dev = device_add("tty", 0xdead, 0, &tty_read, &tty_write, &tty_flush);
+    struct device_t device = {0};
+    kstrcpy(device.name, "tty");
+    device.intern_fd = 0;
+    device.size = 0;
+    device.calls.read = tty_read;
+    device.calls.write = tty_write;
+    device.calls.flush = tty_flush;
+    dev_t dev = device_add(&device);
+
     if (dev == -1) {
         return;
     }

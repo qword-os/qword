@@ -6,6 +6,7 @@
 #include <misc/pci.h>
 #include <devices/storage/ata/ata.h>
 #include <mm/mm.h>
+#include <lib/errno.h>
 
 #define DEVICE_COUNT 4
 #define BYTES_PER_SECT 512
@@ -254,8 +255,14 @@ void init_ata(void) {
         j++;
         if (j % 2) master = 0;
         else master = 1;
-        device_add(ata_names[i], i, ata_devices[i].sector_count * 512,
-                          &ata_read, &ata_write, &ata_flush1);
+        struct device_t device = {0};
+        kstrcpy(device.name, ata_names[i]);
+        device.intern_fd = i;
+        device.size = ata_devices[i].sector_count * 512;
+        device.calls.read = ata_read;
+        device.calls.write = ata_write;
+        device.calls.flush = ata_flush1;
+        device_add(&device);
         kprint(KPRN_INFO, "ata: Initialised %s", ata_names[i]);
     }
 

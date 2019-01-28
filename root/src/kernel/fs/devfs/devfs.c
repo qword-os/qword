@@ -1,332 +1,349 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <lib/klib.h>
+#include <lib/time.h>
 #include <fd/vfs/vfs.h>
 #include <devices/dev.h>
 #include <lib/lock.h>
 #include <lib/errno.h>
+#include <sys/panic.h>
 
-#define DEVFS_HANDLES_STEP 1024
+dynarray_new(struct device_t, devices);
 
 struct devfs_handle_t {
-    int free;
-    int refcount;
-    char path[1024];
-    int flags;
-    int mode;
+    struct device_t *device;
+    int root;
+    int dev_fd;
     long ptr;
-    long begin;
-    long end;
-    int is_stream;
-    int device;
+    long size;
+    int refcount;
     lock_t lock;
 };
 
-static lock_t devfs_lock = 1;
+dynarray_new(struct devfs_handle_t, devfs_handles);
 
-static struct devfs_handle_t *devfs_handles;
-static int devfs_handles_i;
-
-static int devfs_create_handle(struct devfs_handle_t handle) {
-    int handle_n;
-
-    for (int i = 0; i < devfs_handles_i; i++) {
-        if (devfs_handles[i].free) {
-            handle_n = i;
-            goto load_handle;
+dev_t device_add(struct device_t *device) {
+    /* check if any entry is bogus */
+    /* XXX make this prettier */
+    size_t *p = (size_t *)&device->calls;
+    for (size_t i = 0; i < sizeof(struct device_calls_t) / sizeof(size_t); i++)
+        if (!p[i]) {
+            kprint(KPRN_ERR, "devfs: Device %s does not register all needed calls.", device->name);
+            kprint(KPRN_ERR, "devfs: (call %U unregistered, struct at %X)", i, &device->calls);
+            panic("Incomplete device", 0, 0);
         }
-    }
 
-    devfs_handles = krealloc(devfs_handles,
-        (devfs_handles_i + DEVFS_HANDLES_STEP) * sizeof(struct devfs_handle_t));
-    handle_n = devfs_handles_i;
-
-    for ( ;
-         devfs_handles_i < devfs_handles_i + DEVFS_HANDLES_STEP;
-         devfs_handles_i++) {
-        devfs_handles[devfs_handles_i].free = 1;
-    }
-
-load_handle:
-    devfs_handles[handle_n] = handle;
-
-    return handle_n;
+    return dynarray_add(struct device_t, devices, device);
 }
 
-static int devfs_write(int handle, const void *ptr, size_t len) {
-    spinlock_acquire(&devfs_lock);
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-    if (devfs_handles[handle].device == -1) {
-        spinlock_release(&devfs_lock);
-        errno = EISDIR;
-        return -1;
-    }
-    spinlock_acquire(&devfs_handles[handle].lock);
-    struct devfs_handle_t dev = devfs_handles[handle];
-    spinlock_release(&devfs_lock);
-    int ret = device_write(dev.device, ptr, dev.ptr, len);
-    if (ret == -1) {
-        spinlock_acquire(&devfs_lock);
-        spinlock_release(&devfs_handles[handle].lock);
-        spinlock_release(&devfs_lock);
-        return -1;
-    }
-    dev.ptr += ret;
-    spinlock_acquire(&devfs_lock);
-    devfs_handles[handle] = dev;
-    spinlock_release(&devfs_handles[handle].lock);
-    spinlock_release(&devfs_lock);
-    return ret;
-}
+static int devfs_open(char *path, int flags, int unused) {
+    (void)unused;
+    struct devfs_handle_t new_handle = {0};
 
-static int devfs_read(int handle, void *ptr, size_t len) {
-    spinlock_acquire(&devfs_lock);
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
-        errno = EBADF;
-        return -1;
-    }
-    if (devfs_handles[handle].device == -1) {
-        spinlock_release(&devfs_lock);
-        errno = EISDIR;
-        return -1;
-    }
-    spinlock_acquire(&devfs_handles[handle].lock);
-    struct devfs_handle_t dev = devfs_handles[handle];
-    spinlock_release(&devfs_lock);
-    int ret = device_read(dev.device, ptr, dev.ptr, len);
-    if (ret == -1) {
-        spinlock_acquire(&devfs_lock);
-        spinlock_release(&devfs_handles[handle].lock);
-        spinlock_release(&devfs_lock);
-        return -1;
-    }
-    dev.ptr += ret;
-    spinlock_acquire(&devfs_lock);
-    devfs_handles[handle] = dev;
-    spinlock_release(&devfs_handles[handle].lock);
-    spinlock_release(&devfs_lock);
-    return ret;
-}
-
-static int devfs_mount(void) {
-    return 0;
-}
-
-static int devfs_open(char *path, int flags, int mode) {
-    spinlock_acquire(&devfs_lock);
-
-    int is_root = 0;
+    new_handle.lock = 1;
 
     if (flags & O_APPEND) {
         errno = EROFS;
-        goto fail;
+        return -1;
     }
 
     if (!kstrcmp(path, "/")) {
-        is_root = 1;
-        goto root;
+        new_handle.root = 1;
+        return dynarray_add(struct devfs_handle_t, devfs_handles, &new_handle);
     }
 
     if (*path == '/')
         path++;
 
-    dev_t device = device_find(path);
-    if (device == (dev_t)(-1)) {
+    struct device_t *device = dynarray_search(struct device_t, devices, !kstrcmp(elem->name, path));
+    if (!device) {
         if (flags & O_CREAT)
             errno = EROFS;
         else
             errno = ENOENT;
-        goto fail;
+        return -1;
     }
 
-root:;
-    struct devfs_handle_t new_handle = {0};
-    new_handle.free = 0;
-    new_handle.refcount = 1;
-    kstrcpy(new_handle.path, path);
-    new_handle.flags = flags;
-    new_handle.mode = mode;
-    if (is_root)
-        new_handle.end = 0;
-    else
-        new_handle.end = (long)device_size(device);
-    if (!new_handle.end)
-        new_handle.is_stream = 1;
-    new_handle.ptr = 0;
-    new_handle.begin = 0;
-    if (is_root)
-        new_handle.device = -1;
-    else
-        new_handle.device = device;
+    new_handle.dev_fd = device->intern_fd;
+    new_handle.size = device->size;
+    new_handle.device = device;
 
-    new_handle.lock = 1;
-
-    int ret = devfs_create_handle(new_handle);
-    spinlock_release(&devfs_lock);
-    return ret;
-
-fail:
-    spinlock_release(&devfs_lock);
-    return -1;
+    return dynarray_add(struct devfs_handle_t, devfs_handles, &new_handle);
 }
 
-static int devfs_close(int handle) {
-    spinlock_acquire(&devfs_lock);
+void device_sync_worker(void *arg) {
+    (void)arg;
 
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
+    for (;;) {
+        for (size_t i = 0; i < spinlock_read(&devices_i); i++) {
+            struct device_t *device = dynarray_getelem(struct device_t, devices, i);
+            if (!device)
+                continue;
+            switch (device->calls.flush(device->intern_fd)) {
+                case 1:
+                    /* flush is a no-op */
+                    break;
+                default:
+                    yield(100);
+                    break;
+            }
+            dynarray_unref(devices, i);
+            yield(1000);
+        }
+    }
+}
+
+static int devfs_read(int fd, void *ptr, size_t len) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    if (!devfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    if (!(--devfs_handles[handle].refcount)) {
-        devfs_handles[handle].free = 1;
-    }
-
-    spinlock_release(&devfs_lock);
-    return 0;
-}
-
-static int devfs_lseek(int handle, off_t offset, int type) {
-    spinlock_acquire(&devfs_lock);
-
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        errno = EBADF;
-        spinlock_release(&devfs_lock);
+    if (devfs_handle->root) {
+        dynarray_unref(devfs_handles, fd);
+        errno = EISDIR;
         return -1;
     }
 
-    if (devfs_handles[handle].is_stream) {
-        errno = ESPIPE;
-        spinlock_release(&devfs_lock);
+    spinlock_acquire(&devfs_handle->lock);
+
+    int ret = devfs_handle->device->calls.read(
+                devfs_handle->dev_fd,
+                ptr,
+                devfs_handle->ptr,
+                len);
+
+    if (ret == -1) {
+        spinlock_release(&devfs_handle->lock);
+        dynarray_unref(devfs_handles, fd);
         return -1;
     }
 
-    switch (type) {
-        case SEEK_SET:
-            if ((devfs_handles[handle].begin + offset) > devfs_handles[handle].end ||
-                (devfs_handles[handle].begin + offset) < devfs_handles[handle].begin) goto def;
-            devfs_handles[handle].ptr = devfs_handles[handle].begin + offset;
-            break;
-        case SEEK_END:
-            if ((devfs_handles[handle].end + offset) > devfs_handles[handle].end ||
-                (devfs_handles[handle].end + offset) < devfs_handles[handle].begin) goto def;
-            devfs_handles[handle].ptr = devfs_handles[handle].end + offset;
-            break;
-        case SEEK_CUR:
-            if ((devfs_handles[handle].ptr + offset) > devfs_handles[handle].end ||
-                (devfs_handles[handle].ptr + offset) < devfs_handles[handle].begin) goto def;
-            devfs_handles[handle].ptr += offset;
-            break;
-        default:
-        def:
-            spinlock_release(&devfs_lock);
-            errno = EINVAL;
-            return -1;
-    }
+    devfs_handle->ptr += ret;
+    spinlock_release(&devfs_handle->lock);
+    dynarray_unref(devfs_handles, fd);
 
-    long ret = devfs_handles[handle].ptr;
-    spinlock_release(&devfs_lock);
     return ret;
 }
 
-static int devfs_dup(int handle) {
-    spinlock_acquire(&devfs_lock);
+static int devfs_write(int fd, const void *ptr, size_t len) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
 
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
+    if (!devfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    devfs_handles[handle].refcount++;
+    if (devfs_handle->root) {
+        dynarray_unref(devfs_handles, fd);
+        errno = EISDIR;
+        return -1;
+    }
 
-    spinlock_release(&devfs_lock);
+    spinlock_acquire(&devfs_handle->lock);
 
-    return 0;
+    int ret = devfs_handle->device->calls.write(
+                devfs_handle->dev_fd,
+                ptr,
+                devfs_handle->ptr,
+                len);
+
+    if (ret == -1) {
+        spinlock_release(&devfs_handle->lock);
+        dynarray_unref(devfs_handles, fd);
+        return -1;
+    }
+
+    devfs_handle->ptr += ret;
+    spinlock_release(&devfs_handle->lock);
+    dynarray_unref(devfs_handles, fd);
+
+    return ret;
 }
 
-int devfs_fstat(int handle, struct stat *st) {
-    spinlock_acquire(&devfs_lock);
+static int devfs_fstat(int fd, struct stat *st) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
 
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
+    if (!devfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    st->st_dev = 0;
-    st->st_ino = devfs_handles[handle].device + 1;
+    // devfs root fstat
+    st->st_dev = 1;
+    if (devfs_handle->root)
+        st->st_ino = 1;
+    else
+        st->st_ino = (ino_t)devfs_handle->device;
     st->st_nlink = 1;
     st->st_uid = 0;
     st->st_gid = 0;
     st->st_rdev = 0;
-    if (!devfs_handles[handle].is_stream)
-        st->st_size = devfs_handles[handle].end;
-    else
-        st->st_size = 0;
+    st->st_size = devfs_handle->size;
     st->st_blksize = 512;
-    st->st_blocks = (st->st_size + 512 - 1) / 512;
-    st->st_atim.tv_sec = 0;
+    st->st_blocks = (devfs_handle->size + 512 - 1) / 512;
+    st->st_atim.tv_sec = unix_epoch;
     st->st_atim.tv_nsec = 0;
-    st->st_mtim.tv_sec = 0;
+    st->st_mtim.tv_sec = unix_epoch;
     st->st_mtim.tv_nsec = 0;
-    st->st_ctim.tv_sec = 0;
+    st->st_ctim.tv_sec = unix_epoch;
     st->st_ctim.tv_nsec = 0;
-
     st->st_mode = 0;
-    if (devfs_handles[handle].device == -1) {
+    if (devfs_handle->root)
         st->st_mode |= S_IFDIR;
-    } else {
-        if (devfs_handles[handle].is_stream)
+    else
+        if (!devfs_handle->size)
             st->st_mode |= S_IFCHR;
         else
             st->st_mode |= S_IFBLK;
-    }
 
-    spinlock_release(&devfs_lock);
+    dynarray_unref(devfs_handles, fd);
+
     return 0;
 }
 
-static int devfs_readdir(int handle, struct dirent *dir) {
-    spinlock_acquire(&devfs_lock);
+static int devfs_mount(const char *a, unsigned long b, const void *c) {
+    (void)a;
+    (void)b;
+    (void)c;
+    return 0;
+}
 
-    if (   handle < 0
-        || handle >= devfs_handles_i
-        || devfs_handles[handle].free) {
-        spinlock_release(&devfs_lock);
+static int devfs_umount(const char *a) {
+    (void)a;
+    return 0;
+}
+
+static int devfs_close(int fd) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    if (!devfs_handle) {
         errno = EBADF;
         return -1;
     }
 
+    spinlock_acquire(&devfs_handle->lock);
+
+    if (!(--devfs_handle->refcount))
+        dynarray_remove(devfs_handles, fd);
+    else
+        spinlock_release(&devfs_handle->lock);
+
+    dynarray_unref(devfs_handles, fd);
+
+    return 0;
+}
+
+static int devfs_dup(int fd) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    if (!devfs_handle) {
+        errno = EBADF;
+        return -1;
+    }
+
+    spinlock_acquire(&devfs_handle->lock);
+    devfs_handle->refcount++;
+    spinlock_release(&devfs_handle->lock);
+
+    dynarray_unref(devfs_handles, fd);
+
+    return 0;
+}
+
+static int devfs_lseek(int fd, off_t offset, int type) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    if (!devfs_handle) {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (devfs_handle->root) {
+        dynarray_unref(devfs_handles, fd);
+        errno = EISDIR;
+        return -1;
+    }
+
+    if (!devfs_handle->size) {
+        dynarray_unref(devfs_handles, fd);
+        errno = ESPIPE;
+        return -1;
+    }
+
+    spinlock_acquire(&devfs_handle->lock);
+
+    switch (type) {
+        case SEEK_SET:
+            if (offset >= devfs_handle->size ||
+                offset < 0) goto def;
+            devfs_handle->ptr = offset;
+            break;
+        case SEEK_END:
+            if (devfs_handle->size + offset >= devfs_handle->size ||
+                devfs_handle->size + offset < 0) goto def;
+            devfs_handle->ptr = devfs_handle->size + offset;
+            break;
+        case SEEK_CUR:
+            if (devfs_handle->ptr + offset >= devfs_handle->size ||
+                devfs_handle->ptr + offset < 0) goto def;
+            devfs_handle->ptr += offset;
+            break;
+        default:
+        def:
+            spinlock_release(&devfs_handle->lock);
+            dynarray_unref(devfs_handles, fd);
+            errno = EINVAL;
+            return -1;
+    }
+
+    long ret = devfs_handle->ptr;
+    spinlock_release(&devfs_handle->lock);
+    dynarray_unref(devfs_handles, fd);
+    return ret;
+}
+
+static int devfs_readdir(int fd, struct dirent *dir) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    if (!devfs_handle) {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (!devfs_handle->root) {
+        dynarray_unref(devfs_handles, fd);
+        errno = ENOTDIR;
+        return -1;
+    }
+
+    spinlock_acquire(&devfs_handle->lock);
+
     for (;;) {
         // check if past directory table
-        if (devfs_handles[handle].ptr >= MAX_DEVICES) goto end_of_dir;
-        struct device *dev = &devices[devfs_handles[handle].ptr];
-        devfs_handles[handle].ptr++;
-        if (dev->used) {
+        if (devfs_handle->ptr >= spinlock_read(&devices_i)) {
+            errno = 0;
+            spinlock_release(&devfs_handle->lock);
+            dynarray_unref(devfs_handles, fd);
+            return -1;
+        }
+        struct device_t *dev = dynarray_getelem(struct device_t, devices, devfs_handle->ptr);
+        devfs_handle->ptr++;
+        if (dev) {
             // valid entry
-            dir->d_ino = devfs_handles[handle].ptr;
+            dir->d_ino = (ino_t)dev;
             kstrcpy(dir->d_name, dev->name);
             dir->d_reclen = sizeof(struct dirent);
-            if (dev->size) {
+            if (!dev->size) {
                 dir->d_type = DT_CHR;
             } else {
                 dir->d_type = DT_BLK;
@@ -335,13 +352,9 @@ static int devfs_readdir(int handle, struct dirent *dir) {
         }
     }
 
-    spinlock_release(&devfs_lock);
+    spinlock_release(&devfs_handle->lock);
+    dynarray_unref(devfs_handles, fd);
     return 0;
-
-end_of_dir:
-    spinlock_release(&devfs_lock);
-    errno = 0;
-    return -1;
 }
 
 int devfs_sync(void) {
@@ -350,18 +363,13 @@ int devfs_sync(void) {
 
 int init_fs_devfs(void) {
     struct fs_t devfs = {0};
-    devfs_handles = kalloc(DEVFS_HANDLES_STEP * sizeof(struct devfs_handle_t));
-    devfs_handles_i = DEVFS_HANDLES_STEP;
-
-    for (size_t i = 0; i < DEVFS_HANDLES_STEP; i++) {
-        devfs_handles[i].free = 1;
-    }
 
     kstrcpy(devfs.type, "devfs");
     devfs.read = devfs_read;
     devfs.write = devfs_write;
-    devfs.mount = (void *)devfs_mount;
-    devfs.open = (void *)devfs_open;
+    devfs.mount = devfs_mount;
+    devfs.umount = devfs_umount;
+    devfs.open = devfs_open;
     devfs.close = devfs_close;
     devfs.lseek = devfs_lseek;
     devfs.fstat = devfs_fstat;
@@ -370,4 +378,6 @@ int init_fs_devfs(void) {
     devfs.sync = devfs_sync;
 
     vfs_install_fs(&devfs);
+
+    return 0;
 }
