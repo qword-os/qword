@@ -4,6 +4,7 @@
 #include <fd/vfs/vfs.h>
 #include <lib/lock.h>
 #include <lib/errno.h>
+#include <lib/ht.h>
 #include <sys/panic.h>
 
 #define SEARCH_FAILURE          0xffffffffffffffff
