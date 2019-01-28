@@ -50,10 +50,10 @@ void leave_syscall() {
     spinlock_release(&scheduler_lock);
 
     spinlock_acquire(&process->usage_lock);
-    process->own_usage.ru_stime.tv_nsec += (uptime_raw - thread->syscall_entry_time) *
-        1000;
-    process->own_usage.ru_stime.tv_sec = process->own_usage.ru_stime.tv_nsec /
-        1000000000;
+    time_t syscall_time = uptime_raw - thread->syscall_entry_time;
+    process->own_usage.ru_stime.tv_sec += syscall_time / 1000;
+    process->own_usage.ru_stime.tv_nsec += ((syscall_time -
+                    process->own_usage.ru_stime.tv_sec) * 1000);
     spinlock_release(&process->usage_lock);
 
     spinlock_acquire(&process->perfmon_lock);
