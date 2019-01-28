@@ -5,6 +5,7 @@
 #include <misc/vbe.h>
 #include <sys/panic.h>
 #include <lib/lock.h>
+#include <lib/alloc.h>
 
 int vbe_tty_available = 0;
 

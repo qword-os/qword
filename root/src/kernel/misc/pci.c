@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <misc/pci.h>
 #include <lib/klib.h>
+#include <lib/alloc.h>
 
 #define MAX_FUNCTION 8
 #define MAX_DEVICE 32

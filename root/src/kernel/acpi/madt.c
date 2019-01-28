@@ -3,6 +3,7 @@
 #include <acpi/acpi.h>
 #include <acpi/madt.h>
 #include <lib/klib.h>
+#include <lib/alloc.h>
 
 int madt_available = 0;
 struct madt_t *madt;

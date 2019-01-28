@@ -3,7 +3,8 @@
 
 #include <stddef.h>
 #include <lib/time.h>
-#include <lib/klib.h>
+#include <lib/dynarray.h>
+#include <lib/types.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
 #define SEEK_CUR 1
@@ -31,13 +32,6 @@
 #define O_RSYNC 0x1000
 #define O_SYNC 0x2000
 #define O_CLOEXEC 0x4000
-
-typedef uint64_t dev_t;
-typedef uint64_t ino_t;
-typedef int32_t mode_t;
-typedef int32_t nlink_t;
-typedef int64_t blksize_t;
-typedef int64_t blkcnt_t;
 
 #define S_IFMT 0x0F00
 #define S_IFBLK 0x0000

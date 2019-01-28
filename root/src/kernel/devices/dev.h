@@ -3,8 +3,8 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <lib/klib.h>
-#include <fd/fd.h>
+#include <lib/dynarray.h>
+#include <lib/types.h>
 
 #define MAX_DEVICES 128
 

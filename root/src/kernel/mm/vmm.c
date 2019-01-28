@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <mm/mm.h>
 #include <lib/klib.h>
+#include <lib/alloc.h>
 #include <sys/e820.h>
 #include <lib/lock.h>
 #include <sys/panic.h>

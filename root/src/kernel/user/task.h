@@ -7,6 +7,7 @@
 #include <lib/lock.h>
 #include <fd/perfmon/perfmon.h>
 #include <lib/time.h>
+#include <lib/types.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -61,11 +62,6 @@ struct ctx_t {
     uint64_t rsp;
     uint64_t ss;
 };
-
-typedef int32_t pid_t;
-typedef int32_t tid_t;
-typedef int32_t uid_t;
-typedef int32_t gid_t;
 
 struct thread_t {
     tid_t tid;

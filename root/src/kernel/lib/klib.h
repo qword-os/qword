@@ -38,142 +38,6 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
     );
 }
 
-#define dynarray_new(type, name) \
-    static struct { \
-        lock_t refcount; \
-        int present; \
-        type *data; \
-    } **name; \
-    static size_t name##_i = 0; \
-    static lock_t name##_lock = 1;
-
-#define public_dynarray_new(type, name) \
-    struct __##name##_struct **name; \
-    size_t name##_i = 0; \
-    lock_t name##_lock = 1;
-
-#define public_dynarray_prototype(type, name) \
-    struct __##name##_struct { \
-        lock_t refcount; \
-        int present; \
-        type *data; \
-    }; \
-    extern struct __##name##_struct **name; \
-    extern size_t name##_i; \
-    extern lock_t name##_lock;
-
-#define dynarray_remove(dynarray, element) ({ \
-    __label__ out; \
-    int ret; \
-    spinlock_acquire(&dynarray##_lock); \
-    if (!dynarray[element]) { \
-        ret = -1; \
-        goto out; \
-    } \
-    ret = 0; \
-    dynarray[element]->present = 0; \
-    if (!spinlock_dec(&dynarray[element]->refcount)) { \
-        kfree(dynarray[element]->data); \
-        kfree(dynarray[element]); \
-        dynarray[element] = 0; \
-    } \
-out: \
-    spinlock_release(&dynarray##_lock); \
-    ret; \
-})
-
-#define dynarray_ref(dynarray, element) ({ \
-    spinlock_acquire(&dynarray##_lock); \
-    spinlock_inc(&dynarray[element]->refcount); \
-    spinlock_release(&dynarray##_lock); \
-})
-
-#define dynarray_unref(dynarray, element) ({ \
-    spinlock_acquire(&dynarray##_lock); \
-    if (dynarray[element] && !spinlock_dec(&dynarray[element]->refcount)) { \
-        kfree(dynarray[element]->data); \
-        kfree(dynarray[element]); \
-        dynarray[element] = 0; \
-    } \
-    spinlock_release(&dynarray##_lock); \
-})
-
-#define dynarray_getelem(type, dynarray, element) ({ \
-    spinlock_acquire(&dynarray##_lock); \
-    type *ptr = NULL; \
-    if (dynarray[element] && dynarray[element]->present) { \
-        ptr = dynarray[element]->data; \
-        spinlock_inc(&dynarray[element]->refcount); \
-    } \
-    spinlock_release(&dynarray##_lock); \
-    ptr; \
-})
-
-#define dynarray_add(type, dynarray, element) ({ \
-    __label__ fnd; \
-    __label__ out; \
-    int ret = -1; \
-        \
-    spinlock_acquire(&dynarray##_lock); \
-        \
-    size_t i; \
-    for (i = 0; i < dynarray##_i; i++) { \
-        if (!dynarray[i]) \
-            goto fnd; \
-    } \
-        \
-    dynarray##_i += 256; \
-    void *tmp = krealloc(dynarray, dynarray##_i * sizeof(void *)); \
-    if (!tmp) \
-        goto out; \
-    dynarray = tmp; \
-        \
-fnd: \
-    dynarray[i] = kalloc(sizeof(**dynarray)); \
-    if (!dynarray[i]) \
-        goto out; \
-    dynarray[i]->data = kalloc(sizeof(type)); \
-    if (!dynarray[i]->data) { \
-        kfree(dynarray[i]); \
-        goto out; \
-    } \
-    dynarray[i]->refcount = 1; \
-    dynarray[i]->present = 1; \
-    *dynarray[i]->data = *element; \
-        \
-    ret = i; \
-        \
-out: \
-    spinlock_release(&dynarray##_lock); \
-    ret; \
-})
-
-#define dynarray_search(type, dynarray, cond) ({ \
-    __label__ fnd; \
-    __label__ out; \
-    type *ret = NULL; \
-        \
-    spinlock_acquire(&dynarray##_lock); \
-        \
-    size_t i; \
-    for (i = 0; i < dynarray##_i; i++) { \
-        if (!dynarray[i] || !dynarray[i]->present) \
-            continue; \
-        type *elem = dynarray[i]->data; \
-        if (cond) \
-            goto fnd; \
-    } \
-    goto out; \
-        \
-fnd: \
-    ret = dynarray[i]->data; \
-    spinlock_inc(&dynarray[i]->refcount); \
-        \
-out: \
-    spinlock_release(&dynarray##_lock); \
-    ret; \
-})
-
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
@@ -220,9 +84,6 @@ size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);
 int kstrncmp(const char *, const char *, size_t);
 void kprint(int type, const char *fmt, ...);
-void *kalloc(size_t);
-void kfree(void *);
-void *krealloc(void *, size_t);
 
 void *kmemset(void *, int, size_t);
 void *kmemset64(void *, uint64_t, size_t);
@@ -239,7 +100,5 @@ struct ht_entry_t *ht_get_bucket(struct hashtable_t *, uint64_t);
 struct ht_entry_t *ht_remove_entry(struct hashtable_t*,
         struct ht_entry_t*, struct ht_entry_t*);
 uint64_t ht_hash_str(const char *);
-
-typedef int64_t off_t;
 
 #endif
