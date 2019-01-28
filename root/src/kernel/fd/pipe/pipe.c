@@ -21,9 +21,7 @@ struct pipe_t {
 dynarray_new(struct pipe_t, pipes);
 
 static int pipe_close(int fd) {
-    spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd]->data;
-    spinlock_release(&pipes_lock);
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
 
     spinlock_acquire(&pipe->lock);
     pipe->refcount--;
@@ -31,19 +29,18 @@ static int pipe_close(int fd) {
         pipe->term = 1;
         task_trigger_event(&pipe->event);
         spinlock_release(&pipe->lock);
+        dynarray_unref(pipes, fd);
         return 0;
     }
     if (pipe->size)
         kfree(pipe->buffer);
     kfree(pipe);
-    pipes[fd] = 0;
+    dynarray_remove(pipes, fd);
     return 0;
 }
 
 static int pipe_read(int fd, void *buf, size_t count) {
-    spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd]->data;
-    spinlock_release(&pipes_lock);
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
 
     spinlock_acquire(&pipe->lock);
 
@@ -77,13 +74,12 @@ static int pipe_read(int fd, void *buf, size_t count) {
     pipe->size -= count;
 
     spinlock_release(&pipe->lock);
+    dynarray_unref(pipes, fd);
     return count;
 }
 
 static int pipe_write(int fd, const void *buf, size_t count) {
-    spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd]->data;
-    spinlock_release(&pipes_lock);
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
 
     spinlock_acquire(&pipe->lock);
 
@@ -101,6 +97,7 @@ static int pipe_write(int fd, const void *buf, size_t count) {
     task_trigger_event(&pipe->event);
 
     spinlock_release(&pipe->lock);
+    dynarray_unref(pipes, fd);
     return count;
 }
 
@@ -114,12 +111,11 @@ static int pipe_lseek(int fd, off_t offset, int type) {
 }
 
 static int pipe_dup(int fd) {
-    spinlock_acquire(&pipes_lock);
-    struct pipe_t *pipe = pipes[fd]->data;
-    spinlock_release(&pipes_lock);
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
     spinlock_acquire(&pipe->lock);
     pipe->refcount++;
     spinlock_release(&pipe->lock);
+    dynarray_unref(pipes, fd);
     return fd;
 }
 
@@ -134,11 +130,11 @@ static int pipe_fstat(int fd, struct stat *st) {
     st->st_size = 0;
     st->st_blksize = 0;
     st->st_blocks = 0;
-    st->st_atim.tv_sec = 0;
+    st->st_atim.tv_sec = unix_epoch;
     st->st_atim.tv_nsec = 0;
-    st->st_mtim.tv_sec = 0;
+    st->st_mtim.tv_sec = unix_epoch;
     st->st_mtim.tv_nsec = 0;
-    st->st_ctim.tv_sec = 0;
+    st->st_ctim.tv_sec = unix_epoch;
     st->st_ctim.tv_nsec = 0;
     st->st_mode = 0;
     st->st_mode |= S_IFIFO;
@@ -164,7 +160,7 @@ static struct fd_handler_t pipe_functions = {
 };
 
 int pipe(int *pipefd) {
-    struct pipe_t new_pipe;
+    struct pipe_t new_pipe = {0};
     new_pipe.refcount = 2;
     new_pipe.lock = 1;
 
