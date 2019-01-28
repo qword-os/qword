@@ -40,6 +40,7 @@ static int devfs_open(char *path, int flags, int unused) {
     (void)unused;
     struct devfs_handle_t new_handle = {0};
 
+    new_handle.refcount = 1;
     new_handle.lock = 1;
 
     if (flags & O_APPEND) {
@@ -179,7 +180,7 @@ static int devfs_fstat(int fd, struct stat *st) {
     if (devfs_handle->root)
         st->st_ino = 1;
     else
-        st->st_ino = (ino_t)devfs_handle->device;
+        st->st_ino = (ino_t)((size_t)devfs_handle->device & 0xfffffff);
     st->st_nlink = 1;
     st->st_uid = 0;
     st->st_gid = 0;
@@ -230,11 +231,12 @@ static int devfs_close(int fd) {
 
     spinlock_acquire(&devfs_handle->lock);
 
-    if (!(--devfs_handle->refcount))
+    if (!(--devfs_handle->refcount)) {
         dynarray_remove(devfs_handles, fd);
-    else
-        spinlock_release(&devfs_handle->lock);
+        return 0;
+    }
 
+    spinlock_release(&devfs_handle->lock);
     dynarray_unref(devfs_handles, fd);
 
     return 0;
@@ -340,7 +342,7 @@ static int devfs_readdir(int fd, struct dirent *dir) {
         devfs_handle->ptr++;
         if (dev) {
             // valid entry
-            dir->d_ino = (ino_t)dev;
+            dir->d_ino = (ino_t)((size_t)dev & 0xfffffff);
             kstrcpy(dir->d_name, dev->name);
             dir->d_reclen = sizeof(struct dirent);
             if (!dev->size) {
