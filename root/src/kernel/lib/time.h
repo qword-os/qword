@@ -21,6 +21,11 @@ struct timespec {
     long tv_nsec;
 };
 
+struct timeval {
+    time_t tv_sec;
+    long tv_usec;
+};
+
 struct s_time_t {
     uint32_t seconds;
     uint32_t minutes;
@@ -34,8 +39,8 @@ struct s_time_t {
 #define RUSAGE_CHILDREN 2
 
 struct rusage_t {
-    struct timespec ru_utime; /* user CPU time used */
-    struct timespec ru_stime; /* system CPU time used */
+    struct timeval ru_utime; /* user CPU time used */
+    struct timeval ru_stime; /* system CPU time used */
 };
 
 void bios_get_time(struct s_time_t *);
