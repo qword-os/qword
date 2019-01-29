@@ -31,7 +31,6 @@ void enter_syscall() {
     /* Account thread statistics since last syscall. */
     int64_t cputime_delta = thread->total_cputime - thread->accounted_cputime;
     thread->accounted_cputime = thread->total_cputime;
-    spinlock_release(&scheduler_lock);
 
     spinlock_acquire(&process->perfmon_lock);
     if (process->active_perfmon)
@@ -39,6 +38,7 @@ void enter_syscall() {
     spinlock_release(&process->perfmon_lock);
 
     thread->syscall_entry_time = uptime_raw;
+    spinlock_release(&scheduler_lock);
 }
 
 void leave_syscall() {
@@ -47,14 +47,17 @@ void leave_syscall() {
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct thread_t *thread = task_table[current_task];
     struct process_t *process = process_table[current_process];
-    spinlock_release(&scheduler_lock);
 
     spinlock_acquire(&process->usage_lock);
     time_t syscall_time = uptime_raw - thread->syscall_entry_time;
     process->own_usage.ru_stime.tv_sec += syscall_time / 1000;
-    process->own_usage.ru_stime.tv_nsec += ((syscall_time -
-                    process->own_usage.ru_stime.tv_sec) * 1000);
+    process->own_usage.ru_stime.tv_nsec += ((syscall_time % 1000) * 1000);
+    if (process->own_usage.ru_stime.tv_nsec >= 1000000) {
+        process->own_usage.ru_stime.tv_nsec -= 1000000;
+        process->own_usage.ru_stime.tv_sec += 1;
+    }
     spinlock_release(&process->usage_lock);
+    spinlock_release(&scheduler_lock);
 
     spinlock_acquire(&process->perfmon_lock);
     if (process->active_perfmon)
@@ -382,6 +385,8 @@ int syscall_fork(struct ctx_t *ctx) {
     kfree(new_process->pagemap);
 
     new_process->pagemap = new_pagemap;
+    kmemset(&new_process->own_usage, 0, sizeof(struct rusage_t));
+    kmemset(&new_process->child_usage, 0, sizeof(struct rusage_t));
 
     spinlock_acquire(&old_process->perfmon_lock);
     if (old_process->active_perfmon) {
