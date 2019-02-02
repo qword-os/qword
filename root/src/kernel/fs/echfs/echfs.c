@@ -289,9 +289,10 @@ static int erase_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
 static int find_block(int handle, uint64_t block) {
     struct hashtable_t *cached_blocks =
         &echfs_handles[handle]->cached_file->cached_blocks;
-    struct cached_block_t *cached_block = ht_search(cached_blocks, block,
-            struct cached_block_t, table_entry, entry->block == block);
-    if (!cached_block)
+    struct ht_entry_t *entry = NULL;
+    ht_get(cached_blocks, block, entry, container_of(entry,
+                struct cached_block_t, table_entry)->block == block);
+    if (!entry)
         return -1;
     return block;
 }
@@ -406,12 +407,14 @@ static int echfs_read(int handle, void *buf, size_t count) {
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        struct cached_block_t *cached_block = ht_search(cached_blocks, block,
-                struct cached_block_t, table_entry, entry->block == block);
-        if (!cached_block) {
+        struct ht_entry_t *entry = NULL;
+        ht_get(cached_blocks, slot, entry,
+                container_of(entry, struct cached_block_t, table_entry)->block == block);
+        if (!entry) {
             spinlock_release(&mnt->lock);
             return -1;
         }
+        struct cached_block_t *cached_block = container_of(entry, struct cached_block_t, table_entry);
         kmemcpy(buf + progress, &cached_block->cache[offset], chunk);
         progress += chunk;
     }
@@ -419,6 +422,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
     echfs_handles[handle]->ptr += count;
 
     spinlock_release(&mnt->lock);
+
     return (int)count;
 }
 
@@ -462,12 +466,14 @@ static int echfs_write(int handle, const void *buf, size_t count) {
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        struct cached_block_t *cached_block = ht_search(cached_blocks, block,
-                struct cached_block_t, table_entry, entry->block == block);
-        if (!cached_block) {
+        struct ht_entry_t *entry = NULL;
+        ht_get(cached_blocks, slot, entry,
+                container_of(entry, struct cached_block_t, table_entry)->block == block);
+        if (!entry) {
             spinlock_release(&mnt->lock);
             return -1;
         }
+        struct cached_block_t *cached_block = container_of(entry, struct cached_block_t, table_entry);
         kmemcpy(&cached_block->cache[offset], buf + progress, chunk);
         cached_block->status = CACHE_DIRTY;
         echfs_handles[handle]->cached_file->changed_cache = 1;
@@ -675,12 +681,13 @@ static int echfs_close(int handle) {
 }
 
 static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
+    struct ht_entry_t *entry = NULL;
     uint64_t path_hash = ht_hash_str(path);
-    struct cached_file_t *cached_entry = ht_search(&mnt->cached_files,
-            path_hash, struct cached_file_t, table_entry,
-            !kstrcmp(entry->path, path));
-    if (cached_entry)
-        return cached_entry;
+    ht_get(&mnt->cached_files, path_hash, entry,
+            !kstrcmp(container_of(entry, struct cached_file_t, table_entry)->path,
+                path));
+    if (entry)
+        return container_of(entry, struct cached_file_t, table_entry);
 
     /* not cached */
     struct path_result_t path_result;
