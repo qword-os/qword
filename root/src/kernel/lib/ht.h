@@ -18,6 +18,11 @@ struct hashtable_t {
     int size;
 };
 
+#define ht_search(table, hash, type, member, predicate) ({struct ht_entry_t \
+        *__entry = NULL; ht_get_bucket(table, hash); type *entry = NULL; for \
+        (; __entry; __entry = __entry->next) { entry = container_of(__entry, \
+                type, member); if (predicate) break;} entry; })
+
 #define ht_get(table, hash, entry, predicate) for (entry = \
         ht_get_bucket(table, hash); entry; entry = entry->next) {  \
             if (predicate) break; }
