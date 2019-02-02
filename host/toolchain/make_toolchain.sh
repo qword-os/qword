@@ -67,8 +67,8 @@ make install
 
 mkdir -p "$PREFIX/usr/include"
 cd ../gcc-$GCCVERSION
-patch -p1 < ../../gcc-$GCCVERSION.patch
 contrib/download_prerequisites
+patch -p1 < ../../gcc-$GCCVERSION.patch
 cd ..
 mkdir build-gcc
 cd build-gcc
@@ -83,5 +83,7 @@ cd build-toolchain
 cd build-gcc
 make all-target-libgcc
 make install-target-libgcc
+make all-target-libstdc++-v3
+make install-target-libstdc++-v3
 
 exit 0

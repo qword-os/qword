@@ -1,0 +1,5 @@
+*
+!.gitignore
+!buildport.sh
+!*.patch
+!cross_file.txt
