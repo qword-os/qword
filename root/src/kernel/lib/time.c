@@ -36,3 +36,17 @@ uint64_t get_unix_epoch(int seconds, int minutes, int hours,
 
     return (jdn_diff * (60 * 60 * 24)) + hours*3600 + minutes*60 + seconds;
 }
+
+void add_timeval(struct timeval *val, struct timeval *to_add) {
+    val->tv_sec += to_add->tv_sec;
+    val->tv_usec += to_add->tv_usec;
+    if (val->tv_usec >= 1000000) {
+        val->tv_usec -= 1000000;
+        val->tv_sec += 1;
+    }
+}
+
+void add_usage(struct rusage_t *usage, struct rusage_t *to_add) {
+    add_timeval(&usage->ru_stime, &to_add->ru_stime);
+    add_timeval(&usage->ru_utime, &to_add->ru_utime);
+}

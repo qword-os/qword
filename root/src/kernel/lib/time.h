@@ -52,5 +52,7 @@ extern volatile uint64_t unix_epoch;
 void ksleep(uint64_t);
 uint64_t get_jdn(int, int, int);
 uint64_t get_unix_epoch(int, int, int, int, int, int);
+void add_timeval(struct timeval *, struct timeval *);
+void add_usage(struct rusage_t *, struct rusage_t *);
 
 #endif

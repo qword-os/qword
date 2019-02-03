@@ -285,6 +285,9 @@ int syscall_waitpid(struct ctx_t *ctx) {
                 spinlock_acquire(&scheduler_lock);
                 kfree(child_process);
                 process_table[child_pid] = (void *)(-1);
+                /* the child has been waited for so we need to add the usage */
+                add_usage(&process->child_usage, &child_process->own_usage);
+                add_usage(&process->child_usage, &child_process->child_usage);
                 spinlock_release(&scheduler_lock);
                 return child_pid;
             }
