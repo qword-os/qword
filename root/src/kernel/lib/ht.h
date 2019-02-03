@@ -1,47 +1,128 @@
 #ifndef __HT_H__
 #define __HT_H__
 
-#include <stdint.h>
+#include <stddef.h>
+#include <lib/alloc.h>
+#include <lib/lock.h>
 
-#define container_of(ptr, type, member) ({                      \
-        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-        (type *)( (char *)__mptr - offsetof(type,member) );})
+#define ENTRIES_PER_HASHING_LEVEL 1024
+#define MAX_HASHING_LEVELS 16
 
-struct ht_entry_t {
-    uint64_t hash;
-    struct ht_entry_t *next;
+static uint64_t hashes_per_level[MAX_HASHING_LEVELS] = {
+    5381,
+    8907,
+    231,
+    712,
+    9636,
+    4903,
+    667,
+    5176,
+    4266,
+    2287,
+    1960,
+    5724,
+    3568,
+    7969,
+    2530,
+    3526
 };
 
-struct hashtable_t {
-    struct ht_entry_t **buckets;
-    int num_entries;
-    int size;
-};
+static inline uint64_t ht_hash_str(const char *str, int level) {
+    /* djb2
+     * http://www.cse.yorku.ca/~oz/hash.html
+     */
+    uint64_t hash = hashes_per_level[level];
+    int c;
+    while ((c = *str++))
+        hash = ((hash << 5) + hash) + c;
+    return (hash % ENTRIES_PER_HASHING_LEVEL);
+}
 
-#define ht_search(table, hash, type, member, predicate) ({struct ht_entry_t \
-        *__entry = NULL; ht_get_bucket(table, hash); type *entry = NULL; for \
-        (; __entry; __entry = __entry->next) { entry = container_of(__entry, \
-                type, member); if (predicate) break;} entry; })
+#define ht_new(type, name) \
+    type **name; \
+    lock_t name##_lock;
 
-#define ht_get(table, hash, entry, predicate) for (entry = \
-        ht_get_bucket(table, hash); entry; entry = entry->next) {  \
-            if (predicate) break; }
+#define ht_init(hashtable) ({ \
+    __label__ out; \
+    int ret = 0; \
+    hashtable = kalloc(ENTRIES_PER_HASHING_LEVEL * sizeof(void *)); \
+    if (!hashtable) { \
+        ret = -1; \
+        goto out; \
+    } \
+    spinlock_release(&hashtable##_lock); \
+out: \
+    ret; \
+})
 
-#define ht_foreach(table, entry, body) for (int i = 0; i < (table)->size; i++) \
-        {   entry = (table)->buckets[i]; \
-            if (!entry) continue; \
-            for (; entry->next; entry = entry->next){body}}
+#define ht_get(type, hashtable, name) ({ \
+    __label__ out; \
+    type *ret; \
+        \
+    spinlock_acquire(&hashtable##_lock); \
+    int current_level; \
+    type **ht = hashtable; \
+    for (current_level = 0; current_level < MAX_HASHING_LEVELS; current_level++) { \
+        uint64_t hash = ht_hash_str(name, current_level); \
+        if (!ht[hash]) { \
+            ret = NULL; \
+            goto out; \
+        } if ((size_t)ht[hash] & 1) { \
+            ht = (void *)((size_t)ht[hash] - 1); \
+            continue; \
+        } else { \
+            ret = ht[hash]; \
+            goto out; \
+        } \
+    } \
+out: \
+    spinlock_release(&hashtable##_lock); \
+    ret; \
+})
 
-#define ht_remove(table, hash, entry, predicate) struct ht_entry_t *__prev = NULL; \
-        for (entry = ht_get_bucket(table, hash); entry; entry = entry->next) { \
-        if (predicate) {entry = ht_remove_entry(table, entry, __prev); break;} \
-            __prev = entry}
-
-int ht_init(struct hashtable_t *, int);
-int ht_add(struct hashtable_t *, struct ht_entry_t*, uint64_t);
-struct ht_entry_t *ht_get_bucket(struct hashtable_t *, uint64_t);
-struct ht_entry_t *ht_remove_entry(struct hashtable_t*,
-        struct ht_entry_t*, struct ht_entry_t*);
-uint64_t ht_hash_str(const char *);
+// Adds an element to a hash table with these prerequisites:
+// the element shall be a pointer to a structure containing a "name"
+// element which is if type "char *". This "name" element shall be used
+// for hashing purposes.
+#define ht_add(type, hashtable, element) ({ \
+    __label__ out; \
+    int ret = 0; \
+        \
+    spinlock_acquire(&hashtable##_lock); \
+    int current_level; \
+    type **ht = hashtable; \
+    for (current_level = 0; current_level < MAX_HASHING_LEVELS; current_level++) { \
+        uint64_t hash = ht_hash_str(element->name, current_level); \
+        if (!ht[hash]) { \
+            type *new_entry = kalloc(sizeof(type)); \
+            if (!new_entry) { \
+                ret = -1; \
+                goto out; \
+            } \
+            *new_entry = *element; \
+            ht[hash] = new_entry; \
+            goto out; \
+        } if ((size_t)ht[hash] & 1) { \
+            ht = (void *)((size_t)ht[hash] - 1); \
+            continue; \
+        } else { \
+            type **new_ht = kalloc(ENTRIES_PER_HASHING_LEVEL * sizeof(void *)); \
+            if (!new_ht) { \
+                ret = -1; \
+                goto out; \
+            } \
+            type *old_elem = ht[hash]; \
+            ht[hash] = (void *)((size_t)new_ht + 1); \
+            ht = new_ht; \
+            uint64_t old_elem_hash = ht_hash_str(old_elem->name, current_level + 1); \
+            ht[old_elem_hash] = old_elem; \
+            continue; \
+        } \
+    } \
+    \
+out: \
+    spinlock_release(&hashtable##_lock); \
+    ret; \
+})
 
 #endif

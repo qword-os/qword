@@ -57,19 +57,17 @@ struct cached_block_t {
     uint8_t *cache;
     uint64_t block;
     int status;
-    struct ht_entry_t table_entry;
 };
 
 struct cached_file_t {
-    char path[2048];
+    char name[2048];
     struct path_result_t path_res;
-    struct hashtable_t cached_blocks;
+    struct cached_block_t *cached_blocks;
     int overwritten_slot;
     uint64_t *alloc_map;
     uint64_t total_blocks;
     int changed_entry;
     int changed_cache;
-    struct ht_entry_t table_entry;
 };
 
 struct mount_t {
@@ -84,7 +82,7 @@ struct mount_t {
     uint64_t dirsize;
     uint64_t dirstart;
     uint64_t datastart;
-    struct hashtable_t cached_files;
+    ht_new(struct cached_file_t, cached_files);
     int cached_files_ptr;
 };
 
@@ -173,31 +171,28 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     return;
 }
 
-static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
+static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *cached_file) {/*
     if (cached_file->path_res.type != FILE_TYPE)
         return 0;
-    struct hashtable_t *cached_blocks = &cached_file->cached_blocks;
+    struct cached_block_t *cached_blocks = cached_file->cached_blocks;
     if (cached_file->changed_cache) {
-        struct ht_entry_t *entry = NULL;
-        ht_foreach(cached_blocks, entry,
-            struct cached_block_t *cached_block = container_of(entry, struct cached_block_t,
-                table_entry);
-            if (cached_block->status == CACHE_DIRTY) {
+        for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
+            if (cached_blocks[i].status == CACHE_DIRTY) {
                 lseek(mnt->device,
-                      cached_file->alloc_map[cached_block->block] * BYTES_PER_BLOCK,
+                      cached_file->alloc_map[cached_blocks[i].block] * BYTES_PER_BLOCK,
                       SEEK_SET);
                 write(mnt->device,
-                      cached_block->cache,
+                      cached_blocks[i].cache,
                       BYTES_PER_BLOCK);
-                cached_block->status = CACHE_READY;
+                cached_blocks[i].status = CACHE_READY;
             }
-        )
+        }
         cached_file->changed_cache = 0;
     }
     if (cached_file->changed_entry) {
         wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
         cached_file->changed_entry = 0;
-    }
+    }*/
     return 0;
 }
 
@@ -209,14 +204,14 @@ static int echfs_sync(void) {
         if (mounts[i]->free)
             continue;
         struct mount_t *mnt = mounts[i];
-        struct ht_entry_t *entry = NULL;
         spinlock_acquire(&mnt->lock);
-        ht_foreach(&mnt->cached_files, entry,
-            struct cached_file_t *cached_file = container_of(entry,
-                struct cached_file_t, table_entry);
-            synchronise_cached_file(mnt, cached_file);
-        )
+        size_t total_cached_files = mnt->cached_files_ptr;
         spinlock_release(&mnt->lock);
+        for (size_t i = 0; i < total_cached_files; i++) {
+            spinlock_acquire(&mnt->lock);
+            synchronise_cached_file(mnt, &mnt->cached_files[i]);
+            spinlock_release(&mnt->lock);
+        }
     }
     spinlock_release(&echfs_mount_lock);
     return 0;
@@ -261,19 +256,13 @@ static int erase_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
         }
     }
     // clean up cache
-    struct hashtable_t *cached_blocks = &cached_file->cached_blocks;
-    struct ht_entry_t *entry = NULL;
-    ht_foreach(cached_blocks, entry,
-        struct ht_entry_t *prev = NULL;
-        for (; entry; entry = entry->next) {
-            struct cached_block_t *cached_block = container_of(entry,
-                struct cached_block_t, table_entry);
-            ht_remove_entry(cached_blocks, entry, prev);
-            kfree(cached_block->cache);
-            kfree(cached_block);
-            prev = entry;
+    struct cached_block_t *cached_blocks = cached_file->cached_blocks;
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
+        if (cached_blocks[i].status) {
+            cached_blocks[i].status = CACHE_NOTREADY;
+            kfree(cached_blocks[i].cache);
         }
-    )
+    }
     // clean up metadata
     cached_file->path_res.target.payload = END_OF_CHAIN;
     cached_file->path_res.target.size = 0;
@@ -287,50 +276,51 @@ static int erase_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
 }
 
 static int find_block(int handle, uint64_t block) {
-    struct hashtable_t *cached_blocks =
-        &echfs_handles[handle]->cached_file->cached_blocks;
-    struct ht_entry_t *entry = NULL;
-    ht_get(cached_blocks, block, entry, container_of(entry,
-                struct cached_block_t, table_entry)->block == block);
-    if (!entry)
-        return -1;
-    return block;
+    struct cached_block_t *cached_blocks =
+        echfs_handles[handle]->cached_file->cached_blocks;
+
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++)
+        if ((cached_blocks[i].block == block)
+            && (cached_blocks[i].status))
+            return i;
+
+    return -1;
 }
 
 static int cache_block(int handle, uint64_t block) {
     struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
     struct cached_file_t *cached_file = echfs_handles[handle]->cached_file;
-    struct hashtable_t *cached_blocks =
-        &echfs_handles[handle]->cached_file->cached_blocks;
+    struct cached_block_t *cached_blocks =
+        echfs_handles[handle]->cached_file->cached_blocks;
+    int targ;
 
-    if (find_block(handle, block) != -1 && cached_blocks->size >= MAX_CACHED_BLOCKS) {
-        /* Block already has an entry in the table and table is full.
-         * We need to flush the blocks that are in that position
-         * and evict them all out of the table. Else we just continue like
-         * nothing happened */
-        struct ht_entry_t *entry = ht_get_bucket(cached_blocks, block);
-        struct ht_entry_t *prev = NULL;
-        for (; entry; entry = entry->next) {
-            struct cached_block_t *cached_block = container_of(entry,
-                struct cached_block_t, table_entry);
-            if (cached_block->status == CACHE_DIRTY) {
-                lseek(mnt->device,
-                    cached_file->alloc_map[cached_block->block] * BYTES_PER_BLOCK,
-                    SEEK_SET);
-                write(mnt->device,
-                    cached_block->cache,
-                    BYTES_PER_BLOCK);
-            }
-            ht_remove_entry(cached_blocks, entry, prev);
-            kfree(cached_block->cache);
-            kfree(cached_block);
-            prev = entry;
-        }
+    /* Find empty block */
+    for (targ = 0; targ < MAX_CACHED_BLOCKS; targ++)
+        if (!cached_blocks[targ].status) goto fnd;
+
+    /* Slot not find, overwrite another */
+    if (cached_file->overwritten_slot == MAX_CACHED_BLOCKS)
+        cached_file->overwritten_slot = 0;
+
+    targ = cached_file->overwritten_slot++;
+
+    /* Flush device cache */
+    if (cached_blocks[targ].status == CACHE_DIRTY) {
+        lseek(mnt->device,
+              cached_file->alloc_map[cached_blocks[targ].block] * BYTES_PER_BLOCK,
+              SEEK_SET);
+        write(mnt->device,
+              cached_blocks[targ].cache,
+              BYTES_PER_BLOCK);
     }
 
-    struct cached_block_t *new_cache = kalloc(sizeof(struct cached_block_t));
+    goto notfnd;
+
+fnd:
     /* Allocate some cache for this device */
-    new_cache->cache = kalloc(BYTES_PER_BLOCK);
+    cached_blocks[targ].cache = kalloc(BYTES_PER_BLOCK);
+
+notfnd:
 
     /* Check if said block exists */
     if (block >= cached_file->total_blocks) {
@@ -356,13 +346,13 @@ static int cache_block(int handle, uint64_t block) {
           cached_file->alloc_map[block] * BYTES_PER_BLOCK,
           SEEK_SET);
     read(mnt->device,
-         new_cache->cache,
+         cached_blocks[targ].cache,
          BYTES_PER_BLOCK);
 
-    new_cache->block = block;
-    new_cache->status = CACHE_READY;
-    ht_add(cached_blocks, &new_cache->table_entry, block);
-    return block;
+    cached_blocks[targ].block = block;
+    cached_blocks[targ].status = CACHE_READY;
+
+    return targ;
 }
 
 static int echfs_read(int handle, void *buf, size_t count) {
@@ -389,7 +379,6 @@ static int echfs_read(int handle, void *buf, size_t count) {
     }
 
     uint64_t progress = 0;
-    struct hashtable_t *cached_blocks = &echfs_handles[handle]->cached_file->cached_blocks;
     while (progress < count) {
         /* cache the block */
         uint64_t block = (echfs_handles[handle]->ptr + progress) / BYTES_PER_BLOCK;
@@ -407,22 +396,13 @@ static int echfs_read(int handle, void *buf, size_t count) {
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        struct ht_entry_t *entry = NULL;
-        ht_get(cached_blocks, slot, entry,
-                container_of(entry, struct cached_block_t, table_entry)->block == block);
-        if (!entry) {
-            spinlock_release(&mnt->lock);
-            return -1;
-        }
-        struct cached_block_t *cached_block = container_of(entry, struct cached_block_t, table_entry);
-        kmemcpy(buf + progress, &cached_block->cache[offset], chunk);
+        kmemcpy(buf + progress, &echfs_handles[handle]->cached_file->cached_blocks[slot].cache[offset], chunk);
         progress += chunk;
     }
 
     echfs_handles[handle]->ptr += count;
 
     spinlock_release(&mnt->lock);
-
     return (int)count;
 }
 
@@ -448,7 +428,6 @@ static int echfs_write(int handle, const void *buf, size_t count) {
         echfs_handles[handle]->ptr = echfs_handles[handle]->end;
 
     uint64_t progress = 0;
-    struct hashtable_t *cached_blocks = &echfs_handles[handle]->cached_file->cached_blocks;
     while (progress < count) {
         /* cache the block */
         uint64_t block = (echfs_handles[handle]->ptr + progress) / BYTES_PER_BLOCK;
@@ -466,16 +445,8 @@ static int echfs_write(int handle, const void *buf, size_t count) {
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        struct ht_entry_t *entry = NULL;
-        ht_get(cached_blocks, slot, entry,
-                container_of(entry, struct cached_block_t, table_entry)->block == block);
-        if (!entry) {
-            spinlock_release(&mnt->lock);
-            return -1;
-        }
-        struct cached_block_t *cached_block = container_of(entry, struct cached_block_t, table_entry);
-        kmemcpy(&cached_block->cache[offset], buf + progress, chunk);
-        cached_block->status = CACHE_DIRTY;
+        kmemcpy(&echfs_handles[handle]->cached_file->cached_blocks[slot].cache[offset], buf + progress, chunk);
+        echfs_handles[handle]->cached_file->cached_blocks[slot].status = CACHE_DIRTY;
         echfs_handles[handle]->cached_file->changed_cache = 1;
         progress += chunk;
     }
@@ -681,33 +652,32 @@ static int echfs_close(int handle) {
 }
 
 static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
-    struct ht_entry_t *entry = NULL;
-    uint64_t path_hash = ht_hash_str(path);
-    ht_get(&mnt->cached_files, path_hash, entry,
-            !kstrcmp(container_of(entry, struct cached_file_t, table_entry)->path,
-                path));
-    if (entry)
-        return container_of(entry, struct cached_file_t, table_entry);
+    struct cached_file_t *ret = ht_get(struct cached_file_t, mnt->cached_files, path);
+    if (ret)
+        return ret;
 
-    /* not cached */
     struct path_result_t path_result;
     path_resolver(&path_result, mnt, path);
-
     if (path_result.failure)
         return NULL;
 
     struct cached_file_t *cached_file = kalloc(sizeof(struct cached_file_t));
-    kstrcpy(cached_file->path, path);
+    if (!cached_file)
+        return NULL;
+
+    kstrcpy(cached_file->name, path);
     cached_file->path_res = path_result;
 
     if (path_result.not_found || path_result.type == FILE_TYPE) {
-        ht_init(&cached_file->cached_blocks, 1);
+        cached_file->cached_blocks =
+            kalloc(MAX_CACHED_BLOCKS * sizeof(struct cached_block_t));
+
         cached_file->total_blocks = 0;
         cached_file->alloc_map = kalloc(sizeof(uint64_t));
     }
 
     if (!path_result.not_found && path_result.type == FILE_TYPE) {
-        cached_file->alloc_map[0] = cached_file->path_res.target.payload;
+        cached_file->alloc_map[0] = path_result.target.payload;
 
         uint64_t i;
         for (i = 1; cached_file->alloc_map[i-1] != END_OF_CHAIN; i++) {
@@ -721,7 +691,7 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
         cached_file->total_blocks = i - 1;
     }
 
-    ht_add(&mnt->cached_files, &cached_file->table_entry, path_hash);
+    ht_add(struct cached_file_t, mnt->cached_files, cached_file);
     return cached_file;
 }
 
@@ -1015,7 +985,7 @@ static int echfs_mount(const char *source) {
     mount.dirstart = mount.fatstart + mount.fatsize;
     mount.datastart = RESERVED_BLOCKS + mount.fatsize + mount.dirsize;
 
-    ht_init(&mount.cached_files, 1);
+    ht_init(mount.cached_files);
 
     mount.free = 0;
     mount.lock = 1;
@@ -1025,7 +995,7 @@ static int echfs_mount(const char *source) {
     return ret;
 }
 
-int init_fs_echfs(void) {
+void init_fs_echfs(void) {
     echfs_handles = kalloc(MAX_ECHFS_HANDLES * sizeof(void *));
     if (!echfs_handles)
         panic("out of memory while allocating echfs_handles", 0, 0);
