@@ -62,7 +62,7 @@ out: \
     spinlock_acquire(&hashtable##_lock); \
     int current_level; \
     type **ht = hashtable; \
-    for (current_level = 0; current_level < MAX_HASHING_LEVELS; current_level++) { \
+    for (current_level = 0; ; current_level++) { \
         uint64_t hash = ht_hash_str(name, current_level); \
         if (!ht[hash]) { \
             ret = NULL; \
@@ -82,7 +82,7 @@ out: \
 
 // Adds an element to a hash table with these prerequisites:
 // the element shall be a pointer to a structure containing a "name"
-// element which is if type "char *". This "name" element shall be used
+// element which is of type "char *". This "name" element shall be used
 // for hashing purposes.
 #define ht_add(type, hashtable, element) ({ \
     __label__ out; \
@@ -91,7 +91,7 @@ out: \
     spinlock_acquire(&hashtable##_lock); \
     int current_level; \
     type **ht = hashtable; \
-    for (current_level = 0; current_level < MAX_HASHING_LEVELS; current_level++) { \
+    for (current_level = 0; ; current_level++) { \
         uint64_t hash = ht_hash_str(element->name, current_level); \
         if (!ht[hash]) { \
             type *new_entry = kalloc(sizeof(type)); \
@@ -106,6 +106,13 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
+            if ( \
+                   (!kstrcmp(element->name, ht[hash]->name)) \
+                || (current_level == MAX_HASHING_LEVELS - 1) \
+            ) { \
+                ret = -1; \
+                goto out; \
+            } \
             type **new_ht = kalloc(ENTRIES_PER_HASHING_LEVEL * sizeof(void *)); \
             if (!new_ht) { \
                 ret = -1; \
