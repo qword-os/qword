@@ -11,7 +11,8 @@
 #include <mm/mm.h>
 #include <lib/time.h>
 #include <lib/errno.h>
-#include <misc/tty.h>
+#include <lib/event.h>
+#include <devices/term/tty/tty.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -300,7 +301,7 @@ int syscall_waitpid(struct ctx_t *ctx) {
             return 0;
         }
 
-        task_await_event(&process->child_event);
+        event_await(&process->child_event);
     }
 }
 

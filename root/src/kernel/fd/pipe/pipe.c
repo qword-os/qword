@@ -5,6 +5,7 @@
 #include <lib/errno.h>
 #include <user/task.h>
 #include <fd/fd.h>
+#include <lib/event.h>
 
 #define PIPE_BUFFER_STEP    32768
 
@@ -27,7 +28,7 @@ static int pipe_close(int fd) {
     pipe->refcount--;
     if (pipe->refcount) {
         pipe->term = 1;
-        task_trigger_event(&pipe->event);
+        event_trigger(&pipe->event);
         spinlock_release(&pipe->lock);
         dynarray_unref(pipes, fd);
         return 0;
@@ -51,7 +52,7 @@ static int pipe_read(int fd, void *buf, size_t count) {
         } else {
             // block until there's enough data available
             spinlock_release(&pipe->lock);
-            task_await_event(&pipe->event);
+            event_await(&pipe->event);
             spinlock_acquire(&pipe->lock);
             if (pipe->term) {
                 count = pipe->size;
@@ -94,7 +95,7 @@ static int pipe_write(int fd, const void *buf, size_t count) {
 
     pipe->size += count;
 
-    task_trigger_event(&pipe->event);
+    event_trigger(&pipe->event);
 
     spinlock_release(&pipe->lock);
     dynarray_unref(pipes, fd);

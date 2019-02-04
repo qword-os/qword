@@ -1,6 +1,10 @@
 #ifndef __IRQ_H__
 #define __IRQ_H__
 
+#include <lib/event.h>
+
+extern event_t irq[256];
+
 void int_handler(void);
 void irq0_handler(void);
 void irq1_handler(void);
@@ -19,5 +23,7 @@ void apic_spurious_handler(void);
 void scheduler_ipi(void);
 
 void flush_irqs(void);
+
+void eoi(void);
 
 #endif

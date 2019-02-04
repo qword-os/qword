@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <misc/vbe_tty.h>
+#include <devices/term/tty/vbe_tty.h>
 #include <lib/klib.h>
-#include <misc/tty.h>
+#include <devices/term/tty/tty.h>
 #include <misc/vbe.h>
 #include <sys/panic.h>
 #include <lib/lock.h>

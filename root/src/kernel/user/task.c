@@ -11,6 +11,7 @@
 #include <sys/ipi.h>
 #include <fd/vfs/vfs.h>
 #include <lib/time.h>
+#include <lib/event.h>
 #include <misc/pit.h>
 
 #define SMP_TIMESLICE_MS 5
@@ -79,7 +80,7 @@ int task_send_child_event(pid_t pid, struct child_event_t *child_event) {
     process->child_events[process->child_event_i - 1] = *child_event;
 
     spinlock_release(&process->child_event_lock);
-    task_trigger_event(&process->child_event);
+    event_trigger(&process->child_event);
     return 0;
 }
 
@@ -580,24 +581,4 @@ found_new_task_id:;
 err:
     spinlock_release(&scheduler_lock);
     return -1;
-}
-
-void task_await_event(event_t *event) {
-    spinlock_acquire(&scheduler_lock);
-    if (spinlock_read(event)) {
-        spinlock_dec(event);
-        spinlock_release(&scheduler_lock);
-        return;
-    } else {
-        struct thread_t *current_thread = task_table[cpu_locals[current_cpu].current_task];
-        current_thread->event_ptr = event;
-        spinlock_release(&scheduler_lock);
-        force_resched();
-    }
-}
-
-void task_trigger_event(event_t *event) {
-    spinlock_inc(event);
-
-    return;
 }

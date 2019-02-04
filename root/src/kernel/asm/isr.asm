@@ -53,6 +53,15 @@ extern lapic_eoi_ptr
 extern enter_syscall
 extern leave_syscall
 
+; Fast EOI function
+global eoi
+eoi:
+    push rax
+    mov rax, qword [lapic_eoi_ptr]
+    mov dword [rax], 0
+    pop rax
+    ret
+
 ; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
     pusham
@@ -61,6 +70,15 @@ extern leave_syscall
 
     popam
 
+    iretq
+%endmacro
+
+%macro raise_irq 1
+    lock inc qword [irq+%1*8]
+    push rax
+    mov rax, qword [lapic_eoi_ptr]
+    mov dword [rax], 0
+    pop rax
     iretq
 %endmacro
 
@@ -192,21 +210,6 @@ exc_security_handler:
 ; IRQs
 int_handler:
     common_handler dummy_int_handler
-
-irq0_handler:
-    pusham
-
-    call pit_handler
-
-    mov rax, qword [lapic_eoi_ptr]
-    mov dword [rax], 0
-
-    mov rdi, rsp
-
-    call task_resched_bsp
-
-    popam
-    iretq
 
 ipi_abortexec:
     mov rsp, qword [gs:0008]
@@ -341,16 +344,33 @@ pic0_generic:
     common_handler pic0_generic_handler
 pic1_generic:
     common_handler pic1_generic_handler
-irq1_handler:
+
+section .bss
+global irq
+align 16
+irq: resq 256
+
+section .text
+
+irq0_handler:
     pusham
-    xor rax, rax
-    in al, 0x60
-    mov rdi, rax
-    call kbd_handler
+
+    call pit_handler
+
     mov rax, qword [lapic_eoi_ptr]
     mov dword [rax], 0
+
+    mov rdi, rsp
+
+    call task_resched_bsp
+
     popam
     iretq
+
+; == Keyboard IRQ handler
+irq1_handler:
+    raise_irq 1
+
 ; IPIs
 ipi_abort:
     cli

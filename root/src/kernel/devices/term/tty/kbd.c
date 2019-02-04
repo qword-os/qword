@@ -2,8 +2,11 @@
 #include <stddef.h>
 #include <lib/klib.h>
 #include <sys/apic.h>
-#include <misc/tty.h>
+#include <devices/term/tty/tty.h>
 #include <lib/lock.h>
+#include <lib/event.h>
+#include <sys/irq.h>
+#include <lib/cio.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a
@@ -145,7 +148,14 @@ out:
     return;
 }
 
-void kbd_handler(uint8_t input_byte) {
+// keyboard handler worker
+void kbd_handler(void *unused) {
+    (void)unused;
+
+await:
+    event_await(&irq[1]);
+    uint8_t input_byte = port_in_b(0x60);
+
     char c = '\0';
 
     spinlock_acquire(&kbd_read_lock);
@@ -252,5 +262,5 @@ void kbd_handler(uint8_t input_byte) {
 
 out:
     spinlock_release(&kbd_read_lock);
-    return;
+    goto await;
 }

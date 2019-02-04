@@ -6,6 +6,7 @@
 #include <lib/klib.h>
 #include <user/elf.h>
 #include <lib/lock.h>
+#include <lib/event.h>
 #include <sys/panic.h>
 #include <fd/perfmon/perfmon.h>
 
@@ -35,7 +36,7 @@ static void userspace_send_request(int type, void *opaque_data) {
     userspace_request->type = type;
     userspace_request->opaque_data = opaque_data;
 
-    task_trigger_event(&userspace_event);
+    event_trigger(&userspace_event);
 
     spinlock_release(&userspace_request_lock);
 }
@@ -216,7 +217,7 @@ void userspace_request_monitor(void *arg) {
                 sizeof(struct userspace_request_t) * userspace_request_i);
         }
         spinlock_release(&userspace_request_lock);
-        task_await_event(&userspace_event);
+        event_await(&userspace_event);
     }
 }
 

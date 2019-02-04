@@ -8,6 +8,7 @@
 #include <fd/perfmon/perfmon.h>
 #include <lib/time.h>
 #include <lib/types.h>
+#include <lib/event.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -37,8 +38,6 @@
         : "rax", "rcx" \
     ); \
 })
-
-typedef lock_t event_t;
 
 struct ctx_t {
     uint64_t r15;
@@ -122,8 +121,6 @@ struct process_t {
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);
-void task_await_event(event_t *);
-void task_trigger_event(event_t *);
 
 extern int64_t task_count;
 

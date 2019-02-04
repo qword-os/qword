@@ -4,7 +4,7 @@
 #include <lib/lock.h>
 #include <lib/klib.h>
 #include <lib/qemu.h>
-#include <misc/tty.h>
+#include <devices/term/tty/tty.h>
 #include <mm/mm.h>
 #include <lib/time.h>
 #include <fd/vfs/vfs.h>

@@ -3,9 +3,8 @@
 #include <lib/cio.h>
 #include <lib/klib.h>
 #include <misc/serial.h>
-#include <misc/tty.h>
-#include <misc/vga_textmode.h>
-#include <misc/vbe_tty.h>
+#include <devices/term/tty/tty.h>
+#include <devices/term/tty/vbe_tty.h>
 #include <misc/vbe.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
@@ -23,7 +22,7 @@
 #include <misc/pci.h>
 #include <devices/storage/ahci/ahci.h>
 #include <lib/time.h>
-#include <misc/kbd.h>
+#include <devices/term/tty/kbd.h>
 #include <sys/irq.h>
 #include <sys/panic.h>
 #include <fs/fs.h>
@@ -35,6 +34,9 @@ void kmain_thread(void *arg) {
 
     /* Launch the urm */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(userspace_request_monitor, 0));
+
+    /* Launch the keyboard handler */
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kbd_handler, 0));
 
     /* Launch the device cache sync worker */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(device_sync_worker, 0));
@@ -119,7 +121,6 @@ void kmain(void) {
     /* Early inits */
     init_vbe();
     init_vbe_tty();
-    init_vga_textmode();
     init_tty();
 
     /* Time stuff */
