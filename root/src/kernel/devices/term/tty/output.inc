@@ -135,13 +135,13 @@ static void set_cursor_pos(int tty, int x, int y) {
 
 static void sgr(int tty) {
 
-    if (ttys[tty].esc_value0 >= 30 && ttys[tty].esc_value0 <= 37) {
-        ttys[tty].text_fg_col = ansi_colours[ttys[tty].esc_value0 - 30];
+    if (ttys[tty].esc_values[0] >= 30 && ttys[tty].esc_values[0] <= 37) {
+        ttys[tty].text_fg_col = ansi_colours[ttys[tty].esc_values[0] - 30];
         return;
     }
 
-    if (ttys[tty].esc_value0 >= 40 && ttys[tty].esc_value0 <= 47) {
-        ttys[tty].text_bg_col = ansi_colours[ttys[tty].esc_value0 - 40];
+    if (ttys[tty].esc_values[0] >= 40 && ttys[tty].esc_values[0] <= 47) {
+        ttys[tty].text_bg_col = ansi_colours[ttys[tty].esc_values[0] - 40];
         return;
     }
 
@@ -151,65 +151,62 @@ static void sgr(int tty) {
 static void escape_parse(int tty, char c) {
 
     if (c >= '0' && c <= '9') {
-        *ttys[tty].esc_value *= 10;
-        *ttys[tty].esc_value += c - '0';
-        *ttys[tty].esc_default = 0;
+        ttys[tty].rrr = 1;
+        ttys[tty].esc_values[ttys[tty].esc_values_i] *= 10;
+        ttys[tty].esc_values[ttys[tty].esc_values_i] += c - '0';
         return;
+    } else {
+        if (ttys[tty].rrr) {
+            ttys[tty].esc_values_i++;
+            ttys[tty].rrr = 0;
+        }
     }
 
     switch (c) {
         case '[':
-            return;
         case ';':
-            ttys[tty].esc_value = &ttys[tty].esc_value1;
-            ttys[tty].esc_default = &ttys[tty].esc_default1;
             return;
+    }
+
+    // default rest to 1
+    for (int i = ttys[tty].esc_values_i; i < MAX_ESC_VALUES; i++)
+        ttys[tty].esc_values[i] = 1;
+
+    switch (c) {
         case 'A':
-            if (ttys[tty].esc_default0)
-                ttys[tty].esc_value0 = 1;
-            if (ttys[tty].esc_value0 > ttys[tty].cursor_y)
-                ttys[tty].esc_value0 = ttys[tty].cursor_y;
-            set_cursor_pos(tty, ttys[tty].cursor_x, ttys[tty].cursor_y - ttys[tty].esc_value0);
+            if (ttys[tty].esc_values[0] > ttys[tty].cursor_y)
+                ttys[tty].esc_values[0] = ttys[tty].cursor_y;
+            set_cursor_pos(tty, ttys[tty].cursor_x, ttys[tty].cursor_y - ttys[tty].esc_values[0]);
             break;
         case 'B':
-            if (ttys[tty].esc_default0)
-                ttys[tty].esc_value0 = 1;
-            if ((ttys[tty].cursor_y + ttys[tty].esc_value0) > (rows - 1))
-                ttys[tty].esc_value0 = (rows - 1) - ttys[tty].cursor_y;
-            set_cursor_pos(tty, ttys[tty].cursor_x, ttys[tty].cursor_y + ttys[tty].esc_value0);
+            if ((ttys[tty].cursor_y + ttys[tty].esc_values[0]) > (rows - 1))
+                ttys[tty].esc_values[0] = (rows - 1) - ttys[tty].cursor_y;
+            set_cursor_pos(tty, ttys[tty].cursor_x, ttys[tty].cursor_y + ttys[tty].esc_values[0]);
             break;
         case 'C':
-            if (ttys[tty].esc_default0)
-                ttys[tty].esc_value0 = 1;
-            if ((ttys[tty].cursor_x + ttys[tty].esc_value0) > (cols - 1))
-                ttys[tty].esc_value0 = (cols - 1) - ttys[tty].cursor_x;
-            set_cursor_pos(tty, ttys[tty].cursor_x + ttys[tty].esc_value0, ttys[tty].cursor_y);
+            if ((ttys[tty].cursor_x + ttys[tty].esc_values[0]) > (cols - 1))
+                ttys[tty].esc_values[0] = (cols - 1) - ttys[tty].cursor_x;
+            set_cursor_pos(tty, ttys[tty].cursor_x + ttys[tty].esc_values[0], ttys[tty].cursor_y);
             break;
         case 'D':
-            if (ttys[tty].esc_default0)
-                ttys[tty].esc_value0 = 1;
-            if (ttys[tty].esc_value0 > ttys[tty].cursor_x)
-                ttys[tty].esc_value0 = ttys[tty].cursor_x;
-            set_cursor_pos(tty, ttys[tty].cursor_x - ttys[tty].esc_value0, ttys[tty].cursor_y);
+            if (ttys[tty].esc_values[0] > ttys[tty].cursor_x)
+                ttys[tty].esc_values[0] = ttys[tty].cursor_x;
+            set_cursor_pos(tty, ttys[tty].cursor_x - ttys[tty].esc_values[0], ttys[tty].cursor_y);
             break;
         case 'H':
-            ttys[tty].esc_value0 -= 1;
-            ttys[tty].esc_value1 -= 1;
-            if (ttys[tty].esc_default0)
-                ttys[tty].esc_value0 = 0;
-            if (ttys[tty].esc_default1)
-                ttys[tty].esc_value1 = 0;
-            if (ttys[tty].esc_value1 >= cols)
-                ttys[tty].esc_value1 = cols - 1;
-            if (ttys[tty].esc_value0 >= rows)
-                ttys[tty].esc_value0 = rows - 1;
-            set_cursor_pos(tty, ttys[tty].esc_value1, ttys[tty].esc_value0);
+            ttys[tty].esc_values[0] -= 1;
+            ttys[tty].esc_values[1] -= 1;
+            if (ttys[tty].esc_values[1] >= cols)
+                ttys[tty].esc_values[1] = cols - 1;
+            if (ttys[tty].esc_values[0] >= rows)
+                ttys[tty].esc_values[0] = rows - 1;
+            set_cursor_pos(tty, ttys[tty].esc_values[1], ttys[tty].esc_values[0]);
             break;
         case 'm':
             sgr(tty);
             break;
         case 'J':
-            switch (ttys[tty].esc_value0) {
+            switch (ttys[tty].esc_values[0]) {
                 case 2:
                     clear(tty);
                     break;
@@ -223,12 +220,6 @@ static void escape_parse(int tty, char c) {
             break;
     }
 
-    ttys[tty].esc_value = &ttys[tty].esc_value0;
-    ttys[tty].esc_value0 = 0;
-    ttys[tty].esc_value1 = 0;
-    ttys[tty].esc_default = &ttys[tty].esc_default0;
-    ttys[tty].esc_default0 = 1;
-    ttys[tty].esc_default1 = 1;
     ttys[tty].escape = 0;
 
     return;
@@ -255,7 +246,11 @@ static void put_char(int tty, char c) {
         case '\0':
             break;
         case '\e':
+            for (int i = 0; i < MAX_ESC_VALUES; i++)
+                ttys[tty].esc_values[i] = 0;
+            ttys[tty].esc_values_i = 0;
             ttys[tty].escape = 1;
+            ttys[tty].rrr = 0;
             break;
         case '\t':
             if ((ttys[tty].cursor_x / ttys[tty].tabsize + 1) * ttys[tty].tabsize >= cols)

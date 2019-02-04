@@ -12,6 +12,7 @@
 #define MAX_TTYS 6
 #define KBD_BUF_SIZE 2048
 #define BIG_BUF_SIZE 65536
+#define MAX_ESC_VALUES 256
 
 static lock_t tty_ready = 0;
 
@@ -28,12 +29,9 @@ struct tty_t {
 	uint32_t *gridbg;
 	uint32_t *gridfg;
 	int escape;
-	int esc_value0;
-	int esc_value1;
-	int *esc_value;
-	int esc_default0;
-	int esc_default1;
-	int *esc_default;
+    int esc_values[MAX_ESC_VALUES];
+    int esc_values_i;
+    int rrr;
 	int tabsize;
     lock_t kbd_event;
     lock_t kbd_lock;
@@ -119,12 +117,6 @@ void init_tty_extended(uint32_t *__fb,
 	    ttys[i].text_bg_col = ansi_colours[0];
 	    ttys[i].text_fg_col = ansi_colours[7];
 	    ttys[i].escape = 0;
-	    ttys[i].esc_value0 = 0;
-	    ttys[i].esc_value1 = 0;
-	    ttys[i].esc_value = &ttys[i].esc_value0;
-	    ttys[i].esc_default0 = 1;
-	    ttys[i].esc_default1 = 1;
-	    ttys[i].esc_default = &ttys[i].esc_default0;
 	    ttys[i].tabsize = 8;
         ttys[i].kbd_event = 0;
         ttys[i].kbd_lock = 1;
