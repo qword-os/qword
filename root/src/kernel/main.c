@@ -4,6 +4,7 @@
 #include <lib/klib.h>
 #include <misc/serial.h>
 #include <devices/term/tty/tty.h>
+#include <devices/streams/streams.h>
 #include <misc/vbe.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
@@ -29,6 +30,7 @@
 void kmain_thread(void *arg) {
     (void)arg;
 
+    init_streams();
     init_tty();
 
     /* Initialise device drivers */
