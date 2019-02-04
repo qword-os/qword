@@ -7,6 +7,7 @@
 #include <lib/event.h>
 #include <sys/irq.h>
 #include <lib/cio.h>
+#include <user/task.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a
@@ -16,15 +17,6 @@
 #define LEFT_SHIFT_REL 0xaa
 #define CTRL 0x1d
 #define CTRL_REL 0x9d
-
-#define KBD_BUF_SIZE 2048
-#define BIG_BUF_SIZE 65536
-
-static size_t kbd_buf_i = 0;
-static char kbd_buf[KBD_BUF_SIZE];
-
-static size_t big_buf_i = 0;
-static char big_buf[BIG_BUF_SIZE];
 
 static int capslock_active = 0;
 static int shift_active = 0;
@@ -59,97 +51,100 @@ static const uint8_t ascii_nomod[] = {
     'b', 'n', 'm', ',', '.', '/', '\0', '\0', '\0', ' '
 };
 
-void init_kbd(void) {
-    io_apic_set_mask(0, 1, 1);
-    return;
-}
+int tty_read(int tty, void *void_buf, uint64_t unused, size_t count) {
+    (void)unused;
 
-static lock_t kbd_read_lock = 1;
+    if (!tty_ready)
+        return 0;
 
-static event_t input_handled = 0;
-
-int kbd_read(char *buf, size_t count) {
+    char *buf = void_buf;
     int wait = 1;
 
-    while (!spinlock_test_and_acquire(&kbd_read_lock))
-        event_await(&input_handled);
+    while (!spinlock_test_and_acquire(&ttys[tty].lock))
+        event_await(&ttys[tty].kbd_event);
 
     for (size_t i = 0; i < count; ) {
-        if (big_buf_i) {
-            buf[i++] = big_buf[0];
-            big_buf_i--;
-            for (size_t j = 0; j < big_buf_i; j++) {
-                big_buf[j] = big_buf[j+1];
+        if (ttys[tty].big_buf_i) {
+            buf[i++] = ttys[tty].big_buf[0];
+            ttys[tty].big_buf_i--;
+            for (size_t j = 0; j < ttys[tty].big_buf_i; j++) {
+                ttys[tty].big_buf[j] = ttys[tty].big_buf[j+1];
             }
             wait = 0;
         } else {
             if (wait) {
-                spinlock_release(&kbd_read_lock);
+                spinlock_release(&ttys[tty].lock);
                 do {
-                    event_await(&input_handled);
-                } while (!spinlock_test_and_acquire(&kbd_read_lock));
+                    event_await(&ttys[tty].kbd_event);
+                } while (!spinlock_test_and_acquire(&ttys[tty].lock));
             } else {
-                spinlock_release(&kbd_read_lock);
+                spinlock_release(&ttys[tty].lock);
                 return (int)i;
             }
         }
     }
 
-    spinlock_release(&kbd_read_lock);
+    spinlock_release(&ttys[tty].lock);
     return (int)count;
 }
 
-static void add_to_buf(uint8_t c) {
-    spinlock_acquire(&termios_lock);
+static void add_to_buf_char(int tty, char c) {
+    spinlock_acquire(&ttys[tty].lock);
 
-    if (termios.c_lflag & ICANON) {
+    if (ttys[tty].termios.c_lflag & ICANON) {
         switch (c) {
             case '\n':
-                if (kbd_buf_i == KBD_BUF_SIZE)
+                if (ttys[tty].kbd_buf_i == KBD_BUF_SIZE)
                     break;
-                kbd_buf[kbd_buf_i++] = c;
-                if (termios.c_lflag & ECHO)
-                    tty_putchar(c);
-                for (size_t i = 0; i < kbd_buf_i; i++) {
-                    if (big_buf_i == BIG_BUF_SIZE)
+                ttys[tty].kbd_buf[ttys[tty].kbd_buf_i++] = c;
+                if (ttys[tty].termios.c_lflag & ECHO)
+                    put_char(tty, c);
+                for (size_t i = 0; i < ttys[tty].kbd_buf_i; i++) {
+                    if (ttys[tty].big_buf_i == BIG_BUF_SIZE)
                         break;
-                    big_buf[big_buf_i++] = kbd_buf[i];
+                    ttys[tty].big_buf[ttys[tty].big_buf_i++] = ttys[tty].kbd_buf[i];
                 }
-                kbd_buf_i = 0;
+                ttys[tty].kbd_buf_i = 0;
                 goto out;
             case '\b':
-                if (!kbd_buf_i)
+                if (!ttys[tty].kbd_buf_i)
                     break;
-                kbd_buf[--kbd_buf_i] = 0;
-                if (termios.c_lflag & ECHO) {
-                    tty_putchar('\b');
-                    tty_putchar(' ');
-                    tty_putchar('\b');
+                ttys[tty].kbd_buf[--ttys[tty].kbd_buf_i] = 0;
+                if (ttys[tty].termios.c_lflag & ECHO) {
+                    put_char(tty, '\b');
+                    put_char(tty, ' ');
+                    put_char(tty, '\b');
                 }
                 goto out;
         }
     }
 
-    if (termios.c_lflag & ICANON) {
-        if (kbd_buf_i == KBD_BUF_SIZE)
+    if (ttys[tty].termios.c_lflag & ICANON) {
+        if (ttys[tty].kbd_buf_i == KBD_BUF_SIZE)
             goto out;
-        kbd_buf[kbd_buf_i++] = c;
+        ttys[tty].kbd_buf[ttys[tty].kbd_buf_i++] = c;
     } else {
-        if (big_buf_i == BIG_BUF_SIZE)
+        if (ttys[tty].big_buf_i == BIG_BUF_SIZE)
             goto out;
-        big_buf[big_buf_i++] = c;
+        ttys[tty].big_buf[ttys[tty].big_buf_i++] = c;
     }
 
-    if (is_printable(c) && (termios.c_lflag & ECHO))
-        tty_putchar(c);
+    if (ttys[tty].termios.c_lflag & ECHO)
+        put_char(tty, c);
 
 out:
-    spinlock_release(&termios_lock);
+    spinlock_release(&ttys[tty].lock);
     return;
 }
 
+static void add_to_buf(int tty, const char *s, size_t cnt) {
+    for (size_t i = 0; i < cnt; i++)
+        add_to_buf_char(tty, s[i]);
+    event_trigger(&ttys[tty].kbd_event);
+}
+
 // keyboard handler worker
-void kbd_handler(void *unused) {
+static void kbd_handler(void *unused) {
     (void)unused;
 
 await:
@@ -157,8 +152,6 @@ await:
     uint8_t input_byte = port_in_b(0x60);
 
     char c = '\0';
-
-    spinlock_acquire(&kbd_read_lock);
 
     if (input_byte == 0xe0) {
         extra_scancodes = 1;
@@ -171,27 +164,19 @@ await:
         switch (input_byte) {
             case 0x48:
                 // cursor up
-                add_to_buf('\e');
-                add_to_buf('[');
-                add_to_buf('A');
+                add_to_buf(current_tty, "\e[A", 3);
                 goto out;
             case 0x4B:
                 // cursor left
-                add_to_buf('\e');
-                add_to_buf('[');
-                add_to_buf('D');
+                add_to_buf(current_tty, "\e[D", 3);
                 goto out;
             case 0x50:
                 // cursor down
-                add_to_buf('\e');
-                add_to_buf('[');
-                add_to_buf('B');
+                add_to_buf(current_tty, "\e[B", 3);
                 goto out;
             case 0x4D:
                 // cursor right
-                add_to_buf('\e');
-                add_to_buf('[');
-                add_to_buf('C');
+                add_to_buf(current_tty, "\e[C", 3);
                 goto out;
             case 0x49:
                 // pgup
@@ -258,10 +243,8 @@ await:
         goto out;
     }
 
-    add_to_buf(c);
+    add_to_buf(current_tty, &c, 1);
 
 out:
-    spinlock_release(&kbd_read_lock);
-    event_trigger(&input_handled);
     goto await;
 }

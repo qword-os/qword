@@ -1,7 +1,7 @@
 #ifndef __TTY_H__
 #define __TTY_H__
 
-#include <lib/lock.h>
+#include <stddef.h>
 
 typedef unsigned int cc_t;
 typedef unsigned int speed_t;
@@ -145,13 +145,8 @@ struct termios_t {
 	speed_t obaud;
 };
 
-extern lock_t termios_lock;
-extern struct termios_t termios;
-
 void init_tty(void);
-void tty_putchar(char);
 int tty_write(int, const void *, uint64_t, size_t);
 int tty_read(int, void *, uint64_t, size_t);
-int tty_tcsetattr(int, struct termios_t*);
 
 #endif

@@ -122,7 +122,7 @@ int syscall_clock_gettime(struct ctx_t *ctx) {
 int syscall_tcgetattr(struct ctx_t *ctx) {
     /* rdi: fd
      * rsi struct termios*
-     */
+     *//*
     if (privilege_check(ctx->rsi, sizeof(struct termios_t))) {
         errno = EFAULT;
         return -1;
@@ -132,21 +132,25 @@ int syscall_tcgetattr(struct ctx_t *ctx) {
     struct termios_t *buf = (struct termios_t *)ctx->rsi;
     *buf = termios;
     spinlock_release(&termios_lock);
-    return 0;
+    return 0;*/
+    errno = ENOSYS;
+    return -1;
 }
 
 int syscall_tcsetattr(struct ctx_t *ctx) {
     /* rdi: fd
      * rsi: optional_actions
      * rdx: struct termios*
-     */
+     *//*
     if (privilege_check(ctx->rdx, sizeof(struct termios_t))) {
         errno = EFAULT;
         return -1;
     }
 
     struct termios_t *new_termios = (struct termios_t*) ctx->rdx;
-    return tty_tcsetattr(ctx->rsi, new_termios);
+    return tty_tcsetattr(ctx->rsi, new_termios);*/
+    errno = ENOSYS;
+    return -1;
 }
 
 int syscall_getcwd(struct ctx_t *ctx) {

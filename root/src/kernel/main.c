@@ -4,7 +4,6 @@
 #include <lib/klib.h>
 #include <misc/serial.h>
 #include <devices/term/tty/tty.h>
-#include <devices/term/tty/vbe_tty.h>
 #include <misc/vbe.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
@@ -22,21 +21,29 @@
 #include <misc/pci.h>
 #include <devices/storage/ahci/ahci.h>
 #include <lib/time.h>
-#include <devices/term/tty/kbd.h>
 #include <sys/irq.h>
 #include <sys/panic.h>
 #include <fs/fs.h>
+#include <sys/vga_font.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
 
-    init_net_i8254x();
+    init_tty();
+
+    /* Initialise device drivers */
+    init_pci();
+    init_ahci();
+    init_ata();
+
+    /* Initialise filesystem drivers */
+    init_fs();
+
+    /* Mount /dev */
+    mount("devfs", "/dev", "devfs", 0, 0);
 
     /* Launch the urm */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(userspace_request_monitor, 0));
-
-    /* Launch the keyboard handler */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kbd_handler, 0));
 
     /* Launch the device cache sync worker */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(device_sync_worker, 0));
@@ -44,7 +51,7 @@ void kmain_thread(void *arg) {
     /* Launch the fs cache sync worker */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(vfs_sync_worker, 0));
 
-    int tty = open("/dev/tty", O_RDWR);
+    int tty = open("/dev/tty0", O_RDWR);
 
     char *root = cmdline_get_value("root");
     char new_root[64];
@@ -93,7 +100,7 @@ void kmain_thread(void *arg) {
     kprint(KPRN_INFO, "kmain: Starting init");
     const char *args[] = { init, NULL };
     const char *environ[] = { NULL };
-    if (kexec(init, args, environ, "/dev/tty", "/dev/tty", "/dev/tty") == -1) {
+    if (kexec(init, args, environ, "/dev/tty0", "/dev/tty0", "/dev/tty0") == -1) {
         panic("Unable to launch init", 0, 0);
     }
 
@@ -105,7 +112,7 @@ void kmain_thread(void *arg) {
     for (;;) asm volatile ("hlt;");
 }
 
-/* Main kernel entry point, all the things should be initialised */
+/* Main kernel entry point, only initialise essential services and scheduler */
 void kmain(void) {
     init_idt();
 
@@ -120,8 +127,6 @@ void kmain(void) {
 
     /* Early inits */
     init_vbe();
-    init_vbe_tty();
-    init_tty();
 
     /* Time stuff */
     struct s_time_t s_time;
@@ -133,28 +138,21 @@ void kmain(void) {
                                 s_time.days, s_time.months, s_time.years);
     kprint(KPRN_INFO, "Current unix epoch: %U", unix_epoch);
 
-    /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
+    dump_vga_font(vga_font);
+
     flush_irqs();
+
+    /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
+
     init_acpi();
     init_pic();
+
+    init_pit();
 
     /* Enable interrupts on BSP */
     asm volatile ("sti");
 
-    init_pit();
     init_smp();
-
-    /* Initialise device drivers */
-    init_pci();
-    init_ahci();
-    init_ata();
-    init_kbd();
-
-    /* Initialise filesystem drivers */
-    init_fs();
-
-    /* Mount /dev */
-    mount("devfs", "/dev", "devfs", 0, 0);
 
     /* Initialise scheduler */
     init_sched();

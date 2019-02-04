@@ -2,67 +2,146 @@
 #include <stddef.h>
 #include <devices/term/tty/tty.h>
 #include <lib/klib.h>
-#include <misc/vbe.h>
-#include <devices/term/tty/vbe_tty.h>
-#include <lib/cmdline.h>
-#include <devices/term/tty/kbd.h>
 #include <devices/dev.h>
 #include <lib/lock.h>
+#include <sys/apic.h>
 
-lock_t termios_lock = 1;
-struct termios_t termios = {0};
+#include <misc/vbe.h>
+#include <sys/vga_font.h>
 
-int tty_tcsetattr(int optional_actions, struct termios_t *new_termios) {
-    spinlock_acquire(&termios_lock);
-    kmemcpy(&termios, new_termios, sizeof(struct termios_t));
-    spinlock_release(&termios_lock);
-    return 0;
-}
+#define MAX_TTYS 6
+#define KBD_BUF_SIZE 2048
+#define BIG_BUF_SIZE 65536
 
-void tty_putchar(char c) {
-    tty_write(0, &c, 0, 1);
-}
+static lock_t tty_ready = 0;
 
-int tty_write(int magic, const void *data, uint64_t loc, size_t count) {
-    (void)magic;
-    char *buf = (char *)data;
+struct tty_t {
+    lock_t lock;
+	int cursor_x;
+	int cursor_y;
+	int cursor_status;
+	uint32_t cursor_bg_col;
+	uint32_t cursor_fg_col;
+	uint32_t text_bg_col;
+	uint32_t text_fg_col;
+	char *grid;
+	uint32_t *gridbg;
+	uint32_t *gridfg;
+	int escape;
+	int esc_value0;
+	int esc_value1;
+	int *esc_value;
+	int esc_default0;
+	int esc_default1;
+	int *esc_default;
+	int tabsize;
+    lock_t kbd_event;
+    lock_t kbd_lock;
+    size_t kbd_buf_i;
+    char kbd_buf[KBD_BUF_SIZE];
+    size_t big_buf_i;
+    char big_buf[BIG_BUF_SIZE];
+    struct termios_t termios;
+};
 
-    if (vbe_tty_available)
-        vbe_tty_write(buf, count);
+static struct tty_t ttys[MAX_TTYS];
+static int current_tty = 0;
 
-    return (int)count;
-}
+static const char *tty_names[MAX_TTYS] = {
+    "tty0", "tty1", "tty2", "tty3", "tty4", "tty5"
+};
 
-int tty_read(int magic, void *data, uint64_t loc, size_t count) {
-    (void)magic;
-    int res = (int)kbd_read(data, count);
+#include "output.inc"
+#include "input.inc"
 
-    return res;
-}
-
-static int tty_flush(int dev) {
+static int tty_flush(int tty) {
+    (void)tty;
     return 1;
 }
 
-void init_tty(void) {
-    char *tty_cmdline;
+// TODO
+static int tty_tcsetattr(int tty, int optional_actions, struct termios_t *new_termios) {
+    return 0;
+}
 
-    spinlock_acquire(&termios_lock);
-    termios.c_lflag = (ICANON | ECHO);
-    spinlock_release(&termios_lock);
+void init_tty_extended(uint32_t *__fb,
+              int __fb_height,
+              int __fb_width,
+              int __fb_pitch,
+              uint8_t *__font,
+              int __font_height,
+              int __font_width) {
+    kprint(KPRN_INFO, "tty: Initialising...");
 
-    struct device_t device = {0};
-    kstrcpy(device.name, "tty");
-    device.intern_fd = 0;
-    device.size = 0;
-    device.calls.read = tty_read;
-    device.calls.write = tty_write;
-    device.calls.flush = tty_flush;
-    dev_t dev = device_add(&device);
+    fb = __fb;
+    fb_height = __fb_height;
+    fb_width = __fb_width;
+    fb_pitch = __fb_pitch;
+    font = __font;
+    font_height = __font_height;
+    font_width = __font_width;
 
-    if (dev == -1) {
-        return;
+    cols = fb_width / font_width;
+    rows = fb_height / font_height;
+
+    for (int i = 0; i < MAX_TTYS; i++) {
+        ttys[i].lock = 1;
+	    ttys[i].cursor_x = 0;
+	    ttys[i].cursor_y = 0;
+	    ttys[i].cursor_status = 1;
+	    ttys[i].cursor_bg_col = 0x00ffffff;
+	    ttys[i].cursor_fg_col = 0x00000000;
+	    ttys[i].text_bg_col = 0x00000000;
+	    ttys[i].text_fg_col = 0x00aaaaaa;
+	    ttys[i].escape = 0;
+	    ttys[i].esc_value0 = 0;
+	    ttys[i].esc_value1 = 0;
+	    ttys[i].esc_value = &ttys[i].esc_value0;
+	    ttys[i].esc_default0 = 1;
+	    ttys[i].esc_default1 = 1;
+	    ttys[i].esc_default = &ttys[i].esc_default0;
+	    ttys[i].tabsize = 8;
+        ttys[i].kbd_event = 0;
+        ttys[i].kbd_lock = 1;
+        ttys[i].kbd_buf_i = 0;
+        ttys[i].big_buf_i = 0;
+        ttys[i].termios.c_lflag = (ICANON | ECHO);
+        ttys[i].grid = kalloc(rows * cols);
+        ttys[i].gridbg = kalloc(rows * cols * sizeof(uint32_t));
+        ttys[i].gridfg = kalloc(rows * cols * sizeof(uint32_t));
+        if (!ttys[i].grid || !ttys[i].gridbg || !ttys[i].gridfg)
+            panic("Out of memory", 0, 0);
+        for (size_t j = 0; j < (size_t)(rows * cols); j++) {
+            ttys[i].grid[j] = ' ';
+            ttys[i].gridbg[j] = ttys[i].text_bg_col;
+            ttys[i].gridfg[j] = ttys[i].text_fg_col;
+        }
+        refresh(i);
+        struct device_t device = {0};
+        kstrcpy(device.name, tty_names[i]);
+        device.intern_fd = i;
+        device.size = 0;
+        device.calls.read = tty_read;
+        device.calls.write = tty_write;
+        device.calls.flush = tty_flush;
+        device_add(&device);
     }
 
+    io_apic_set_mask(0, 1, 1);
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kbd_handler, 0));
+
+    spinlock_release(&tty_ready);
+    kprint(KPRN_INFO, "tty: Ready!");
     return;
+}
+
+void init_tty(void) {
+    init_tty_extended(
+        vbe_framebuffer,
+        vbe_height,
+        vbe_width,
+        vbe_pitch,
+        vga_font,
+        vga_font_height,
+        vga_font_width);
 }
