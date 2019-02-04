@@ -44,6 +44,31 @@ struct tty_t {
     struct termios_t termios;
 };
 
+/*
+static uint32_t ansi_colours[] = {
+    0x00000000,              // black
+    0x00aa0000,              // red
+    0x0000aa00,              // green
+    0x00aa5500,              // brown
+    0x000000aa,              // blue
+    0x00aa00aa,              // magenta
+    0x0000aaaa,              // cyan
+    0x00aaaaaa               // grey
+};
+*/
+
+// Solarized-like scheme
+static uint32_t ansi_colours[] = {
+    0x00073642,              // black
+    0x00dc322f,              // red
+    0x00859900,              // green
+    0x00b58900,              // brown
+    0x00268bd2,              // blue
+    0x00d33682,              // magenta
+    0x002aa198,              // cyan
+    0x00eee8d5              // grey
+};
+
 static struct tty_t ttys[MAX_TTYS];
 static int current_tty = 0;
 
@@ -91,8 +116,8 @@ void init_tty_extended(uint32_t *__fb,
 	    ttys[i].cursor_status = 1;
 	    ttys[i].cursor_bg_col = 0x00ffffff;
 	    ttys[i].cursor_fg_col = 0x00000000;
-	    ttys[i].text_bg_col = 0x00000000;
-	    ttys[i].text_fg_col = 0x00aaaaaa;
+	    ttys[i].text_bg_col = ansi_colours[0];
+	    ttys[i].text_fg_col = ansi_colours[7];
 	    ttys[i].escape = 0;
 	    ttys[i].esc_value0 = 0;
 	    ttys[i].esc_value1 = 0;

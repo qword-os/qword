@@ -98,20 +98,20 @@ static void add_to_buf_char(int tty, char c) {
         switch (c) {
             case '\n':
                 if (ttys[tty].kbd_buf_i == KBD_BUF_SIZE)
-                    break;
+                    goto out;
                 ttys[tty].kbd_buf[ttys[tty].kbd_buf_i++] = c;
                 if (ttys[tty].termios.c_lflag & ECHO)
                     put_char(tty, c);
                 for (size_t i = 0; i < ttys[tty].kbd_buf_i; i++) {
                     if (ttys[tty].big_buf_i == BIG_BUF_SIZE)
-                        break;
+                        goto out;
                     ttys[tty].big_buf[ttys[tty].big_buf_i++] = ttys[tty].kbd_buf[i];
                 }
                 ttys[tty].kbd_buf_i = 0;
                 goto out;
             case '\b':
                 if (!ttys[tty].kbd_buf_i)
-                    break;
+                    goto out;
                 ttys[tty].kbd_buf[--ttys[tty].kbd_buf_i] = 0;
                 if (ttys[tty].termios.c_lflag & ECHO) {
                     put_char(tty, '\b');
@@ -132,7 +132,7 @@ static void add_to_buf_char(int tty, char c) {
         ttys[tty].big_buf[ttys[tty].big_buf_i++] = c;
     }
 
-    if (ttys[tty].termios.c_lflag & ECHO)
+    if (is_printable(c) && ttys[tty].termios.c_lflag & ECHO)
         put_char(tty, c);
 
 out:

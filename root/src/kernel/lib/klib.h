@@ -16,7 +16,7 @@
 #define EMPTY ((void *)(size_t)(-1))
 
 __attribute__((always_inline)) inline int is_printable(char c) {
-    return (c > 0x20 && c <= 0x7e);
+    return (c >= 0x20 && c <= 0x7e);
 }
 
 __attribute__((always_inline)) inline void atomic_fetch_add_int(int *p, int *v, int x) {
