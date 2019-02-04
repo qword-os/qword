@@ -66,12 +66,13 @@ void init_kbd(void) {
 
 static lock_t kbd_read_lock = 1;
 
+static event_t input_handled = 0;
+
 int kbd_read(char *buf, size_t count) {
     int wait = 1;
 
-    while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-        yield(10);
-    }
+    while (!spinlock_test_and_acquire(&kbd_read_lock))
+        event_await(&input_handled);
 
     for (size_t i = 0; i < count; ) {
         if (big_buf_i) {
@@ -84,10 +85,9 @@ int kbd_read(char *buf, size_t count) {
         } else {
             if (wait) {
                 spinlock_release(&kbd_read_lock);
-                yield(10);
-                while (!spinlock_test_and_acquire(&kbd_read_lock)) {
-                    yield(10);
-                }
+                do {
+                    event_await(&input_handled);
+                } while (!spinlock_test_and_acquire(&kbd_read_lock));
             } else {
                 spinlock_release(&kbd_read_lock);
                 return (int)i;
@@ -262,5 +262,6 @@ await:
 
 out:
     spinlock_release(&kbd_read_lock);
+    event_trigger(&input_handled);
     goto await;
 }
