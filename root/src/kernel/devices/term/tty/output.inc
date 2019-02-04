@@ -109,6 +109,9 @@ static void clear(int tty) {
         ttys[tty].gridfg[i] = ttys[tty].text_fg_col;
     }
 
+    ttys[tty].cursor_x = 0;
+    ttys[tty].cursor_y = 0;
+
     refresh(tty);
     return;
 }
@@ -194,6 +197,7 @@ static void escape_parse(int tty, char c) {
             set_cursor_pos(tty, ttys[tty].cursor_x - ttys[tty].esc_values[0], ttys[tty].cursor_y);
             break;
         case 'H':
+        case 'f':
             ttys[tty].esc_values[0] -= 1;
             ttys[tty].esc_values[1] -= 1;
             if (ttys[tty].esc_values[1] >= cols)
@@ -213,6 +217,16 @@ static void escape_parse(int tty, char c) {
                 default:
                     break;
             }
+            break;
+        case 's':
+            ttys[tty].saved_cursor_x = ttys[tty].cursor_x;
+            ttys[tty].saved_cursor_y = ttys[tty].cursor_y;
+            break;
+        case 'u':
+            clear_cursor(tty);
+            ttys[tty].cursor_x = ttys[tty].saved_cursor_x;
+            ttys[tty].cursor_y = ttys[tty].saved_cursor_y;
+            draw_cursor(tty);
             break;
         default:
             ttys[tty].escape = 0;

@@ -28,6 +28,8 @@ struct tty_t {
 	char *grid;
 	uint32_t *gridbg;
 	uint32_t *gridfg;
+    int saved_cursor_x;
+    int saved_cursor_y;
 	int escape;
     int esc_values[MAX_ESC_VALUES];
     int esc_values_i;
