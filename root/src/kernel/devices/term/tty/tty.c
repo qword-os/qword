@@ -28,6 +28,7 @@ struct tty_t {
 	char *grid;
 	uint32_t *gridbg;
 	uint32_t *gridfg;
+    int control_sequence;
     int saved_cursor_x;
     int saved_cursor_y;
 	int escape;
@@ -118,6 +119,7 @@ void init_tty_extended(uint32_t *__fb,
 	    ttys[i].cursor_fg_col = 0x00000000;
 	    ttys[i].text_bg_col = ansi_colours[0];
 	    ttys[i].text_fg_col = ansi_colours[7];
+        ttys[i].control_sequence = 0;
 	    ttys[i].escape = 0;
 	    ttys[i].tabsize = 8;
         ttys[i].kbd_event = 0;

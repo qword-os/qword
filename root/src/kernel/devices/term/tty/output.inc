@@ -151,7 +151,7 @@ static void sgr(int tty) {
     return;
 }
 
-static void escape_parse(int tty, char c) {
+static void control_sequence_parse(int tty, char c) {
 
     if (c >= '0' && c <= '9') {
         ttys[tty].rrr = 1;
@@ -162,13 +162,11 @@ static void escape_parse(int tty, char c) {
         if (ttys[tty].rrr) {
             ttys[tty].esc_values_i++;
             ttys[tty].rrr = 0;
-        }
-    }
-
-    switch (c) {
-        case '[':
-        case ';':
+        } else if (c == ';') {
+            ttys[tty].esc_values[ttys[tty].esc_values_i] = 1;
+            ttys[tty].esc_values_i++;
             return;
+        }
     }
 
     // default rest to 1
@@ -234,7 +232,29 @@ static void escape_parse(int tty, char c) {
             break;
     }
 
+    ttys[tty].control_sequence = 0;
     ttys[tty].escape = 0;
+
+    return;
+}
+
+static void escape_parse(int tty, char c) {
+    if (ttys[tty].control_sequence) {
+        control_sequence_parse(tty, c);
+        return;
+    }
+    switch (c) {
+        case '[':
+            for (int i = 0; i < MAX_ESC_VALUES; i++)
+                ttys[tty].esc_values[i] = 0;
+            ttys[tty].esc_values_i = 0;
+            ttys[tty].rrr = 0;
+            ttys[tty].control_sequence = 1;
+            break;
+        default:
+            ttys[tty].escape = 0;
+            break;
+    }
 
     return;
 }
@@ -260,11 +280,7 @@ static void put_char(int tty, char c) {
         case '\0':
             break;
         case '\e':
-            for (int i = 0; i < MAX_ESC_VALUES; i++)
-                ttys[tty].esc_values[i] = 0;
-            ttys[tty].esc_values_i = 0;
             ttys[tty].escape = 1;
-            ttys[tty].rrr = 0;
             break;
         case '\t':
             if ((ttys[tty].cursor_x / ttys[tty].tabsize + 1) * ttys[tty].tabsize >= cols)
