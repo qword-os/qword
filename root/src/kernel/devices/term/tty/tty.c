@@ -25,6 +25,8 @@ struct tty_t {
 	uint32_t cursor_fg_col;
 	uint32_t text_bg_col;
 	uint32_t text_fg_col;
+	uint32_t default_bg_col;
+	uint32_t default_fg_col;
 	char *grid;
 	uint32_t *gridbg;
 	uint32_t *gridfg;
@@ -67,7 +69,7 @@ static uint32_t ansi_colours[] = {
     0x00268bd2,              // blue
     0x00d33682,              // magenta
     0x002aa198,              // cyan
-    0x00eee8d5              // grey
+    0x00eee8d5               // grey
 };
 
 static struct tty_t ttys[MAX_TTYS];
@@ -115,10 +117,12 @@ void init_tty_extended(uint32_t *__fb,
 	    ttys[i].cursor_x = 0;
 	    ttys[i].cursor_y = 0;
 	    ttys[i].cursor_status = 1;
-	    ttys[i].cursor_bg_col = 0x00ffffff;
-	    ttys[i].cursor_fg_col = 0x00000000;
-	    ttys[i].text_bg_col = ansi_colours[0];
-	    ttys[i].text_fg_col = ansi_colours[7];
+	    ttys[i].cursor_bg_col = 0x00839496;
+	    ttys[i].cursor_fg_col = 0x00002b36;
+	    ttys[i].default_bg_col = 0x00002b36;
+	    ttys[i].default_fg_col = 0x00839496;
+	    ttys[i].text_bg_col = ttys[i].default_bg_col;
+	    ttys[i].text_fg_col = ttys[i].default_fg_col;
         ttys[i].control_sequence = 0;
 	    ttys[i].escape = 0;
 	    ttys[i].tabsize = 8;

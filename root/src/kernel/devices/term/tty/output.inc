@@ -138,14 +138,24 @@ static void set_cursor_pos(int tty, int x, int y) {
 
 static void sgr(int tty) {
 
-    if (ttys[tty].esc_values[0] >= 30 && ttys[tty].esc_values[0] <= 37) {
-        ttys[tty].text_fg_col = ansi_colours[ttys[tty].esc_values[0] - 30];
-        return;
-    }
+    for (int i = 0; i < ttys[tty].esc_values_i; i++) {
 
-    if (ttys[tty].esc_values[0] >= 40 && ttys[tty].esc_values[0] <= 47) {
-        ttys[tty].text_bg_col = ansi_colours[ttys[tty].esc_values[0] - 40];
-        return;
+        if (!ttys[tty].esc_values[i]) {
+            ttys[tty].text_fg_col = ttys[tty].default_fg_col;
+            ttys[tty].text_bg_col = ttys[tty].default_bg_col;
+            continue;
+        }
+
+        if (ttys[tty].esc_values[i] >= 30 && ttys[tty].esc_values[i] <= 37) {
+            ttys[tty].text_fg_col = ansi_colours[ttys[tty].esc_values[i] - 30];
+            continue;
+        }
+
+        if (ttys[tty].esc_values[i] >= 40 && ttys[tty].esc_values[i] <= 47) {
+            ttys[tty].text_bg_col = ansi_colours[ttys[tty].esc_values[i] - 40];
+            continue;
+        }
+
     }
 
     return;
@@ -162,6 +172,8 @@ static void control_sequence_parse(int tty, char c) {
         if (ttys[tty].rrr) {
             ttys[tty].esc_values_i++;
             ttys[tty].rrr = 0;
+            if (c == ';')
+                return;
         } else if (c == ';') {
             ttys[tty].esc_values[ttys[tty].esc_values_i] = 1;
             ttys[tty].esc_values_i++;
@@ -227,8 +239,6 @@ static void control_sequence_parse(int tty, char c) {
             draw_cursor(tty);
             break;
         default:
-            ttys[tty].escape = 0;
-            put_char(tty, '?');
             break;
     }
 
