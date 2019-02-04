@@ -11,6 +11,8 @@
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a
+#define LEFT_ALT 0x38
+#define LEFT_ALT_REL 0xb8
 #define RIGHT_SHIFT 0x36
 #define LEFT_SHIFT 0x2a
 #define RIGHT_SHIFT_REL 0xb6
@@ -21,6 +23,7 @@
 static int capslock_active = 0;
 static int shift_active = 0;
 static int ctrl_active = 0;
+static int alt_active = 0;
 static int extra_scancodes = 0;
 
 static const uint8_t ascii_capslock[] = {
@@ -198,16 +201,13 @@ await:
         }
     }
 
-    if (ctrl_active) {
-        switch (input_byte) {
-            case 0x2e:
-                goto out;
-            default:
-                break;
-        }
-    }
-
     switch (input_byte) {
+        case LEFT_ALT:
+            alt_active = 1;
+            goto out;
+        case LEFT_ALT_REL:
+            alt_active = 0;
+            goto out;
         case LEFT_SHIFT:
         case RIGHT_SHIFT:
             shift_active = 1;
@@ -227,6 +227,16 @@ await:
             goto out;
         default:
             break;
+    }
+
+    if (ctrl_active && alt_active) {
+        // ctrl-alt combos
+        if (input_byte >= 0x3b && input_byte <= 0x40) {
+            // ctrl-alt [f1-f6]
+            current_tty = input_byte - 0x3b;
+            refresh(current_tty);
+            goto out;
+        }
     }
 
     /* Assign the correct character for this scancode based on modifiers */

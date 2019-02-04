@@ -103,6 +103,21 @@ void kmain_thread(void *arg) {
     if (kexec(init, args, environ, "/dev/tty0", "/dev/tty0", "/dev/tty0") == -1) {
         panic("Unable to launch init", 0, 0);
     }
+    if (kexec(init, args, environ, "/dev/tty1", "/dev/tty1", "/dev/tty1") == -1) {
+        panic("Unable to launch init", 0, 0);
+    }
+    if (kexec(init, args, environ, "/dev/tty2", "/dev/tty2", "/dev/tty2") == -1) {
+        panic("Unable to launch init", 0, 0);
+    }
+    if (kexec(init, args, environ, "/dev/tty3", "/dev/tty3", "/dev/tty3") == -1) {
+        panic("Unable to launch init", 0, 0);
+    }
+    if (kexec(init, args, environ, "/dev/tty4", "/dev/tty4", "/dev/tty4") == -1) {
+        panic("Unable to launch init", 0, 0);
+    }
+    if (kexec(init, args, environ, "/dev/tty5", "/dev/tty5", "/dev/tty5") == -1) {
+        panic("Unable to launch init", 0, 0);
+    }
 
     kprint(KPRN_INFO, "kmain: End of kmain");
 

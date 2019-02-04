@@ -43,4 +43,8 @@ popd
 ninja
 DESTDIR="$PREFIX" ninja install
 
+# install libraries into root
+mkdir -p ../../../../../root/lib
+cp -vr "$PREFIX/usr/lib/"* ../../../../../root/lib/
+
 exit 0
