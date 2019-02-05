@@ -63,7 +63,7 @@ int tty_read(int tty, void *void_buf, uint64_t unused, size_t count) {
     char *buf = void_buf;
     int wait = 1;
 
-    while (!spinlock_test_and_acquire(&ttys[tty].lock))
+    while (!spinlock_test_and_acquire(&ttys[tty].read_lock))
         event_await(&ttys[tty].kbd_event);
 
     for (size_t i = 0; i < count; ) {
@@ -76,23 +76,23 @@ int tty_read(int tty, void *void_buf, uint64_t unused, size_t count) {
             wait = 0;
         } else {
             if (wait) {
-                spinlock_release(&ttys[tty].lock);
+                spinlock_release(&ttys[tty].read_lock);
                 do {
                     event_await(&ttys[tty].kbd_event);
-                } while (!spinlock_test_and_acquire(&ttys[tty].lock));
+                } while (!spinlock_test_and_acquire(&ttys[tty].read_lock));
             } else {
-                spinlock_release(&ttys[tty].lock);
+                spinlock_release(&ttys[tty].read_lock);
                 return (int)i;
             }
         }
     }
 
-    spinlock_release(&ttys[tty].lock);
+    spinlock_release(&ttys[tty].read_lock);
     return (int)count;
 }
 
 static void add_to_buf_char(int tty, char c) {
-    spinlock_acquire(&ttys[tty].lock);
+    spinlock_acquire(&ttys[tty].read_lock);
 
     if (ttys[tty].termios.c_lflag & ICANON) {
         switch (c) {
@@ -136,7 +136,7 @@ static void add_to_buf_char(int tty, char c) {
         put_char(tty, c);
 
 out:
-    spinlock_release(&ttys[tty].lock);
+    spinlock_release(&ttys[tty].read_lock);
     return;
 }
 

@@ -274,10 +274,10 @@ int tty_write(int tty, const void *void_buf, uint64_t unused, size_t count) {
     if (!tty_ready)
         return 0;
     const char *buf = void_buf;
-    spinlock_acquire(&ttys[tty].lock);
+    spinlock_acquire(&ttys[tty].write_lock);
     for (size_t i = 0; i < count; i++)
         put_char(tty, buf[i]);
-    spinlock_release(&ttys[tty].lock);
+    spinlock_release(&ttys[tty].write_lock);
     return (int)count;
 }
 
