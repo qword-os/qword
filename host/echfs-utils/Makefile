@@ -1,6 +1,6 @@
-CC=cc
+CC=gcc
 PREFIX=/usr/local
-CFLAGS=-O2 -Wall -Wextra -pipe
+CFLAGS=-Ofast -Wall -Wextra -pipe
 
 .PHONY: all clean install
 

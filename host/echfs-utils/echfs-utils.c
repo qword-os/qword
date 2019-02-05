@@ -136,10 +136,6 @@ static inline void wr_entry(uint64_t entry, entry_t entry_src) {
 }
 
 static uint64_t import_chain(FILE *source) {
-    uint64_t start_block;
-    uint64_t block;
-    uint64_t prev_block;
-    uint64_t loc = (fatstart * bytesperblock);
     uint8_t *block_buf = malloc(bytesperblock);
     if (!block_buf) {
         perror("malloc failure");
@@ -150,43 +146,49 @@ static uint64_t import_chain(FILE *source) {
     uint64_t source_size = (uint64_t)ftell(source);
     rewind(source);
 
-    uint64_t source_size_blocks = source_size / bytesperblock;
-    if (source_size % bytesperblock) source_size_blocks++;
+    uint64_t source_size_blocks = (source_size + bytesperblock - 1) / bytesperblock;
 
     if (verbose) {
         fprintf(stdout, "file size: %" PRIu64 "\n", source_size);
         fprintf(stdout, "file size in blocks: %" PRIu64 "\n", source_size_blocks);
     }
 
-    // find first block
-    for (block = 0; rd_qword(loc); block++) loc += sizeof(uint64_t);
-    start_block = block;
-    if (verbose) fprintf(stdout, "first block of chain is #%" PRIu64 "\n", start_block);    
-    
-    for (uint64_t x = 0; ; x++) {
-        prev_block = (fatstart * bytesperblock) + (block * sizeof(uint64_t));
-        wr_qword(loc, END_OF_CHAIN);
-        
-        fseek(image, (long)(block * bytesperblock), SEEK_SET);    
-        // copy block
-        fread(block_buf, bytesperblock, 1, source);
-        fwrite(block_buf, bytesperblock, 1, image);
-
-        if ((uint64_t)ftell(source) >= source_size)
-            break;
-
-        if (x == source_size_blocks)
-            break;
-        
-        // find next block
-        loc = (fatstart * bytesperblock);
-        for (block = 0; rd_qword(loc); block++) loc += sizeof(uint64_t);
-        
-        wr_qword(prev_block, block);
+    uint64_t *blocklist = malloc(source_size_blocks * sizeof(uint64_t));
+    if (!blocklist) {
+        perror("malloc failure");
+        abort();
     }
 
+    fseek(image, fatstart * bytesperblock, SEEK_SET);
+    uint64_t block = 0;
+    for (uint64_t i = 0; i < source_size_blocks; i++) {
+        uint64_t vvv;
+        for ( ; fread(&vvv, sizeof(uint64_t), 1, image), vvv; block++);
+        blocklist[i] = block++;
+    }
+
+    for (uint64_t i = 0; i < source_size_blocks; i++) {
+        fseek(image, blocklist[i] * bytesperblock, SEEK_SET);
+
+        // copy block
+        fwrite(block_buf, 1, fread(block_buf, 1, bytesperblock, source), image);
+    }
+
+    for (uint64_t i = 0; ; i++) {
+        fseek(image, fatstart * bytesperblock + blocklist[i] * sizeof(uint64_t), SEEK_SET);
+        if (i == source_size_blocks - 1) {
+            uint64_t vvv = END_OF_CHAIN;
+            fwrite(&vvv, sizeof(uint64_t), 1, image);
+            break;
+        }
+        fwrite(&blocklist[i+1], sizeof(uint64_t), 1, image);
+    }
+
+    block = blocklist[0];
+
+    free(blocklist);
     free(block_buf);
-    return start_block;
+    return block;
 }
 
 static void export_chain(FILE *dest, entry_t src) {
@@ -213,7 +215,7 @@ static void export_chain(FILE *dest, entry_t src) {
     }
 
     free(block_buf);
-    return;        
+    return;
 }
 
 static uint64_t search(const char *name, uint64_t parent, uint8_t type) {
@@ -239,16 +241,16 @@ static path_result_t path_resolver(const char *path, uint8_t type) {
     int i;
     path_result_t result;
     entry_t empty_entry = {0};
-    
+
     result.name[0] = 0;
     result.target_entry = 0;
     result.parent = empty_entry;
     result.target = empty_entry;
     result.failure = 0;
     result.not_found = 0;
-    
+
     parent.payload = ROOT_ID;
-    
+
     if ((type == DIRECTORY_TYPE) && !strcmp(path, "/")) {
         result.target.payload = ROOT_ID;
         return result; // exception for root
@@ -257,10 +259,10 @@ static path_result_t path_resolver(const char *path, uint8_t type) {
         result.failure = 1;
         return result; // fail if looking for a file named "/"
     }
-    
+
     if (*path == '/') path++;
 
-next:    
+next:
     for (i = 0; *path != '/'; path++) {
         if (!*path) {
             last = 1;
@@ -270,7 +272,7 @@ next:
     }
     name[i] = 0;
     path++;
-    
+
     if (!last) {
         uint64_t search_res = search(name, parent.payload, DIRECTORY_TYPE);
         if (search_res == SEARCH_FAILURE) {
@@ -305,14 +307,14 @@ static inline uint64_t get_free_id(void) {
         if ((entry.type == 1) && (entry.payload == id))
             id = (entry.payload + 1);
     }
-    
+
     return id;
 }
 
 static void mkdir_cmd(int argc, char **argv) {
     uint64_t i;
     entry_t entry = {0};
-    
+
     if (argc < 4) {
         fprintf(stderr, "%s: %s: missing argument: directory name.\n", argv[0], argv[2]);
         return;
@@ -325,14 +327,14 @@ static void mkdir_cmd(int argc, char **argv) {
         fprintf(stderr, "%s: %s: directory `%s` already exists.\n", argv[0], argv[2], argv[3]);
         return;
     }
-    
+
     // find empty entry
     for (i = 0; ; i++) {
         entry_t entry_i = rd_entry(i);
         if ((entry_i.parent_id == 0) || (entry_i.parent_id == DELETED_ENTRY))
             break;
     }
-    
+
     entry.parent_id = path_result.parent.payload;
     if (verbose) fprintf(stdout, "new directory's parent ID: %" PRIu64 "\n", entry.parent_id);
     entry.type = DIRECTORY_TYPE;
@@ -341,9 +343,9 @@ static void mkdir_cmd(int argc, char **argv) {
     if (verbose) fprintf(stdout, "new directory's ID: %" PRIu64 "\n", entry.payload);
     if (verbose) fprintf(stdout, "writing to entry #%" PRIu64 "\n", i);
     entry.time = (uint64_t)time(NULL);
-    
+
     wr_entry(i, entry);
-    
+
     if (verbose) fprintf(stdout, "created directory `%s`\n", argv[3]);
 
     return;
@@ -353,7 +355,7 @@ static void import_cmd(int argc, char **argv) {
     FILE *source;
     entry_t entry = {0};
     uint64_t i;
-    
+
     if (argc < 4) {
         fprintf(stderr, "%s: %s: missing argument: source file.\n", argv[0], argv[2]);
         return;
@@ -398,7 +400,7 @@ subdir:
         fprintf(stderr, "%s: %s: error: file `%s` already exists.\n", argv[0], argv[2], argv[4]);
         return;
     }
-    
+
     if ((source = fopen(argv[3], "r")) == NULL) {
         fprintf(stderr, "%s: %s: error: couldn't access `%s`.\n", argv[0], argv[2], argv[3]);
         return;
@@ -411,7 +413,7 @@ subdir:
     fseek(source, 0L, SEEK_END);
     entry.size = (uint64_t)ftell(source);
     entry.time = (uint64_t)time(NULL);
-    
+
     // find empty entry
     for (i = 0; ; i++) {
         entry_t entry_i = rd_entry(i);
@@ -419,7 +421,7 @@ subdir:
             break;
     }
     wr_entry(i, entry);
-    
+
     fclose(source);
     if (verbose) fprintf(stdout, "imported file `%s` as `%s`\n", argv[3], argv[4]);
     return;
@@ -427,7 +429,7 @@ subdir:
 
 static void export_cmd(int argc, char **argv) {
     FILE *dest;
-    
+
     if (argc < 4) {
         fprintf(stderr, "%s: %s: missing argument: source file.\n", argv[0], argv[2]);
         return;
@@ -438,20 +440,20 @@ static void export_cmd(int argc, char **argv) {
     }
 
     path_result_t path_result = path_resolver(argv[3], FILE_TYPE);
-    
+
     // check if the file doesn't exist
     if (path_result.not_found) {
         fprintf(stderr, "%s: %s: error: file `%s` not found.\n", argv[0], argv[2], argv[3]);
         return;
     }
-    
+
     if ((dest = fopen(argv[4], "w")) == NULL) {
         fprintf(stderr, "%s: %s: error: couldn't access `%s`.\n", argv[0], argv[2], argv[4]);
         return;
     }
 
     export_chain(dest, path_result.target);
-    
+
     fclose(dest);
     if (verbose) fprintf(stdout, "exported file `%s` as `%s`\n", argv[3], argv[4]);
     return;
@@ -471,7 +473,7 @@ static void ls_cmd(int argc, char **argv) {
     }
 
     if (verbose) fprintf(stdout, "  ---- ls ----\n");
-    
+
     for (uint64_t i = 0; rd_entry(i).parent_id; i++) {
         if (rd_entry(i).parent_id != id) continue;
         if (rd_entry(i).type == DIRECTORY_TYPE) fputc('[', stdout);
@@ -535,7 +537,7 @@ static void format_pass1(int argc, char **argv) {
     free(zeroblock);
 
     if (verbose) fputc('\n', stdout);
-    
+
     return;
 
 }
@@ -588,7 +590,7 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
     }
     if (verbose) fprintf(stdout, "echidnaFS signature found\n");
-    
+
     if (verbose) fprintf(stdout, "image size: %" PRIu64 " bytes\n", imgsize);
 
     bytesperblock = rd_qword(28);
@@ -601,7 +603,7 @@ int main(int argc, char **argv) {
     }
 
     blocks = imgsize / bytesperblock;
-    
+
     if (verbose) fprintf(stdout, "block count: %" PRIu64 "\n", blocks);
 
     if (verbose) fprintf(stdout, "declared block count: %" PRIu64 "\n", rd_qword(12));
@@ -610,7 +612,7 @@ int main(int argc, char **argv) {
     }
 
     fatsize = (blocks * sizeof(uint64_t)) / bytesperblock;
-    if ((blocks * sizeof(uint64_t)) % bytesperblock) fatsize++;    
+    if ((blocks * sizeof(uint64_t)) % bytesperblock) fatsize++;
     if (verbose) fprintf(stdout, "expected allocation table size: %" PRIu64 " blocks\n", fatsize);
 
     if (verbose) fprintf(stdout, "expected allocation table start: block %" PRIu64 "\n", fatstart);
