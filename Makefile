@@ -15,7 +15,7 @@ iso: all
 img: all
 	cp root/src/qloader/qloader.bin ./qword.img
 	dd bs=32768 count=65536 if=/dev/zero >> ./qword.img
-	truncate --size=-4096 ./qword.img
+	truncate -s $$(( `du -b qword.img | cut -f1` - 4096 )) qword.img
 	echfs-utils ./qword.img format 32768
 	./copy-root-to-img.sh root qword.img
 
