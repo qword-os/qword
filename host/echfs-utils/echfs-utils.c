@@ -146,6 +146,9 @@ static uint64_t import_chain(FILE *source) {
     uint64_t source_size = (uint64_t)ftell(source);
     rewind(source);
 
+    if (!source_size)
+        return END_OF_CHAIN;
+
     uint64_t source_size_blocks = (source_size + bytesperblock - 1) / bytesperblock;
 
     if (verbose) {
