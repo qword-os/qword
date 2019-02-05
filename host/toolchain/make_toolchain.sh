@@ -16,6 +16,12 @@ if [ -z "$MAKEFLAGS" ]; then
 	MAKEFLAGS="$1"
 fi
 if [ -x "$(command -v gmake)" ]; then
+    mkdir -p "$PREFIX/bin"
+    cat <<EOF >"$PREFIX/bin/make"
+#!/bin/sh
+gmake "$@"
+EOF
+    chmod +x "$PREFIX/bin/make"
     MAKE="gmake"
 else
     MAKE="make"
