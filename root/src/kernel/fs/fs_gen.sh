@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 cat >fs.h <<EOF
 #ifndef __FS_H__
