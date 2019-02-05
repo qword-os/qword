@@ -9,6 +9,11 @@ fi
 if [ -z "$MAKEFLAGS" ]; then
 	MAKEFLAGS="$1"
 fi
+if [ -x "$(command -v gmake)" ]; then
+    MAKE="gmake"
+else
+    MAKE="make"
+fi
 
 export MAKEFLAGS
 

@@ -15,6 +15,11 @@ fi
 if [ -z "$MAKEFLAGS" ]; then
 	MAKEFLAGS="$1"
 fi
+if [ -x "$(command -v gmake)" ]; then
+    MAKE="gmake"
+else
+    MAKE="make"
+fi
 
 export MAKEFLAGS
 
@@ -62,8 +67,8 @@ cd ..
 mkdir build-binutils
 cd build-binutils
 ../binutils-$BINUTILSVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --disable-werror
-make
-make install
+$MAKE
+$MAKE install
 
 mkdir -p "$PREFIX/usr/include"
 cd ../gcc-$GCCVERSION
@@ -73,17 +78,17 @@ cd ..
 mkdir build-gcc
 cd build-gcc
 ../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
-make all-gcc
-make install-gcc
+$MAKE all-gcc
+$MAKE install-gcc
 cd ../..
 
 ./make_mlibc.sh
 
 cd build-toolchain
 cd build-gcc
-make all-target-libgcc
-make install-target-libgcc
-make all-target-libstdc++-v3
-make install-target-libstdc++-v3
+$MAKE all-target-libgcc
+$MAKE install-target-libgcc
+$MAKE all-target-libstdc++-v3
+$MAKE install-target-libstdc++-v3
 
 exit 0
