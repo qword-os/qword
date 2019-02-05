@@ -145,7 +145,6 @@ struct termios_t {
 	speed_t obaud;
 };
 
-void init_tty(void);
 int tty_write(int, const void *, uint64_t, size_t);
 int tty_read(int, void *, uint64_t, size_t);
 

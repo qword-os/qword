@@ -2,9 +2,8 @@
 #include <stddef.h>
 #include <lib/cio.h>
 #include <lib/klib.h>
-#include <devices/dev.h>
+#include <fs/devfs/devfs.h>
 #include <misc/pci.h>
-#include <devices/storage/ata/ata.h>
 #include <mm/mm.h>
 #include <lib/errno.h>
 
@@ -231,7 +230,7 @@ static int ata_flush1(int device) {
     return 0;
 }
 
-void init_ata(void) {
+void init_dev_ata(void) {
     kprint(KPRN_INFO, "ata: Initialising ata device driver...");
 
     struct pci_device_t pci_device = {0};
@@ -265,8 +264,6 @@ void init_ata(void) {
         device_add(&device);
         kprint(KPRN_INFO, "ata: Initialised %s", ata_names[i]);
     }
-
-    return;
 }
 
 static ata_device init_ata_device(uint16_t port_base, int master,

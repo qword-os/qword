@@ -872,11 +872,11 @@ end_of_dir:
     return -1;
 }
 
-int iso9660_sync(void) {
+static int iso9660_sync(void) {
     return 0;
 }
 
-int init_fs_iso9660(void) {
+void init_fs_iso9660(void) {
     struct fs_t iso9660 = {0};
 
     kstrcpy(iso9660.type, "iso9660");

@@ -3,7 +3,7 @@
 #include <lib/klib.h>
 #include <lib/time.h>
 #include <fd/vfs/vfs.h>
-#include <devices/dev.h>
+#include <fs/devfs/devfs.h>
 #include <lib/lock.h>
 #include <lib/errno.h>
 #include <sys/panic.h>
@@ -359,11 +359,11 @@ static int devfs_readdir(int fd, struct dirent *dir) {
     return 0;
 }
 
-int devfs_sync(void) {
+static int devfs_sync(void) {
     return 0;
 }
 
-int init_fs_devfs(void) {
+void init_fs_devfs(void) {
     struct fs_t devfs = {0};
 
     kstrcpy(devfs.type, "devfs");
@@ -380,6 +380,4 @@ int init_fs_devfs(void) {
     devfs.sync = devfs_sync;
 
     vfs_install_fs(&devfs);
-
-    return 0;
 }

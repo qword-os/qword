@@ -3,8 +3,6 @@
 #include <lib/cio.h>
 #include <lib/klib.h>
 #include <misc/serial.h>
-#include <devices/term/tty/tty.h>
-#include <devices/streams/streams.h>
 #include <misc/vbe.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
@@ -15,43 +13,34 @@
 #include <misc/pit.h>
 #include <sys/smp.h>
 #include <user/task.h>
-#include <devices/storage/ata/ata.h>
 #include <devices/dev.h>
 #include <fd/vfs/vfs.h>
 #include <user/elf.h>
 #include <misc/pci.h>
-#include <devices/storage/ahci/ahci.h>
 #include <lib/time.h>
 #include <sys/irq.h>
 #include <sys/panic.h>
 #include <fs/fs.h>
+#include <devices/dev.h>
 #include <sys/vga_font.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
 
-    init_streams();
-    init_tty();
+    /* Launch the urm */
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(userspace_request_monitor, 0));
+
+    /* Initialise PCI */
+    init_pci();
 
     /* Initialise device drivers */
-    init_pci();
-    init_ahci();
-    init_ata();
+    init_dev();
 
     /* Initialise filesystem drivers */
     init_fs();
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
-
-    /* Launch the urm */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(userspace_request_monitor, 0));
-
-    /* Launch the device cache sync worker */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(device_sync_worker, 0));
-
-    /* Launch the fs cache sync worker */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(vfs_sync_worker, 0));
 
     int tty = open("/dev/tty0", O_RDWR);
 

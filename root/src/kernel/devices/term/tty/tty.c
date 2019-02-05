@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <devices/term/tty/tty.h>
 #include <lib/klib.h>
-#include <devices/dev.h>
+#include <fs/devfs/devfs.h>
 #include <lib/lock.h>
 #include <sys/apic.h>
 
@@ -162,7 +162,7 @@ void init_tty_extended(uint32_t *__fb,
     return;
 }
 
-void init_tty(void) {
+void init_dev_tty(void) {
     init_tty_extended(
         vbe_framebuffer,
         vbe_height,

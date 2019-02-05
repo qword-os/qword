@@ -1,4 +1,4 @@
-#include <devices/dev.h>
+#include <fs/devfs/devfs.h>
 
 /** /dev/null **/
 
@@ -53,7 +53,7 @@ static int zero_flush(int unused) {
     return 1;
 }
 
-void init_streams(void) {
+void init_dev_streams(void) {
     struct device_t device = {0};
     kstrcpy(device.name, "null");
     device.intern_fd = 0;

@@ -1,9 +1,16 @@
 #include <fs/fs.h>
+#include <fd/vfs/vfs.h>
+#include <user/task.h>
 
-int init_fs(void) {
-    if (init_fs_devfs()) return -1;
-    if (init_fs_echfs()) return -1;
-    if (init_fs_iso9660()) return -1;
+void init_fs_devfs(void);
+void init_fs_echfs(void);
+void init_fs_iso9660(void);
 
-    return 0;
+void init_fs(void) {
+    init_fs_devfs();
+    init_fs_echfs();
+    init_fs_iso9660();
+
+    /* Launch the fs cache sync worker */
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(vfs_sync_worker, 0));
 }

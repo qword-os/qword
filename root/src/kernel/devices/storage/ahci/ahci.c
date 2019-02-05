@@ -1,10 +1,9 @@
 #include <stdint.h>
 #include <stddef.h>
-#include <devices/storage/ahci/ahci.h>
 #include "ahci_private.h"
 #include <misc/pci.h>
 #include <lib/klib.h>
-#include <devices/dev.h>
+#include <fs/devfs/devfs.h>
 #include <lib/errno.h>
 
 static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
@@ -115,7 +114,7 @@ static void stop_cmd(volatile struct hba_port_t *port) {
     return;
 }
 
-void init_ahci(void) {
+void init_dev_ahci(void) {
     /* initialise the device array */
     struct pci_device_t device = {0};
     ahci_devices = kalloc(MAX_AHCI_DEVICES * sizeof(struct ahci_device_t));
