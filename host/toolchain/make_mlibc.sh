@@ -7,7 +7,7 @@ if [ -z "$TARGET" ]; then
 	TARGET=x86_64-qword
 fi
 if [ -z "$MAKEFLAGS" ]; then
-	MAKEFLAGS="-j `grep -c ^processor /proc/cpuinfo`"
+	MAKEFLAGS="$1"
 fi
 
 export MAKEFLAGS

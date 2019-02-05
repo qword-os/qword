@@ -13,7 +13,7 @@ if [ -z "$BINUTILSVERSION" ]; then
 	BINUTILSVERSION=2.31.1
 fi
 if [ -z "$MAKEFLAGS" ]; then
-	MAKEFLAGS="-j `grep -c ^processor /proc/cpuinfo`"
+	MAKEFLAGS="$1"
 fi
 
 export MAKEFLAGS
