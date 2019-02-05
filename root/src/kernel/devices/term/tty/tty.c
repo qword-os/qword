@@ -17,7 +17,8 @@
 static lock_t tty_ready = 0;
 
 struct tty_t {
-    lock_t lock;
+    lock_t write_lock;
+    lock_t read_lock;
 	int cursor_x;
 	int cursor_y;
 	int cursor_status;
@@ -113,7 +114,8 @@ void init_tty_extended(uint32_t *__fb,
     rows = fb_height / font_height;
 
     for (int i = 0; i < MAX_TTYS; i++) {
-        ttys[i].lock = 1;
+        ttys[i].write_lock = 1;
+        ttys[i].read_lock = 1;
 	    ttys[i].cursor_x = 0;
 	    ttys[i].cursor_y = 0;
 	    ttys[i].cursor_status = 1;

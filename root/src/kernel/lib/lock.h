@@ -36,7 +36,9 @@ typedef volatile int64_t lock_t;
 })
 
 #define spinlock_acquire(lock) ({ \
+    __label__ retry; \
     uint64_t deadlock = 0xffffff; \
+retry: \
     asm volatile ( \
         "xor eax, eax;" \
         "1: " \
@@ -52,12 +54,13 @@ typedef volatile int64_t lock_t;
         : "rax" \
     ); \
     if (!deadlock) { \
-        qemu_debug_puts("\ndeadlock at: spinlock_acquire(" #lock ")\n"); \
+        qemu_debug_puts("\npossible deadlock at: spinlock_acquire(" #lock ")\n"); \
         qemu_debug_puts("file: " __FILE__ "\n"); \
         qemu_debug_puts("function: "); \
         qemu_debug_puts(__func__); \
         qemu_debug_puts("\n"); \
-        for (;;); \
+        deadlock = 0xffffffffffffffff; \
+        goto retry; \
     } \
 })
 
