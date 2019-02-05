@@ -1,46 +1,30 @@
-#!/bin/bash
-
-if [ -z "$PREFIX" ]; then
-	PREFIX=$(pwd)/sysroot
-fi
-if [ -z "$TARGET" ]; then
-	TARGET=x86_64-qword
-fi
-if [ -z "$GCCVERSION" ]; then
-	GCCVERSION=8.2.0
-fi
-if [ -z "$BINUTILSVERSION" ]; then
-	BINUTILSVERSION=2.31.1
-fi
-if [ -z "$MAKEFLAGS" ]; then
-	MAKEFLAGS="$1"
-fi
-if [ -x "$(command -v gmake)" ]; then
-    mkdir -p "$PREFIX/bin"
-    cat <<EOF >"$PREFIX/bin/make"
-#!/bin/sh
-gmake "$@"
-EOF
-    chmod +x "$PREFIX/bin/make"
-    MAKE="gmake"
-else
-    MAKE="make"
-fi
-
-export MAKEFLAGS
-
-echo "Prefix: $PREFIX"
-echo "Target: $TARGET"
-echo "GCC version: $GCCVERSION"
-echo "Binutils version: $BINUTILSVERSION"
-echo "Make flags: $MAKEFLAGS"
+#!/usr/bin/env bash
 
 set -e
 set -x
 
+PREFIX="$(pwd)/sysroot"
+TARGET=x86_64-qword
+GCCVERSION=8.2.0
+BINUTILSVERSION=2.31.1
+
+if [ -z "$MAKEFLAGS" ]; then
+	MAKEFLAGS="$1"
+fi
+export MAKEFLAGS
+
 rm -rf "$PREFIX"
 mkdir -p "$PREFIX"
 export PATH="$PREFIX/bin:$PATH"
+
+if [ -x "$(command -v gmake)" ]; then
+    mkdir -p "$PREFIX/bin"
+    cat <<EOF >"$PREFIX/bin/make"
+#!/usr/bin/env sh
+gmake "\$@"
+EOF
+    chmod +x "$PREFIX/bin/make"
+fi
 
 mkdir -p build-toolchain
 cd build-toolchain
@@ -73,8 +57,8 @@ cd ..
 mkdir build-binutils
 cd build-binutils
 ../binutils-$BINUTILSVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --disable-werror
-$MAKE
-$MAKE install
+make
+make install
 
 mkdir -p "$PREFIX/usr/include"
 cd ../gcc-$GCCVERSION
@@ -84,17 +68,17 @@ cd ..
 mkdir build-gcc
 cd build-gcc
 ../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
-$MAKE all-gcc
-$MAKE install-gcc
+make all-gcc
+make install-gcc
 cd ../..
 
 ./make_mlibc.sh
 
 cd build-toolchain
 cd build-gcc
-$MAKE all-target-libgcc
-$MAKE install-target-libgcc
-$MAKE all-target-libstdc++-v3
-$MAKE install-target-libstdc++-v3
+make all-target-libgcc
+make install-target-libgcc
+make all-target-libstdc++-v3
+make install-target-libstdc++-v3
 
 exit 0

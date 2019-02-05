@@ -1,28 +1,10 @@
-#!/bin/bash
-
-if [ -z "$PREFIX" ]; then
-	PREFIX="$(pwd)/sysroot"
-fi
-if [ -z "$TARGET" ]; then
-	TARGET=x86_64-qword
-fi
-if [ -z "$MAKEFLAGS" ]; then
-	MAKEFLAGS="$1"
-fi
-if [ -x "$(command -v gmake)" ]; then
-    MAKE="gmake"
-else
-    MAKE="make"
-fi
-
-export MAKEFLAGS
-
-echo "Prefix: $PREFIX"
-echo "Target: $TARGET"
-echo "Make flags: $MAKEFLAGS"
+#!/usr/bin/env bash
 
 set -e
 set -x
+
+PREFIX="$(pwd)/sysroot"
+TARGET=x86_64-qword
 
 mkdir -p "$PREFIX"
 export PATH="$PREFIX/bin:$PATH"
