@@ -26,12 +26,20 @@ cd "$1"
 shopt -s dotglob
 ROOT_FILES=$(echo **)
 
+ROOT_FILES_COUNT=0
+for i in $ROOT_FILES; do
+    echo $(( ROOT_FILES_COUNT++ )) > /dev/null
+done
+
 echo "Transferring directory '$1' to image '$2'..."
 
+FILES_COUNTER=1
 for i in $ROOT_FILES; do
+    printf "\r\e[KFile $FILES_COUNTER/$ROOT_FILES_COUNT ($i)"
+    echo $(( FILES_COUNTER++ )) > /dev/null
     echfs-utils "$IMAGE_REALPATH" import "$i" "$i" &> /dev/null
 done
 
-echo "Done."
+printf "\nDone.\n"
 
 exit 0
