@@ -18,3 +18,5 @@
 /host/echfs-utils/echfs-utils
 /host/toolchain/build-toolchain
 /host/toolchain/sysroot
+
+/test.img

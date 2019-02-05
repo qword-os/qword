@@ -21,6 +21,7 @@
 #include <user/elf.h>
 #include <misc/pci.h>
 #include <devices/storage/ahci/ahci.h>
+#include <devices/storage/nvme/nvme.h>
 #include <lib/time.h>
 #include <sys/irq.h>
 #include <sys/panic.h>
@@ -37,6 +38,7 @@ void kmain_thread(void *arg) {
     init_pci();
     init_ahci();
     init_ata();
+    init_nvme();
 
     /* Initialise filesystem drivers */
     init_fs();
