@@ -15,7 +15,6 @@ struct pipe_t {
     void *buffer;
     size_t size;
     event_t event;
-    int term;
     int refcount;
 };
 
@@ -27,7 +26,6 @@ static int pipe_close(int fd) {
     spinlock_acquire(&pipe->lock);
     pipe->refcount--;
     if (pipe->refcount) {
-        pipe->term = 1;
         event_trigger(&pipe->event);
         spinlock_release(&pipe->lock);
         dynarray_unref(pipes, fd);
@@ -36,6 +34,7 @@ static int pipe_close(int fd) {
     if (pipe->size)
         kfree(pipe->buffer);
     kfree(pipe);
+    dynarray_unref(pipes, fd);
     dynarray_remove(pipes, fd);
     return 0;
 }
@@ -50,14 +49,14 @@ static int pipe_read(int fd, void *buf, size_t count) {
             count = pipe->size;
             break;
         } else {
+            if (pipe->refcount == 1) {
+                count = pipe->size;
+                break;
+            }
             // block until there's enough data available
             spinlock_release(&pipe->lock);
             event_await(&pipe->event);
             spinlock_acquire(&pipe->lock);
-            if (pipe->term) {
-                count = pipe->size;
-                break;
-            }
         }
     }
 
