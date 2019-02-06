@@ -32,6 +32,22 @@ int dup(int fd) {
     return fd_create(&new_fd);
 }
 
+int tcsetattr(int fd, int optional_actions, struct termios *buf) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.tcsetattr(intern_fd, optional_actions, buf);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
+int tcgetattr(int fd, struct termios *buf) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.tcgetattr(intern_fd, buf);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
 int readdir(int fd, struct dirent *buf) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
     int intern_fd = fd_ptr->intern_fd;

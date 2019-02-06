@@ -19,6 +19,8 @@ struct fs_t {
     int (*dup)(int);
     int (*readdir)(int, struct dirent *);
     int (*sync)(void);
+    int (*tcgetattr)(int, struct termios *);
+    int (*tcsetattr)(int, int, struct termios *);
 };
 
 /* VFS calls */

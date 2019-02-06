@@ -75,7 +75,7 @@ struct thread_t {
     int64_t accounted_cputime;
     size_t kstack;
     size_t ustack;
-    size_t errno;
+    size_t thread_errno;
     size_t fs_base;
     struct ctx_t ctx;
     uint8_t fxstate[512] __attribute__((aligned(16)));

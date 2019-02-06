@@ -155,6 +155,7 @@ void init_dev_ahci(void) {
                     kprint(KPRN_WARN, "failed to initialise sata device at index %u", i);
                 } else {
                     struct device_t device = {0};
+                    device.calls = default_device_calls;
                     kstrcpy(device.name, ahci_names[i]);
                     device.intern_fd = i;
                     device.size = ahci_devices[i].sector_count * 512;

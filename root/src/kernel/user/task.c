@@ -193,7 +193,7 @@ void task_resched(struct ctx_t *ctx) {
         /* Save user rsp */
         current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
         /* Save errno */
-        current_thread->errno = cpu_locals[current_cpu].thread_errno;
+        current_thread->thread_errno = cpu_locals[current_cpu].thread_errno;
         /* Update statistics. */
         current_thread->total_cputime += uptime_raw - cpu_locals[current_cpu].last_schedule_time;
         /* Release lock on this thread */
@@ -218,7 +218,7 @@ void task_resched(struct ctx_t *ctx) {
     cpu_local->thread_kstack = thread->kstack;
     cpu_local->thread_ustack = thread->ustack;
 
-    cpu_local->thread_errno = thread->errno;
+    cpu_local->thread_errno = thread->thread_errno;
 
     thread->active_on_cpu = current_cpu;
 

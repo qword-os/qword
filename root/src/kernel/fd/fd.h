@@ -5,6 +5,8 @@
 #include <lib/time.h>
 #include <lib/dynarray.h>
 #include <lib/types.h>
+#include <devices/term/tty/tty.h>  // for termios
+#include <lib/errno.h>
 
 /* from options/ansi/include/bits/ansi/seek.h in mlibc */
 #define SEEK_CUR 1
@@ -92,6 +94,8 @@ struct fd_handler_t {
     int (*lseek)(int, off_t, int);
     int (*dup)(int);
     int (*readdir)(int, struct dirent *);
+    int (*tcgetattr)(int, struct termios *);
+    int (*tcsetattr)(int, int, struct termios *);
 };
 
 struct file_descriptor_t {
@@ -110,5 +114,31 @@ int write(int, const void *, size_t);
 int lseek(int, off_t, int);
 int dup(int);
 int readdir(int, struct dirent *);
+int tcgetattr(int, struct termios *);
+int tcsetattr(int, int, struct termios *);
+
+__attribute__((unused)) static int bogus_read() {
+    errno = EINVAL;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_write() {
+    errno = EINVAL;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_flush() {
+    return 1;
+}
+
+__attribute__((unused)) static int bogus_tcgetattr() {
+    errno = ENOTTY;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_tcsetattr() {
+    errno = ENOTTY;
+    return -1;
+}
 
 #endif

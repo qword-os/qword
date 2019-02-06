@@ -255,6 +255,7 @@ void init_dev_ata(void) {
         if (j % 2) master = 0;
         else master = 1;
         struct device_t device = {0};
+        device.calls = default_device_calls;
         kstrcpy(device.name, ata_names[i]);
         device.intern_fd = i;
         device.size = ata_devices[i].sector_count * 512;

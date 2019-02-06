@@ -45,7 +45,7 @@ struct tty_t {
     char kbd_buf[KBD_BUF_SIZE];
     size_t big_buf_i;
     char big_buf[BIG_BUF_SIZE];
-    struct termios_t termios;
+    struct termios termios;
 };
 
 /*
@@ -88,8 +88,21 @@ static int tty_flush(int tty) {
     return 1;
 }
 
-// TODO
-static int tty_tcsetattr(int tty, int optional_actions, struct termios_t *new_termios) {
+static int tty_tcsetattr(int tty, int optional_actions, struct termios *new_termios) {
+    spinlock_acquire(&ttys[tty].read_lock);
+    spinlock_acquire(&ttys[tty].write_lock);
+    ttys[tty].termios = *new_termios;
+    spinlock_release(&ttys[tty].write_lock);
+    spinlock_release(&ttys[tty].read_lock);
+    return 0;
+}
+
+static int tty_tcgetattr(int tty, struct termios *new_termios) {
+    spinlock_acquire(&ttys[tty].read_lock);
+    spinlock_acquire(&ttys[tty].write_lock);
+    *new_termios = ttys[tty].termios;
+    spinlock_release(&ttys[tty].write_lock);
+    spinlock_release(&ttys[tty].read_lock);
     return 0;
 }
 
@@ -145,12 +158,15 @@ void init_tty_extended(uint32_t *__fb,
         }
         refresh(i);
         struct device_t device = {0};
+        device.calls = default_device_calls;
         kstrcpy(device.name, tty_names[i]);
         device.intern_fd = i;
         device.size = 0;
         device.calls.read = tty_read;
         device.calls.write = tty_write;
         device.calls.flush = tty_flush;
+        device.calls.tcgetattr = tty_tcgetattr;
+        device.calls.tcsetattr = tty_tcsetattr;
         device_add(&device);
     }
 

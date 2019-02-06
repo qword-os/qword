@@ -135,7 +135,7 @@ typedef unsigned int tcflag_t;
 #define TCOOFF 3
 #define TCOON 4
 
-struct termios_t {
+struct termios {
 	tcflag_t c_iflag;
 	tcflag_t c_oflag;
 	tcflag_t c_cflag;

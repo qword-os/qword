@@ -122,35 +122,66 @@ int syscall_clock_gettime(struct ctx_t *ctx) {
 int syscall_tcgetattr(struct ctx_t *ctx) {
     /* rdi: fd
      * rsi struct termios*
-     *//*
-    if (privilege_check(ctx->rsi, sizeof(struct termios_t))) {
+     */
+    if (privilege_check(ctx->rsi, sizeof(struct termios))) {
         errno = EFAULT;
         return -1;
     }
 
-    spinlock_acquire(&termios_lock);
-    struct termios_t *buf = (struct termios_t *)ctx->rsi;
-    *buf = termios;
-    spinlock_release(&termios_lock);
-    return 0;*/
-    errno = ENOSYS;
-    return -1;
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    if (ctx->rdi >= MAX_FILE_HANDLES) {
+        errno = EBADF;
+        return -1;
+    }
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    struct termios *new_termios = (struct termios *)ctx->rsi;
+    size_t ret = tcgetattr(process->file_handles[ctx->rdi], new_termios);
+
+    spinlock_release(&process->file_handles_lock);
+    return ret;
 }
 
 int syscall_tcsetattr(struct ctx_t *ctx) {
     /* rdi: fd
      * rsi: optional_actions
      * rdx: struct termios*
-     *//*
-    if (privilege_check(ctx->rdx, sizeof(struct termios_t))) {
+     */
+    if (privilege_check(ctx->rdx, sizeof(struct termios))) {
         errno = EFAULT;
         return -1;
     }
 
-    struct termios_t *new_termios = (struct termios_t*) ctx->rdx;
-    return tty_tcsetattr(ctx->rsi, new_termios);*/
-    errno = ENOSYS;
-    return -1;
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    if (ctx->rdi >= MAX_FILE_HANDLES) {
+        errno = EBADF;
+        return -1;
+    }
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[ctx->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    struct termios *new_termios = (struct termios *)ctx->rdx;
+    size_t ret = tcsetattr(process->file_handles[ctx->rdi], ctx->rsi, new_termios);
+
+    spinlock_release(&process->file_handles_lock);
+    return ret;
 }
 
 int syscall_getcwd(struct ctx_t *ctx) {

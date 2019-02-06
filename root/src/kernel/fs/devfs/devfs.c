@@ -94,6 +94,31 @@ void device_sync_worker(void *arg) {
     }
 }
 
+static int devfs_tcgetattr(int fd, struct termios *buf) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    int ret = devfs_handle->device->calls.tcgetattr(
+                devfs_handle->dev_fd,
+                buf);
+
+    dynarray_unref(devfs_handles, fd);
+    return ret;
+}
+
+static int devfs_tcsetattr(int fd, int optional_actions, struct termios *buf) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    int ret = devfs_handle->device->calls.tcsetattr(
+                devfs_handle->dev_fd,
+                optional_actions,
+                buf);
+
+    dynarray_unref(devfs_handles, fd);
+    return ret;
+}
+
 static int devfs_read(int fd, void *ptr, size_t len) {
     struct devfs_handle_t *devfs_handle =
         dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
@@ -378,6 +403,8 @@ void init_fs_devfs(void) {
     devfs.dup = devfs_dup;
     devfs.readdir = devfs_readdir;
     devfs.sync = devfs_sync;
+    devfs.tcgetattr = devfs_tcgetattr;
+    devfs.tcsetattr = devfs_tcsetattr;
 
     vfs_install_fs(&devfs);
 }

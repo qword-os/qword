@@ -146,7 +146,7 @@ int vfs_sync(void) {
 
     spinlock_acquire(&filesystems_lock);
 
-    struct fs_t **fs = ht_dump(struct mnt_t, filesystems, &size);
+    struct fs_t **fs = ht_dump(struct fs_t, filesystems, &size);
     if (!fs)
         return 0;
 
@@ -251,6 +251,22 @@ static int vfs_fstat(int fd, struct stat *st) {
     return ret;
 }
 
+static int vfs_tcgetattr(int fd, struct termios *buf) {
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->tcgetattr(intern_fd, buf);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
+}
+
+static int vfs_tcsetattr(int fd, int optional_actions, struct termios *buf) {
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->tcsetattr(intern_fd, optional_actions, buf);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
+}
+
 static struct fd_handler_t vfs_functions = {
     vfs_close,
     vfs_fstat,
@@ -258,7 +274,9 @@ static struct fd_handler_t vfs_functions = {
     vfs_write,
     vfs_lseek,
     vfs_dup,
-    vfs_readdir
+    vfs_readdir,
+    vfs_tcgetattr,
+    vfs_tcsetattr
 };
 
 int open(const char *path, int mode) {

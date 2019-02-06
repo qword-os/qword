@@ -135,7 +135,9 @@ static struct fd_handler_t perfmon_functions = {
     perfmon_write,
     perfmon_lseek,
     perfmon_dup,
-    perfmon_readdir
+    perfmon_readdir,
+    (void *)bogus_tcgetattr,
+    (void *)bogus_tcsetattr
 };
 
 int perfmon_create(void) {

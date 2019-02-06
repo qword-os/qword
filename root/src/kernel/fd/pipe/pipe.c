@@ -157,7 +157,9 @@ static struct fd_handler_t pipe_functions = {
     pipe_write,
     pipe_lseek,
     pipe_dup,
-    pipe_readdir
+    pipe_readdir,
+    (void *)bogus_tcgetattr,
+    (void *)bogus_tcsetattr
 };
 
 int pipe(int *pipefd) {
