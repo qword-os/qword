@@ -117,12 +117,37 @@ int readdir(int, struct dirent *);
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
 
+__attribute__((unused)) static int bogus_fstat() {
+    errno = EINVAL;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_close() {
+    errno = EIO;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_readdir() {
+    errno = ENOTDIR;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_dup() {
+    errno = EINVAL;
+    return -1;
+}
+
 __attribute__((unused)) static int bogus_read() {
     errno = EINVAL;
     return -1;
 }
 
 __attribute__((unused)) static int bogus_write() {
+    errno = EINVAL;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_lseek() {
     errno = EINVAL;
     return -1;
 }
@@ -140,5 +165,17 @@ __attribute__((unused)) static int bogus_tcsetattr() {
     errno = ENOTTY;
     return -1;
 }
+
+__attribute__((unused)) static struct fd_handler_t default_fd_handler = {
+    (void *)bogus_close,
+    (void *)bogus_fstat,
+    (void *)bogus_read,
+    (void *)bogus_write,
+    (void *)bogus_lseek,
+    (void *)bogus_dup,
+    (void *)bogus_readdir,
+    (void *)bogus_tcgetattr,
+    (void *)bogus_tcsetattr
+};
 
 #endif

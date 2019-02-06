@@ -141,26 +141,6 @@ static int pipe_fstat(int fd, struct stat *st) {
     return 0;
 }
 
-static int pipe_readdir(int fd, struct dirent *buf) {
-    (void)fd;
-    (void)buf;
-
-    errno = ENOTDIR;
-    return -1;
-}
-
-static struct fd_handler_t pipe_functions = {
-    pipe_close,
-    pipe_fstat,
-    pipe_read,
-    pipe_write,
-    pipe_lseek,
-    pipe_dup,
-    pipe_readdir,
-    (void *)bogus_tcgetattr,
-    (void *)bogus_tcsetattr
-};
-
 int pipe(int *pipefd) {
     struct pipe_t new_pipe = {0};
     new_pipe.refcount = 2;
@@ -169,6 +149,14 @@ int pipe(int *pipefd) {
     int fd = dynarray_add(struct pipe_t, pipes, &new_pipe);
     if (fd == -1)
         return -1;
+
+    struct fd_handler_t pipe_functions = default_fd_handler;
+    pipe_functions.close = pipe_close;
+    pipe_functions.fstat = pipe_fstat;
+    pipe_functions.read = pipe_read;
+    pipe_functions.write = pipe_write;
+    pipe_functions.lseek = pipe_lseek;
+    pipe_functions.dup = pipe_dup;
 
     struct file_descriptor_t fd_read = {0};
     struct file_descriptor_t fd_write = {0};
