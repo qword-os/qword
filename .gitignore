@@ -3,6 +3,7 @@
 !/root/root
 !/root/etc
 !/root/boot
+/root/etc/localtime
 
 /**/*.tar.bz2
 /**/*.tar.gz
