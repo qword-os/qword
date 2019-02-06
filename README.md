@@ -11,6 +11,7 @@
 
 ## Build requirements
 In order to build qword, make sure to have the following installed:
+- git
 - bash
 - make
 - meson
@@ -21,7 +22,12 @@ In order to build qword, make sure to have the following installed:
 
 On Debian and Ubuntu, these packages can be installed with:
 ```bash
-sudo apt-get install build-essential meson nasm qemu-system-x86
+sudo apt-get install git build-essential meson nasm qemu-system-x86
+```
+
+On FreeBSD, these packages can be acquired using `pkg` with:
+```bash
+sudo pkg install git bash gcc gmake meson nasm qemu
 ```
 
 ## Building
