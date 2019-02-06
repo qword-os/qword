@@ -11,6 +11,7 @@
 
 ## Build requirements
 In order to build qword, make sure to have the following installed:
+- wget
 - git
 - bash
 - make
@@ -27,7 +28,7 @@ sudo apt-get install git build-essential meson nasm qemu-system-x86
 
 On FreeBSD, these packages can be acquired using `pkg` with:
 ```bash
-sudo pkg install git bash gcc gmake meson nasm qemu
+sudo pkg install git wget bash gcc gmake meson nasm qemu
 ```
 
 ## Building
@@ -44,7 +45,8 @@ sudo make install
 #make PREFIX=<myprefix> install
 # Now build the toolchain (this step will take a while)
 cd ../toolchain
-./make_toolchain.sh
+# You can replace the 4 in -j4 with your number of cores + 1
+./make_toolchain.sh -j4
 # Go back to the root of the tree
 cd ../..
 # Build the ports distribution
@@ -53,6 +55,7 @@ cd root/src
 ./makeworld.sh clean
 # Now to build qword itself
 cd ../..
+# You might need to use gmake instead of make here on FreeBSD
 make clean && make DEBUG=qemu img && sync
 ```
 
