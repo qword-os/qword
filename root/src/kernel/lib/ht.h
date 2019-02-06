@@ -42,6 +42,36 @@ static inline uint64_t ht_hash_str(const char *str, int level) {
     type **name; \
     lock_t name##_lock;
 
+#define ht_dump(type, hashtable, size) ({ \
+    void **buf = NULL; \
+    *size = 0; \
+    type **ret = (type **)__ht_dump((void **)hashtable, buf, size); \
+    ret; \
+})
+
+static void **__ht_dump(void **ht, void **buf, size_t *size) {
+    for (size_t i = 0; i < ENTRIES_PER_HASHING_LEVEL; i++) {
+        if (!ht[i]) {
+            continue;
+        } else if ((size_t)ht[i] & 1) {
+            void **tmp = __ht_dump((void *)((size_t)ht[i] - 1), buf, size);
+            if (!tmp)
+                return NULL;
+            buf = tmp;
+        } else {
+            void **tmp = krealloc(buf, sizeof(void *) * (*size + 1));
+            if (!tmp) {
+                kfree(buf);
+                return NULL;
+            }
+            buf = tmp;
+            buf[(*size)++] = ht[i];
+        }
+    }
+
+    return buf;
+}
+
 #define ht_init(hashtable) ({ \
     __label__ out; \
     int ret = 0; \

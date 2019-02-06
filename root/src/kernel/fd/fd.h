@@ -101,6 +101,7 @@ struct file_descriptor_t {
 
 public_dynarray_prototype(struct file_descriptor_t, file_descriptors);
 
+void init_fd(void);
 int fd_create(struct file_descriptor_t *);
 int close(int);
 int fstat(int, struct stat *);

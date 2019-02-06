@@ -171,11 +171,15 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     return;
 }
 
-static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *cached_file) {/*
+static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
+    if (cached_file->changed_entry) {
+        wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
+        cached_file->changed_entry = 0;
+    }
     if (cached_file->path_res.type != FILE_TYPE)
         return 0;
-    struct cached_block_t *cached_blocks = cached_file->cached_blocks;
     if (cached_file->changed_cache) {
+        struct cached_block_t *cached_blocks = cached_file->cached_blocks;
         for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
             if (cached_blocks[i].status == CACHE_DIRTY) {
                 lseek(mnt->device,
@@ -189,10 +193,6 @@ static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *ca
         }
         cached_file->changed_cache = 0;
     }
-    if (cached_file->changed_entry) {
-        wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
-        cached_file->changed_entry = 0;
-    }*/
     return 0;
 }
 
@@ -204,14 +204,19 @@ static int echfs_sync(void) {
         if (mounts[i]->free)
             continue;
         struct mount_t *mnt = mounts[i];
-        spinlock_acquire(&mnt->lock);
-        size_t total_cached_files = mnt->cached_files_ptr;
-        spinlock_release(&mnt->lock);
+
+        spinlock_acquire(&mnt->cached_files_lock);
+        size_t total_cached_files;
+        struct cached_file_t **cached_files = ht_dump(struct cached_file_t, mnt->cached_files, &total_cached_files);
+
         for (size_t i = 0; i < total_cached_files; i++) {
             spinlock_acquire(&mnt->lock);
-            synchronise_cached_file(mnt, &mnt->cached_files[i]);
+            synchronise_cached_file(mnt, cached_files[i]);
             spinlock_release(&mnt->lock);
         }
+
+        kfree(cached_files);
+        spinlock_release(&mnt->cached_files_lock);
     }
     spinlock_release(&echfs_mount_lock);
     return 0;
@@ -1006,7 +1011,7 @@ void init_fs_echfs(void) {
 
     struct fs_t echfs = {0};
 
-    kstrcpy(echfs.type, "echfs");
+    kstrcpy(echfs.name, "echfs");
     echfs.mount = (void *)echfs_mount;
     echfs.open = echfs_open;
     echfs.close = echfs_close;

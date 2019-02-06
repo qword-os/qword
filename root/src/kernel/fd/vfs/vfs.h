@@ -7,7 +7,7 @@
 
 /* A filesystem, defined by the function pointers that allow us to access it */
 struct fs_t {
-    char type[256];
+    char name[256];
     int (*mount)(const char *, unsigned long, const void *);
     int (*umount)(const char *);
     int (*open)(const char *, int, int);

@@ -3,6 +3,12 @@
 #include <fd/fd.h>
 #include <lib/lock.h>
 
+void init_fd_vfs(void);
+
+void init_fd(void) {
+    init_fd_vfs();
+}
+
 public_dynarray_new(struct file_descriptor_t, file_descriptors);
 
 int fd_create(struct file_descriptor_t *fd) {

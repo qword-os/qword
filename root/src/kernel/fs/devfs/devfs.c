@@ -366,7 +366,7 @@ static int devfs_sync(void) {
 void init_fs_devfs(void) {
     struct fs_t devfs = {0};
 
-    kstrcpy(devfs.type, "devfs");
+    kstrcpy(devfs.name, "devfs");
     devfs.read = devfs_read;
     devfs.write = devfs_write;
     devfs.mount = devfs_mount;

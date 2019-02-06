@@ -21,6 +21,7 @@
 #include <sys/irq.h>
 #include <sys/panic.h>
 #include <fs/fs.h>
+#include <fd/fd.h>
 #include <devices/dev.h>
 #include <sys/vga_font.h>
 
@@ -32,6 +33,9 @@ void kmain_thread(void *arg) {
 
     /* Initialise PCI */
     init_pci();
+
+    /* Initialise file descriptor handlers */
+    init_fd();
 
     /* Initialise device drivers */
     init_dev();

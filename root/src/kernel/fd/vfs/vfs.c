@@ -3,20 +3,22 @@
 #include <fd/vfs/vfs.h>
 #include <lib/klib.h>
 #include <lib/errno.h>
+#include <lib/dynarray.h>
+#include <lib/ht.h>
 
 struct vfs_handle_t {
-    int fs;
+    struct fs_t *fs;
     int intern_fd;
 };
 
 struct mnt_t {
-    char mntpt[2048];
-    int fs;
+    char name[2048];
+    struct fs_t *fs;
     int magic;
 };
 
-dynarray_new(struct fs_t, filesystems);
-dynarray_new(struct mnt_t, mountpoints);
+ht_new(struct fs_t, filesystems);
+ht_new(struct mnt_t, mountpoints);
 dynarray_new(struct vfs_handle_t, vfs_handles);
 
 /* Return index into mountpoints array corresponding to the mountpoint
@@ -24,20 +26,26 @@ dynarray_new(struct vfs_handle_t, vfs_handles);
    char **local_path will return a pointer (in *local_path) to the
    part of the path inside the mountpoint. */
 static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
+    size_t size;
+
     spinlock_acquire(&mountpoints_lock);
+
+    struct mnt_t **mnts = ht_dump(struct mnt_t, mountpoints, &size);
+    if (!mnts)
+        return NULL;
 
     size_t guess = -1;
     size_t guess_size = 0;
 
-    for (size_t i = 0; i < mountpoints_i; i++) {
-        if (!mountpoints[i])
+    for (size_t i = 0; i < size; i++) {
+        if (!mnts[i])
             continue;
 
-        size_t len = kstrlen(mountpoints[i]->data->mntpt);
+        size_t len = kstrlen(mnts[i]->name);
 
-        if (!kstrncmp(path, mountpoints[i]->data->mntpt, len)) {
+        if (!kstrncmp(path, mnts[i]->name, len)) {
             if ( (((path[len] == '/') || (path[len] == '\0'))
-                 || (!kstrcmp(mountpoints[i]->data->mntpt, "/")))
+                 || (!kstrcmp(mnts[i]->name, "/")))
                && (len > guess_size)) {
                 guess = i;
                 guess_size = len;
@@ -53,9 +61,14 @@ static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
     if (!**local_path)
         *local_path = "/";
 
+    struct mnt_t *ret = mnts[guess];
+
+    kfree(mnts);
+
     spinlock_release(&mountpoints_lock);
+
     if (guess != -1)
-        return mountpoints[guess]->data;
+        return ret;
     else
         return NULL;
 }
@@ -129,13 +142,21 @@ term:
 }
 
 int vfs_sync(void) {
+    size_t size;
+
     spinlock_acquire(&filesystems_lock);
-    for (size_t i = 0; i < filesystems_i; i++) {
-        if (!filesystems[i])
-            continue;
-        filesystems[i]->data->sync();
-    }
+
+    struct fs_t **fs = ht_dump(struct mnt_t, filesystems, &size);
+    if (!fs)
+        return 0;
+
+    for (size_t i = 0; i < size; i++)
+        fs[i]->sync();
+
+    kfree(fs);
+
     spinlock_release(&filesystems_lock);
+
     return 0;
 }
 
@@ -162,61 +183,72 @@ int vfs_install_fs(struct fs_t *filesystem) {
         if (!p[i])
             p[i] = (size_t)vfs_call_invalid;
 
-    dynarray_add(struct fs_t, filesystems, filesystem);
-
-    return 0;
+    return ht_add(struct fs_t, filesystems, filesystem);
 }
 
 static int vfs_dup(int fd) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->dup(intern_fd);
 
-    if (filesystems[fs]->data->dup(intern_fd))
+    if (ret == -1) {
+        dynarray_unref(vfs_handles, fd);
         return -1;
+    }
 
-    return dynarray_add(struct vfs_handle_t, vfs_handles, vfs_handles[fd]->data);
+    ret = dynarray_add(struct vfs_handle_t, vfs_handles, fd_ptr);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
 }
 
 static int vfs_readdir(int fd, struct dirent *buf) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
-
-    return filesystems[fs]->data->readdir(intern_fd, buf);
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->readdir(intern_fd, buf);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
 }
 
 static int vfs_read(int fd, void *buf, size_t len) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
-
-    return filesystems[fs]->data->read(intern_fd, buf, len);
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->read(intern_fd, buf, len);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
 }
 
 static int vfs_write(int fd, const void *buf, size_t len) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
-
-    return filesystems[fs]->data->write(intern_fd, buf, len);
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->write(intern_fd, buf, len);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
 }
 
 static int vfs_close(int fd) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
-
-    return filesystems[fs]->data->close(intern_fd);
+    struct vfs_handle_t fd_copy = *dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    dynarray_unref(vfs_handles, fd);
+    dynarray_remove(vfs_handles, fd);
+    int intern_fd = fd_copy.intern_fd;
+    if (fd_copy.fs->close(intern_fd))
+        return -1;
+    return 0;
 }
 
 static int vfs_lseek(int fd, off_t offset, int type) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
-
-    return filesystems[fs]->data->lseek(intern_fd, offset, type);
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->lseek(intern_fd, offset, type);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
 }
 
 static int vfs_fstat(int fd, struct stat *st) {
-    int fs = vfs_handles[fd]->data->fs;
-    int intern_fd = vfs_handles[fd]->data->intern_fd;
-
-    return filesystems[fs]->data->fstat(intern_fd, st);
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->fstat(intern_fd, st);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
 }
 
 static struct fd_handler_t vfs_functions = {
@@ -239,9 +271,9 @@ int open(const char *path, int mode) {
         return -1;
 
     int magic = mountpoint->magic;
-    int fs = mountpoint->fs;
+    struct fs_t *fs = mountpoint->fs;
 
-    int intern_fd = filesystems[fs]->data->open(loc_path, mode, magic);
+    int intern_fd = fs->open(loc_path, mode, magic);
     if (intern_fd == -1)
         return -1;
 
@@ -258,27 +290,17 @@ int open(const char *path, int mode) {
     return fd_create(&fd);
 }
 
+void init_fd_vfs(void) {
+    ht_init(filesystems);
+    ht_init(mountpoints);
+}
+
 int mount(const char *source, const char *target,
           const char *fs_type, unsigned long m_flags,
           const void *data) {
-    size_t i;
-
-    /* Search for fs with the correct type, since we know nothing
-     * about the fs from the path given */
-    /* TODO use a hash table */
-    spinlock_acquire(&filesystems_lock);
-    for (i = 0; i < filesystems_i; i++) {
-        if (!filesystems[i])
-            continue;
-        if (!kstrcmp(filesystems[i]->data->type, fs_type))
-            goto fnd;
-    }
-    spinlock_release(&filesystems_lock);
-    return -1;
-
-fnd:;
-    struct fs_t *fs = filesystems[i]->data;
-    spinlock_release(&filesystems_lock);
+    struct fs_t *fs = ht_get(struct fs_t, filesystems, fs_type);
+    if (!fs)
+        return -1;
 
     int res = fs->mount(source, m_flags, data);
     if (res == -1)
@@ -286,11 +308,11 @@ fnd:;
 
     struct mnt_t mount;
 
-    kstrcpy(mount.mntpt, target);
-    mount.fs = i;
+    kstrcpy(mount.name, target);
+    mount.fs = fs;
     mount.magic = res;
 
-    if (dynarray_add(struct mnt_t, mountpoints, &mount) == -1)
+    if (ht_add(struct mnt_t, mountpoints, (&mount)) == -1)
         return -1;
 
     kprint(KPRN_INFO, "vfs: Mounted `%s` on `%s`, type `%s`.", source, target, fs_type);
