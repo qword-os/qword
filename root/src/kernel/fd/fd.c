@@ -27,7 +27,7 @@ int dup(int fd) {
     struct file_descriptor_t new_fd = {0};
 
     new_fd.intern_fd = new_intern_fd;
-    new_fd.fd_handler = file_descriptors[fd]->data->fd_handler;
+    new_fd.fd_handler = file_descriptors[fd]->data.fd_handler;
 
     return fd_create(&new_fd);
 }
