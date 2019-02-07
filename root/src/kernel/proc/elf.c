@@ -1,6 +1,6 @@
-#include <user/elf.h>
+#include <proc/elf.h>
 #include <lib/klib.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <fd/vfs/vfs.h>
 #include <mm/mm.h>
 #include <sys/panic.h>

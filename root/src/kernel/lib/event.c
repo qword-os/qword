@@ -1,6 +1,6 @@
 #include <lib/event.h>
 #include <lib/lock.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <sys/smp.h>
 
 void force_resched(void);

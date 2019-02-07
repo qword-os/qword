@@ -1,6 +1,6 @@
 #include <devices/dev.h>
 #include <fs/devfs/devfs.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 void init_dev_streams(void);
 void init_dev_tty(void);

@@ -7,7 +7,7 @@
 #include <lib/time.h>
 #include <misc/pit.h>
 #include <lib/cio.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <sys/smp.h>
 #include <sys/panic.h>
 

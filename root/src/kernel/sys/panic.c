@@ -4,7 +4,7 @@
 #include <lib/klib.h>
 #include <lib/lock.h>
 #include <sys/smp.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <sys/apic.h>
 
 static lock_t panic_lock = 1;

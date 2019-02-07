@@ -4,7 +4,7 @@
 #include <lib/klib.h>
 #include <sys/panic.h>
 #include <lib/time.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 dynarray_new(struct perfmon_t, perfmons);
 

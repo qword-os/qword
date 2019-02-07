@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 #define KPRN_MAX_TYPE 3
 

@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <sys/exceptions.h>
 #include <sys/panic.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <mm/mm.h>
 #include <lib/klib.h>
 #include <sys/smp.h>

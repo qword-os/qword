@@ -3,7 +3,7 @@
 #include <lib/klib.h>
 #include <lib/lock.h>
 #include <lib/errno.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <fd/fd.h>
 #include <lib/event.h>
 

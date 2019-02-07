@@ -8,7 +8,7 @@
 #include <sys/smp.h>
 #include <lib/time.h>
 #include <mm/mm.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 #define CPU_STACK_SIZE 16384
 

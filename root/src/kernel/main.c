@@ -12,10 +12,10 @@
 #include <lib/cmdline.h>
 #include <misc/pit.h>
 #include <sys/smp.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <devices/dev.h>
 #include <fd/vfs/vfs.h>
-#include <user/elf.h>
+#include <proc/elf.h>
 #include <misc/pci.h>
 #include <lib/time.h>
 #include <sys/irq.h>

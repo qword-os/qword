@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 #define stringify(x) #x
 #define expand_stringify(x) stringify(x)

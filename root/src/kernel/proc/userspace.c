@@ -2,9 +2,9 @@
 #include <stddef.h>
 #include <mm/mm.h>
 #include <fd/vfs/vfs.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <lib/klib.h>
-#include <user/elf.h>
+#include <proc/elf.h>
 #include <lib/lock.h>
 #include <lib/event.h>
 #include <sys/panic.h>

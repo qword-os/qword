@@ -7,7 +7,7 @@
 #include <lib/event.h>
 #include <sys/irq.h>
 #include <lib/cio.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a

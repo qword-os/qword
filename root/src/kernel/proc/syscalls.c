@@ -2,12 +2,12 @@
 #include <stddef.h>
 #include <lib/klib.h>
 #include <sys/smp.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <lib/lock.h>
 #include <fd/vfs/vfs.h>
 #include <fd/pipe/pipe.h>
 #include <fd/perfmon/perfmon.h>
-#include <user/task.h>
+#include <proc/task.h>
 #include <mm/mm.h>
 #include <lib/time.h>
 #include <lib/errno.h>

@@ -1,6 +1,6 @@
 #include <fs/fs.h>
 #include <fd/vfs/vfs.h>
-#include <user/task.h>
+#include <proc/task.h>
 
 void init_fs_devfs(void);
 void init_fs_echfs(void);
