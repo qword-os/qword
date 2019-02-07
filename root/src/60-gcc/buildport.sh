@@ -34,7 +34,7 @@ contrib/download_prerequisites
 patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
 
 mkdir build && cd build
-../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-build-sysroot=$QWORD_ROOT --enable-languages=c,c++ --disable-multilib --enable-initfini-array
+../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=$QWORD_ROOT --enable-languages=c,c++ --disable-multilib --enable-initfini-array
 make all-gcc "$@"
 make DESTDIR=$QWORD_ROOT install-gcc
 make all-target-libgcc "$@"

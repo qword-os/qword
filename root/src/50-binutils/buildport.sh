@@ -33,6 +33,6 @@ cd $PKG_ARCHIVE_DIR
 patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
 
 mkdir build && cd build
-../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --disable-werror
+../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=$QWORD_ROOT --disable-werror
 make "$@"
 make DESTDIR=$QWORD_ROOT install
