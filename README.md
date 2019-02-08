@@ -2,6 +2,8 @@
 
 [![goto counter](https://img.shields.io/github/search/qword-os/qword/goto.svg)](https://github.com/qword-os/qword/search?q=goto)
 
+![Reference screenshot](/screenshot.png?raw=true "Reference screenshot")
+
 ## Features
 - SMP (multicore) scheduler supporting thread scheduling.
 - Program loading with minimal userspace.
