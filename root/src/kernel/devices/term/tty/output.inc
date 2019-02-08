@@ -56,20 +56,24 @@ static void plot_char_grid(int tty, char c, int x, int y, uint32_t hex_fg, uint3
 }
 
 static void clear_cursor(int tty) {
-    if (tty == current_tty) {
-        plot_char(ttys[tty].grid[ttys[tty].cursor_x + ttys[tty].cursor_y * cols],
-            ttys[tty].cursor_x * font_width, ttys[tty].cursor_y * font_height,
-            ttys[tty].text_fg_col, ttys[tty].text_bg_col);
+    if (ttys[tty].cursor_status) {
+        if (tty == current_tty) {
+            plot_char(ttys[tty].grid[ttys[tty].cursor_x + ttys[tty].cursor_y * cols],
+                ttys[tty].cursor_x * font_width, ttys[tty].cursor_y * font_height,
+                ttys[tty].gridfg[ttys[tty].cursor_x + ttys[tty].cursor_y * cols],
+                ttys[tty].gridbg[ttys[tty].cursor_x + ttys[tty].cursor_y * cols]);
+        }
     }
     return;
 }
 
 static void draw_cursor(int tty) {
-    if (tty == current_tty) {
-        if (ttys[tty].cursor_status)
+    if (ttys[tty].cursor_status) {
+        if (tty == current_tty) {
             plot_char(ttys[tty].grid[ttys[tty].cursor_x + ttys[tty].cursor_y * cols],
                 ttys[tty].cursor_x * font_width, ttys[tty].cursor_y * font_height,
                 ttys[tty].cursor_fg_col, ttys[tty].cursor_bg_col);
+        }
     }
     return;
 }
@@ -140,8 +144,8 @@ static void enable_cursor(int tty) {
 }
 
 static void disable_cursor(int tty) {
-    ttys[tty].cursor_status = 0;
     clear_cursor(tty);
+    ttys[tty].cursor_status = 0;
     return;
 }
 
@@ -341,6 +345,7 @@ static void put_char(int tty, char c) {
             }
             break;
         default:
+            clear_cursor(tty);
             plot_char_grid(tty, c, ttys[tty].cursor_x++, ttys[tty].cursor_y, ttys[tty].text_fg_col, ttys[tty].text_bg_col);
             if (ttys[tty].cursor_x == cols) {
                 ttys[tty].cursor_x = 0;
