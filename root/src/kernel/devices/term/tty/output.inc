@@ -4,6 +4,7 @@
 #include <sys/panic.h>
 #include <lib/lock.h>
 #include <lib/alloc.h>
+#include <lib/bit.h>
 
 static int rows;
 static int cols;
@@ -29,14 +30,11 @@ static void plot_px(int x, int y, uint32_t hex) {
 
 static void plot_char(char c, int x, int y, uint32_t hex_fg, uint32_t hex_bg) {
     int orig_x = x;
+    uint8_t *glyph = &font[c * font_height];
 
     for (int i = 0; i < font_height; i++) {
-        for (int j = 0; j < font_width; j++) {
-            if ((font[c * font_height + i] >> (7 - j)) & 1)
-                plot_px(x++, y, hex_fg);
-            else
-                plot_px(x++, y, hex_bg);
-        }
+        for (int j = font_width - 1; j >= 0; j--)
+            plot_px(x++, y, bit_test(glyph[i], j) ? hex_fg : hex_bg);
         y++;
         x = orig_x;
     }
@@ -45,11 +43,15 @@ static void plot_char(char c, int x, int y, uint32_t hex_fg, uint32_t hex_bg) {
 }
 
 static void plot_char_grid(int tty, char c, int x, int y, uint32_t hex_fg, uint32_t hex_bg) {
-    if (tty == current_tty)
-        plot_char(c, x * font_width, y * font_height, hex_fg, hex_bg);
-    ttys[tty].grid[x + y * cols] = c;
-    ttys[tty].gridfg[x + y * cols] = hex_fg;
-    ttys[tty].gridbg[x + y * cols] = hex_bg;
+    if (ttys[tty].grid[x + y * cols] != c
+     || ttys[tty].gridfg[x + y * cols] != hex_fg
+     || ttys[tty].gridbg[x + y * cols] != hex_bg) {
+        if (tty == current_tty)
+            plot_char(c, x * font_width, y * font_height, hex_fg, hex_bg);
+        ttys[tty].grid[x + y * cols] = c;
+        ttys[tty].gridfg[x + y * cols] = hex_fg;
+        ttys[tty].gridbg[x + y * cols] = hex_bg;
+    }
     return;
 }
 
@@ -74,10 +76,12 @@ static void draw_cursor(int tty) {
 
 static void refresh(int tty) {
     if (tty == current_tty) {
-        /* interpret the grid and print the chars */
-        for (size_t i = 0; i < (size_t)(rows * cols); i++) {
-            plot_char_grid(tty, ttys[tty].grid[i], i % cols, i / cols, ttys[tty].gridfg[i], ttys[tty].gridbg[i]);
-        }
+        for (int i = 0; i < rows * cols; i++)
+            plot_char(ttys[tty].grid[i],
+                (i % cols) * font_width,
+                (i / cols) * font_height,
+                ttys[tty].gridfg[i],
+                ttys[tty].gridbg[i]);
         draw_cursor(tty);
     }
 
@@ -85,34 +89,47 @@ static void refresh(int tty) {
 }
 
 static void scroll(int tty) {
-    /* notify grid */
-    for (size_t i = cols; i < (size_t)(rows * cols); i++) {
-        ttys[tty].grid[i - cols] = ttys[tty].grid[i];
-        ttys[tty].gridbg[i - cols] = ttys[tty].gridbg[i];
-        ttys[tty].gridfg[i - cols] = ttys[tty].gridfg[i];
+    clear_cursor(tty);
+
+    for (int i = cols; i < rows * cols; i++) {
+        plot_char_grid(tty,
+            ttys[tty].grid[i],
+            (i - cols) % cols,
+            (i - cols) / cols,
+            ttys[tty].gridfg[i],
+            ttys[tty].gridbg[i]);
     }
     /* clear the last line of the screen */
-    for (size_t i = rows * cols - cols; i < (size_t)(rows * cols); i++) {
-        ttys[tty].grid[i] = ' ';
-        ttys[tty].gridbg[i] = ttys[tty].text_bg_col;
-        ttys[tty].gridfg[i] = ttys[tty].text_fg_col;
+    for (int i = rows * cols - cols; i < rows * cols; i++) {
+        plot_char_grid(tty,
+            ' ',
+            i % cols,
+            i / cols,
+            ttys[tty].text_fg_col,
+            ttys[tty].text_bg_col);
     }
 
-    refresh(tty);
+    draw_cursor(tty);
+
     return;
 }
 
 static void clear(int tty) {
-    for (size_t i = 0; i < (size_t)(rows * cols); i++) {
-        ttys[tty].grid[i] = ' ';
-        ttys[tty].gridbg[i] = ttys[tty].text_bg_col;
-        ttys[tty].gridfg[i] = ttys[tty].text_fg_col;
+    clear_cursor(tty);
+
+    for (int i = 0; i < rows * cols; i++) {
+        plot_char_grid(tty,
+            ' ',
+            i % cols,
+            i / cols,
+            ttys[tty].text_fg_col,
+            ttys[tty].text_bg_col);
     }
 
     ttys[tty].cursor_x = 0;
     ttys[tty].cursor_y = 0;
 
-    refresh(tty);
+    draw_cursor(tty);
     return;
 }
 
@@ -334,6 +351,7 @@ static void put_char(int tty, char c) {
                 scroll(tty);
             }
             draw_cursor(tty);
+            break;
     }
 
     return;
