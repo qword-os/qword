@@ -937,11 +937,11 @@ static int echfs_fstat(int handle, struct stat *st) {
     st->st_blksize = 512;
     st->st_blocks = (st->st_size + 512 - 1) / 512;
     st->st_atim.tv_sec = path_res->target.time;
-    st->st_atim.tv_nsec = st->st_atim.tv_sec * 1000000000;
+    st->st_atim.tv_nsec = 0;
     st->st_mtim.tv_sec = path_res->target.time;
-    st->st_mtim.tv_nsec = st->st_mtim.tv_sec * 1000000000;
+    st->st_mtim.tv_nsec = 0;
     st->st_ctim.tv_sec = path_res->target.time;
-    st->st_ctim.tv_nsec = st->st_ctim.tv_sec * 1000000000;
+    st->st_ctim.tv_nsec = 0;
 
     st->st_mode = 0;
     switch (echfs_handles[handle]->type) {

@@ -97,7 +97,7 @@ out: \
         if (!ht[hash]) { \
             ret = NULL; \
             goto out; \
-        } if ((size_t)ht[hash] & 1) { \
+        } else if ((size_t)ht[hash] & 1) { \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
@@ -132,7 +132,7 @@ out: \
             *new_entry = *element; \
             ht[hash] = new_entry; \
             goto out; \
-        } if ((size_t)ht[hash] & 1) { \
+        } else if ((size_t)ht[hash] & 1) { \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \

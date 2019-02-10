@@ -3,6 +3,7 @@
 #include <mm/mm.h>
 #include <lib/klib.h>
 #include <lib/lock.h>
+#include <lib/bit.h>
 #include <sys/e820.h>
 
 #define MEMORY_BASE 0x1000000
@@ -11,7 +12,7 @@
 #define BMREALLOC_STEP 1
 
 static volatile uint32_t *mem_bitmap;
-static volatile uint32_t initial_bitmap[] = { 0xfffffffe };
+static volatile uint32_t initial_bitmap[] = { 0xffffff7f };
 static volatile uint32_t *tmp_bitmap;
 
 /* 32 entries because initial_bitmap is a single dword */
@@ -23,81 +24,28 @@ static size_t cur_ptr = BITMAP_BASE;
  * to ensure other cores cannot simultaneously modify the bitmap */
 static lock_t pmm_lock = 1;
 
-static inline uint32_t read_bitmap(size_t i) {
+__attribute__((always_inline)) static inline int read_bitmap(size_t i) {
     i -= BITMAP_BASE;
 
-    size_t which_entry = i / 32;
-    size_t offset = i % 32;
-
-    return (uint32_t)(mem_bitmap[which_entry] & offset);
+    return test_bit(mem_bitmap, i);
 }
 
-static inline void set_bitmap(size_t i, size_t count) {
+__attribute__((always_inline)) static inline void set_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
 
-    int t = 0;
-
-    size_t first_entry = i / 32;
-    size_t first_entry_offset = i % 32;
-    size_t first_entry_size = 32 - first_entry_offset;
-    if (first_entry_offset + count <= 32) {
-        first_entry_size -= 32 - (first_entry_offset + count);
-        t = 1;
-    }
-
-    mem_bitmap[first_entry] |=
-        (((1 << first_entry_size) - 1) << first_entry_offset);
-
-    if (t)
-        return;
-
-    count -= 32 - first_entry_offset;
-
-    size_t first_full_entry = first_entry + !!first_entry_offset;
-    size_t full_entry_count = count / 32;
-
-    for (size_t i = 0; i < full_entry_count; i++)
-        mem_bitmap[first_full_entry + i] = 0xffffffff;
-
-    size_t last_entry = first_full_entry + full_entry_count;
-    size_t last_entry_offset = count % 32;
-
-    mem_bitmap[last_entry] |= ((1 << last_entry_offset) - 1);
+    size_t f = i + count;
+    for (size_t j = i; j < f; j++)
+        set_bit(mem_bitmap, j);
 
     return;
 }
 
-static inline void unset_bitmap(size_t i, size_t count) {
+__attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
 
-    int t = 0;
-
-    size_t first_entry = i / 32;
-    size_t first_entry_offset = i % 32;
-    size_t first_entry_size = 32 - first_entry_offset;
-    if (first_entry_offset + count <= 32) {
-        first_entry_size -= 32 - (first_entry_offset + count);
-        t = 1;
-    }
-
-    mem_bitmap[first_entry] &=
-        ~(((1 << first_entry_size) - 1) << first_entry_offset);
-
-    if (t)
-        return;
-
-    count -= 32 - first_entry_offset;
-
-    size_t first_full_entry = first_entry + !!first_entry_offset;
-    size_t full_entry_count = count / 32;
-
-    for (size_t i = 0; i < full_entry_count; i++)
-        mem_bitmap[first_full_entry + i] = 0;
-
-    size_t last_entry = first_full_entry + full_entry_count;
-    size_t last_entry_offset = count % 32;
-
-    mem_bitmap[last_entry] &= ~((1 << last_entry_offset) - 1);
+    size_t f = i + count;
+    for (size_t j = i; j < f; j++)
+        reset_bit(mem_bitmap, j);
 
     return;
 }
@@ -180,67 +128,44 @@ void init_pmm(void) {
 void *pmm_alloc(size_t pg_count) {
     spinlock_acquire(&pmm_lock);
 
-    /* Allocate contiguous free pages. */
-    size_t counter = 0;
-    size_t start;
+    size_t pg_cnt = pg_count;
 
     for (size_t i = 0; i < bitmap_entries; i++) {
         if (cur_ptr == BITMAP_BASE + bitmap_entries)
             cur_ptr = BITMAP_BASE;
-        if (!read_bitmap(cur_ptr++))
-            counter++;
-        else
-            counter = 0;
-        if (counter == pg_count)
-            goto found;
+        if (!read_bitmap(cur_ptr++)) {
+            if (!--pg_cnt)
+                goto found;
+        } else {
+            pg_cnt = pg_count;
+        }
     }
-    spinlock_release(&pmm_lock);
-    return (void *)0;
 
-found:
-    start = (cur_ptr - 1) - (pg_count - 1);
+    spinlock_release(&pmm_lock);
+    return NULL;
+
+found:;
+    size_t start = cur_ptr - pg_count;
     set_bitmap(start, pg_count);
 
     spinlock_release(&pmm_lock);
 
-    /* Return the physical address that represents the start of this physical page(s). */
+    // Return the physical address that represents the start of this physical page(s).
     return (void *)(start * PAGE_SIZE);
 }
 
 /* Allocate physical memory and zero it out. */
 void *pmm_allocz(size_t pg_count) {
-    spinlock_acquire(&pmm_lock);
+    void *ptr = pmm_alloc(pg_count);
+    if (!ptr)
+        return NULL;
 
-    /* Allocate contiguous free pages. */
-    size_t counter = 0;
-    size_t start;
-
-    for (size_t i = 0; i < bitmap_entries; i++) {
-        if (cur_ptr == BITMAP_BASE + bitmap_entries)
-            cur_ptr = BITMAP_BASE;
-        if (!read_bitmap(cur_ptr++))
-            counter++;
-        else
-            counter = 0;
-        if (counter == pg_count)
-            goto found;
-    }
-    spinlock_release(&pmm_lock);
-    return (void *)0;
-
-found:
-    start = (cur_ptr - 1) - (pg_count - 1);
-    set_bitmap(start, pg_count);
-
-    spinlock_release(&pmm_lock);
-
-    uint64_t *pages = (uint64_t *)((start * PAGE_SIZE) + MEM_PHYS_OFFSET);
+    uint64_t *pages = (uint64_t *)(ptr + MEM_PHYS_OFFSET);
 
     for (size_t i = 0; i < (pg_count * PAGE_SIZE) / sizeof(uint64_t); i++)
         pages[i] = 0;
 
-    /* Return the physical address that represents the start of this physical page(s). */
-    return (void *)(start * PAGE_SIZE);
+    return ptr;
 }
 
 /* Release physical memory. */
