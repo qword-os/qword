@@ -110,7 +110,7 @@ static inline tid_t task_get_next(tid_t current_task) {
             current_task = 0;
             thread = task_table[current_task];
         }
-        if (thread == EMPTY) {
+        if (thread == EMPTY || thread == (void *)(-2)) {
             /* This is an empty thread, skip */
             goto skip;
         }
@@ -424,8 +424,10 @@ tid_t task_tcreate(pid_t pid, enum tcreate_abi abi, const void *opaque_data) {
         if (!process_table[pid]->threads[new_tid] || process_table[pid]->threads[new_tid] == (void *)(-1))
             goto found_new_tid;
     }
-    goto err;
+    spinlock_release(&scheduler_lock);
+    return -1;
 found_new_tid:;
+    process_table[pid]->threads[new_tid] = (void *)(-2); // placeholder
 
     /* Search for free global task ID */
     tid_t new_task_id;
@@ -433,20 +435,33 @@ found_new_tid:;
         if (!task_table[new_task_id] || task_table[new_task_id] == (void *)(-1))
             goto found_new_task_id;
     }
-    goto err;
+    process_table[pid]->threads[new_tid] = EMPTY;
+    spinlock_release(&scheduler_lock);
+    return -1;
 found_new_task_id:;
+    task_table[new_task_id] = (void *)(-2); // placeholder
+
+    spinlock_release(&scheduler_lock);
 
     /* Try to make space for this new thread */
     struct thread_t *new_thread;
-    if ((new_thread = kalloc(sizeof(struct thread_t))) == 0) {
-        goto err;
+    if (!(new_thread = kalloc(sizeof(struct thread_t)))) {
+        spinlock_acquire(&scheduler_lock);
+        process_table[pid]->threads[new_tid] = EMPTY;
+        task_table[new_task_id] = EMPTY;
+        spinlock_release(&scheduler_lock);
+        return -1;
     }
 
     /* Set up a kernel stack for the thread */
     new_thread->kstack = (size_t)kalloc(STACK_SIZE) + STACK_SIZE;
     if (new_thread->kstack == STACK_SIZE) {
         kfree(new_thread);
-        goto err;
+        spinlock_acquire(&scheduler_lock);
+        process_table[pid]->threads[new_tid] = EMPTY;
+        task_table[new_task_id] = EMPTY;
+        spinlock_release(&scheduler_lock);
+        return -1;
     }
 
     new_thread->active_on_cpu = -1;
@@ -467,9 +482,13 @@ found_new_task_id:;
         /* Allocate physical memory for the stack and initialize it. */
         char *stack_pm = pmm_allocz(STACK_SIZE / PAGE_SIZE);
         if (!stack_pm) {
-            kfree(process_table[pid]->threads[new_tid]);
+            kfree((void *)(new_thread->kstack - STACK_SIZE));
+            kfree(new_thread);
+            spinlock_acquire(&scheduler_lock);
             process_table[pid]->threads[new_tid] = EMPTY;
-            goto err;
+            task_table[new_task_id] = EMPTY;
+            spinlock_release(&scheduler_lock);
+            return -1;
         }
 
         size_t *sbase = (size_t *)(stack_pm + STACK_SIZE + MEM_PHYS_OFFSET);
@@ -571,14 +590,10 @@ found_new_task_id:;
     spinlock_release(&new_thread->lock);
 
     /* Actually "enable" the new thread */
+    spinlock_acquire(&scheduler_lock);
     process_table[pid]->threads[new_tid] = new_thread;
     task_table[new_task_id] = new_thread;
     task_count++;
-
     spinlock_release(&scheduler_lock);
     return new_tid;
-
-err:
-    spinlock_release(&scheduler_lock);
-    return -1;
 }
