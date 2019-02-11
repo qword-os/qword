@@ -13,6 +13,8 @@
 
 #define CPU_STACK_SIZE 16384
 
+int smp_ready = 0;
+
 /* External assembly routines */
 void smp_init_cpu0_local(void *, void *);
 void *smp_prepare_trampoline(void *, void *, void *, void *, void *);
@@ -149,6 +151,8 @@ void init_smp(void) {
     }
 
     kprint(KPRN_INFO, "smp: Total CPU count: %u", smp_cpu_count);
+
+    smp_ready = 1;
 
     return;
 }

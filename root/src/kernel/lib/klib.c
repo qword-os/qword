@@ -123,7 +123,7 @@ static void kprint_buf_flush(char *kprint_buf, size_t *kprint_buf_i) {
 }
 
 static void kprint_buf_flush_panic(char *kprint_buf, size_t *kprint_buf_i) {
-    qemu_debug_puts(kprint_buf);
+    qemu_debug_puts_urgent(kprint_buf);
     return;
 }
 

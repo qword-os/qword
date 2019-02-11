@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <lib/qemu.h>
 
-#define DEADLOCK_MAX_ITER 0x8000000
+#define DEADLOCK_MAX_ITER 0x4000000
 
 struct last_acquirer_t {
     const char *file;
@@ -40,22 +40,14 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
 })
 
 #define locked_write(type, var, val) ({ \
-    asm volatile ( \
-        "lock xchg %0, %1;" \
-        :  \
-        : "m" (*(var)), "r" ((val)) \
-        : "memory" \
-    ); \
-})
-
-#define locked_xchg(type, var, val) ({ \
+    type ret = val; \
     asm volatile ( \
         "lock xchg %1, %0;" \
-        : "+r" ((val)) \
+        : "+r" ((ret)) \
         : "m" (*(var)) \
         : "memory" \
     ); \
-    val; \
+    ret; \
 })
 
 #define locked_inc(var) ({ \
@@ -106,7 +98,7 @@ __attribute__((noinline)) __attribute__((unused)) static void deadlock_detect(co
                        const char *lockname,
                        lock_t *lock,
                        size_t iter) {
-    while (locked_read(int, &deadlock_detect_lock));
+    while (locked_write(int, &deadlock_detect_lock, 1));
     qemu_debug_puts_urgent("\n---\npossible deadlock at: spinlock_acquire(");
     qemu_debug_puts_urgent(lockname);
     qemu_debug_puts_urgent(");");
