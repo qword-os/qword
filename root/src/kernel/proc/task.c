@@ -269,33 +269,42 @@ pid_t task_pcreate(void) {
         if (!process_table[new_pid] || process_table[new_pid] == (void *)(-1))
             goto found_new_pid;
     }
-    goto err;
+    spinlock_release(&scheduler_lock);
+    return -1;
 
 found_new_pid:
-    /* Try to make space for this new task */
-    if ((process_table[new_pid] = kalloc(sizeof(struct process_t))) == 0) {
-        process_table[new_pid] = EMPTY;
-        goto err;
-    }
+    process_table[new_pid] = (void *)(-2); // placeholder
+    spinlock_release(&scheduler_lock);
 
-    struct process_t *new_process = process_table[new_pid];
+    /* Try to make space for this new task */
+    struct process_t *new_process = kalloc(sizeof(struct process_t));
+    if (!new_process) {
+        spinlock_acquire(&scheduler_lock);
+        process_table[new_pid] = EMPTY;
+        spinlock_release(&scheduler_lock);
+        return -1;
+    }
 
     if ((new_process->threads = kalloc(MAX_THREADS * sizeof(struct thread_t *))) == 0) {
         kfree(new_process);
+        spinlock_acquire(&scheduler_lock);
         process_table[new_pid] = EMPTY;
-        goto err;
+        spinlock_release(&scheduler_lock);
+        return -1;
     }
 
     if ((new_process->file_handles = kalloc(MAX_FILE_HANDLES * sizeof(int))) == 0) {
         kfree(new_process->threads);
         kfree(new_process);
+        spinlock_acquire(&scheduler_lock);
         process_table[new_pid] = EMPTY;
-        goto err;
+        spinlock_release(&scheduler_lock);
+        return -1;
     }
 
     /* Initially, mark all file handles as unused */
     for (size_t i = 0; i < MAX_FILE_HANDLES; i++) {
-        process_table[new_pid]->file_handles[i] = -1;
+        new_process->file_handles[i] = -1;
     }
 
     new_process->file_handles_lock = new_lock;
@@ -315,35 +324,24 @@ found_new_pid:
     new_process->usage_lock = new_lock;
 
     /* Create a new pagemap for the process */
-    pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
-    if ((size_t)pml4 == MEM_PHYS_OFFSET) {
-        kfree(new_process->file_handles);
-        kfree(new_process->threads);
-        kfree(new_process);
-        process_table[new_pid] = EMPTY;
-        goto err;
-    }
-
-    new_process->pagemap = kalloc(sizeof(struct pagemap_t));
+    new_process->pagemap = new_address_space();
     if (!new_process->pagemap) {
-        pmm_free((void *)((size_t)pml4 - MEM_PHYS_OFFSET), 1);
         kfree(new_process->file_handles);
         kfree(new_process->threads);
         kfree(new_process);
+        spinlock_acquire(&scheduler_lock);
         process_table[new_pid] = EMPTY;
-        goto err;
+        spinlock_release(&scheduler_lock);
+        return -1;
     }
-    new_process->pagemap->pml4 = pml4;
-    spinlock_release(&new_process->pagemap->lock);
 
     new_process->pid = new_pid;
 
+    // Actually "enable" the new process
+    spinlock_acquire(&scheduler_lock);
+    process_table[new_pid] = new_process;
     spinlock_release(&scheduler_lock);
     return new_pid;
-
-err:
-    spinlock_release(&scheduler_lock);
-    return -1;
 }
 
 void abort_thread_exec(int scheduler_is_locked) {
