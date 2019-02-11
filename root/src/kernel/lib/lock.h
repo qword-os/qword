@@ -2,6 +2,7 @@
 #define __LOCK_H__
 
 #include <stdint.h>
+#include <stddef.h>
 #include <lib/qemu.h>
 
 struct last_acquirer_t {
@@ -58,60 +59,60 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     ret; \
 })
 
+#define uint_to_str(val) ({ \
+    char buf[21] = {0}; \
+    int i; \
+    int val_copy = (val); \
+    if (!(val)) { \
+        buf[0] = '0'; \
+        buf[1] = 0; \
+        i = 0; \
+    } else { \
+        for (i = 19; val_copy; i--) { \
+            buf[i] = (val_copy % 10) + '0'; \
+            val_copy /= 10; \
+        } \
+        i++; \
+    } \
+    (const char *)(buf + i); \
+})
+
 __attribute__((noinline)) __attribute__((unused)) static void deadlock_detect(const char *file,
                        const char *function,
                        int line,
                        const char *lockname,
-                       lock_t *lock) {
-    qemu_debug_puts("\n---\npossible deadlock at: spinlock_acquire(");
-    qemu_debug_puts(lockname);
-    qemu_debug_puts(");");
-    qemu_debug_puts("\nfile: ");
-    qemu_debug_puts(file);
-    qemu_debug_puts("\nfunction: ");
-    qemu_debug_puts(function);
-    qemu_debug_puts("\nline: ");
-    if (!line) {
-        qemu_debug_puts("0");
-    } else {
-        int i;
-        char buf[21] = {0};
-        for (i = 19; line; i--) {
-            buf[i] = (line % 10) + '0';
-            line /= 10;
-        }
-        i++;
-        qemu_debug_puts(buf + i);
-    }
-    qemu_debug_puts("\n---\nlast acquirer:");
-    qemu_debug_puts("\nfile: ");
-    qemu_debug_puts(lock->last_acquirer.file);
-    qemu_debug_puts("\nfunction: ");
-    qemu_debug_puts(lock->last_acquirer.func);
-    qemu_debug_puts("\nline: ");
-    if (!lock->last_acquirer.line) {
-        qemu_debug_puts("0");
-    } else {
-        int i;
-        char buf[21] = {0};
-        for (i = 19; lock->last_acquirer.line; i--) {
-            buf[i] = (lock->last_acquirer.line % 10) + '0';
-            lock->last_acquirer.line /= 10;
-        }
-        i++;
-        qemu_debug_puts(buf + i);
-    }
-    qemu_debug_puts("\n---\n");
+                       lock_t *lock,
+                       size_t iter) {
+    qemu_debug_puts_urgent("\n---\npossible deadlock at: spinlock_acquire(");
+    qemu_debug_puts_urgent(lockname);
+    qemu_debug_puts_urgent(");");
+    qemu_debug_puts_urgent("\nfile: ");
+    qemu_debug_puts_urgent(file);
+    qemu_debug_puts_urgent("\nfunction: ");
+    qemu_debug_puts_urgent(function);
+    qemu_debug_puts_urgent("\nline: ");
+    qemu_debug_puts_urgent(uint_to_str(line));
+    qemu_debug_puts_urgent("\n---\nlast acquirer:");
+    qemu_debug_puts_urgent("\nfile: ");
+    qemu_debug_puts_urgent(lock->last_acquirer.file);
+    qemu_debug_puts_urgent("\nfunction: ");
+    qemu_debug_puts_urgent(lock->last_acquirer.func);
+    qemu_debug_puts_urgent("\nline: ");
+    qemu_debug_puts_urgent(uint_to_str(lock->last_acquirer.line));
+    qemu_debug_puts_urgent("\n---\nassumed locked after it spun for ");
+    qemu_debug_puts_urgent(uint_to_str(iter));
+    qemu_debug_puts_urgent("iterations\n---");
 }
 
 #define spinlock_acquire(lock) ({ \
     __label__ retry; \
     __label__ out; \
+    size_t i = 0x1000000; \
 retry:; \
-    for (int i = 0; i < 0xffffff; i++) \
+    for (; i; i--) \
         if (spinlock_test_and_acquire(lock)) \
             goto out; \
-    deadlock_detect(__FILE__, __func__, __LINE__, #lock, lock); \
+    deadlock_detect(__FILE__, __func__, __LINE__, #lock, lock, i); \
     goto retry; \
 out:; \
 })
@@ -137,7 +138,7 @@ __attribute__((always_inline)) __attribute__((unused)) static inline void spinlo
         "lock bts %0, 0;"
         : "+m" (lock->lock)
         :
-        : "memory"
+        : "memory", "cc"
     );
 }
 
