@@ -389,7 +389,7 @@ static int ahci_rw(volatile struct hba_port_t *port,
     return ((int)count * 512);
 }
 
-static lock_t ahci_lock = 1;
+static lock_t ahci_lock = new_lock;
 
 static int find_block(int drive, uint64_t block) {
     for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++)

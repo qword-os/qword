@@ -462,7 +462,7 @@ found_new_task_id:
     new_thread->tid = 0;
     new_thread->task_id = new_task_id;
     new_thread->process = new_pid;
-    new_thread->lock = 1;
+    new_thread->lock = new_lock;
     new_thread->yield_target = 0;
     new_thread->active_on_cpu = -1;
     /* TODO: fix this */

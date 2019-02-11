@@ -16,7 +16,7 @@ void init_com1(void) {
     return;
 }
 
-static lock_t com1_lock = 1;
+static lock_t com1_lock = new_lock;
 
 uint8_t com1_read(void) {
     spinlock_acquire(&com1_lock);

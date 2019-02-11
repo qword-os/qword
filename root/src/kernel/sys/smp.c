@@ -6,6 +6,7 @@
 #include <acpi/madt.h>
 #include <sys/panic.h>
 #include <sys/smp.h>
+#include <sys/cpu.h>
 #include <lib/time.h>
 #include <mm/mm.h>
 #include <proc/task.h>

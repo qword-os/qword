@@ -5,7 +5,7 @@
 #include <cpuid.h>
 #include <acpi/madt.h>
 #include <mm/mm.h>
-#include <sys/smp.h>
+#include <sys/cpu.h>
 
 #define APIC_CPUID_BIT (1 << 9)
 

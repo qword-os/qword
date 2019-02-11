@@ -14,7 +14,7 @@
 #define BIG_BUF_SIZE 65536
 #define MAX_ESC_VALUES 256
 
-static lock_t tty_ready = 0;
+static int tty_ready = 0;
 
 struct tty_t {
     lock_t write_lock;
@@ -39,7 +39,7 @@ struct tty_t {
     int esc_values_i;
     int rrr;
 	int tabsize;
-    lock_t kbd_event;
+    event_t kbd_event;
     lock_t kbd_lock;
     size_t kbd_buf_i;
     char kbd_buf[KBD_BUF_SIZE];
@@ -127,8 +127,8 @@ void init_tty_extended(uint32_t *__fb,
     rows = fb_height / font_height;
 
     for (int i = 0; i < MAX_TTYS; i++) {
-        ttys[i].write_lock = 1;
-        ttys[i].read_lock = 1;
+        ttys[i].write_lock = new_lock;
+        ttys[i].read_lock = new_lock;
 	    ttys[i].cursor_x = 0;
 	    ttys[i].cursor_y = 0;
 	    ttys[i].cursor_status = 1;
@@ -142,7 +142,7 @@ void init_tty_extended(uint32_t *__fb,
 	    ttys[i].escape = 0;
 	    ttys[i].tabsize = 8;
         ttys[i].kbd_event = 0;
-        ttys[i].kbd_lock = 1;
+        ttys[i].kbd_lock = new_lock;
         ttys[i].kbd_buf_i = 0;
         ttys[i].big_buf_i = 0;
         ttys[i].termios.c_lflag = (ICANON | ECHO);
@@ -173,7 +173,7 @@ void init_tty_extended(uint32_t *__fb,
     io_apic_set_mask(0, 1, 1);
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kbd_handler, 0));
 
-    spinlock_release(&tty_ready);
+    tty_ready = 1;
     kprint(KPRN_INFO, "tty: Ready!");
     return;
 }

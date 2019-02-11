@@ -1,7 +1,7 @@
 #ifndef __ERRNO_H__
 #define __ERRNO_H__
 
-#include <sys/smp.h>
+#include <sys/cpu.h>
 
 #define errno (cpu_locals[current_cpu].thread_errno)
 

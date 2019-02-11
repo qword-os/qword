@@ -4,10 +4,11 @@
 #include <lib/klib.h>
 #include <lib/lock.h>
 #include <sys/smp.h>
+#include <sys/cpu.h>
 #include <proc/task.h>
 #include <sys/apic.h>
 
-static lock_t panic_lock = 1;
+static lock_t panic_lock = new_lock;
 
 void panic(const char *msg, size_t error_code, size_t debug_info) {
     asm volatile ("cli");

@@ -26,7 +26,7 @@ static inline size_t entries_to_virt_addr(size_t pml4_entry,
 struct pagemap_t *new_address_space(void) {
     struct pagemap_t *new_pagemap = kalloc(sizeof(struct pagemap_t));
     new_pagemap->pml4 = (pmm_allocz(1) + MEM_PHYS_OFFSET);
-    new_pagemap->lock = 1;
+    new_pagemap->lock = new_lock;
     return new_pagemap;
 }
 

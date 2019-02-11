@@ -17,4 +17,6 @@ typedef int32_t tid_t;
 typedef int32_t uid_t;
 typedef int32_t gid_t;
 
+typedef int event_t;
+
 #endif

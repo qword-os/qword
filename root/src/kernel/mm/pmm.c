@@ -22,7 +22,7 @@ static size_t cur_ptr = BITMAP_BASE;
 
 /* A core wishing to modify the PMM bitmap must first acquire this lock,
  * to ensure other cores cannot simultaneously modify the bitmap */
-static lock_t pmm_lock = 1;
+static lock_t pmm_lock = new_lock;
 
 __attribute__((always_inline)) static inline int read_bitmap(size_t i) {
     i -= BITMAP_BASE;

@@ -21,8 +21,8 @@ static int scheduler_ready = 0;
 void task_spinup(void *, size_t);
 void force_resched(void);
 
-lock_t scheduler_lock = 0;
-lock_t resched_lock = 1;
+lock_t scheduler_lock = new_lock_acquired;
+lock_t resched_lock = new_lock;
 
 struct process_t **process_table;
 
@@ -122,8 +122,8 @@ static inline tid_t task_get_next(tid_t current_task) {
             goto next;
         }
         if (thread->event_ptr) {
-            if (spinlock_read(thread->event_ptr)) {
-                spinlock_dec(thread->event_ptr);
+            if (locked_read(event_t, thread->event_ptr)) {
+                locked_dec(thread->event_ptr);
                 thread->event_ptr = 0;
             } else {
                 spinlock_release(&thread->lock);
@@ -298,21 +298,21 @@ found_new_pid:
         process_table[new_pid]->file_handles[i] = -1;
     }
 
-    new_process->file_handles_lock = 1;
+    new_process->file_handles_lock = new_lock;
 
     kstrcpy(new_process->cwd, "/");
-    new_process->cwd_lock = 1;
+    new_process->cwd_lock = new_lock;
 
     new_process->cur_brk = BASE_BRK_LOCATION;
-    new_process->cur_brk_lock = 1;
+    new_process->cur_brk_lock = new_lock;
 
-    new_process->child_event_lock = 1;
+    new_process->child_event_lock = new_lock;
 
-    new_process->perfmon_lock = 1;
+    new_process->perfmon_lock = new_lock;
 
     kmemset(&new_process->own_usage, 0, sizeof(struct rusage_t));
     kmemset(&new_process->child_usage, 0, sizeof(struct rusage_t));
-    new_process->usage_lock = 1;
+    new_process->usage_lock = new_lock;
 
     /* Create a new pagemap for the process */
     pt_entry_t *pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);

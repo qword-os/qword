@@ -74,7 +74,7 @@ eoi:
 %endmacro
 
 %macro raise_irq 1
-    lock inc qword [irq+%1*8]
+    lock inc dword [irq+%1*4]
     push rax
     mov rax, qword [lapic_eoi_ptr]
     mov dword [rax], 0

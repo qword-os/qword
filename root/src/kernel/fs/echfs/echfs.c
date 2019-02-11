@@ -99,9 +99,9 @@ struct echfs_handle_t {
 };
 
 static struct echfs_handle_t **echfs_handles;
-static lock_t echfs_handle_lock = 1;
+static lock_t echfs_handle_lock = new_lock;
 static struct mount_t **mounts;
-static lock_t echfs_mount_lock = 1;
+static lock_t echfs_mount_lock = new_lock;
 
 static inline uint8_t rd_byte(int handle, uint64_t loc) {
     uint8_t buf[1];
@@ -993,7 +993,7 @@ static int echfs_mount(const char *source) {
     ht_init(mount.cached_files);
 
     mount.free = 0;
-    mount.lock = 1;
+    mount.lock = new_lock;
 
     int ret = echfs_create_mount(&mount);
 

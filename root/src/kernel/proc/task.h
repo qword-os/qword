@@ -8,7 +8,6 @@
 #include <fd/perfmon/perfmon.h>
 #include <lib/time.h>
 #include <lib/types.h>
-#include <lib/event.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -157,5 +156,7 @@ struct tcreate_elf_exec_data {
 tid_t task_tcreate(pid_t, enum tcreate_abi, const void *);
 pid_t task_pcreate(void);
 int task_tkill(pid_t, tid_t);
+
+void force_resched(void);
 
 #endif

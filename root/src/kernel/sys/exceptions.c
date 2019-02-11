@@ -5,6 +5,7 @@
 #include <mm/mm.h>
 #include <lib/klib.h>
 #include <sys/smp.h>
+#include <sys/cpu.h>
 
 #define EXC_DIV0 0x0
 #define EXC_DEBUG 0x1

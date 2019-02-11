@@ -86,7 +86,7 @@ static int ata_flush_ext(int disk);
 
 static ata_device ata_devices[DEVICE_COUNT];
 
-static lock_t ata_lock = 1;
+static lock_t ata_lock = new_lock;
 
 static int find_sect(int drive, uint64_t sect) {
     for (size_t i = 0; i < MAX_CACHED_SECTORS; i++)

@@ -144,7 +144,7 @@ static int pipe_fstat(int fd, struct stat *st) {
 int pipe(int *pipefd) {
     struct pipe_t new_pipe = {0};
     new_pipe.refcount = 2;
-    new_pipe.lock = 1;
+    new_pipe.lock = new_lock;
 
     int fd = dynarray_add(struct pipe_t, pipes, &new_pipe);
     if (fd == -1)

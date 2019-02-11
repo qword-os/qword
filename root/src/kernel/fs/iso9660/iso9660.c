@@ -212,7 +212,7 @@ struct handle_t *handles;
 int mount_i = 0;
 struct mount_t *mounts;
 
-static lock_t iso9660_lock = 1;
+static lock_t iso9660_lock = new_lock;
 
 static uint8_t rd_byte(int handle, uint64_t location) {
     uint8_t buf[1];

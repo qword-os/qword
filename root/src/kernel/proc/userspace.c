@@ -20,7 +20,7 @@ struct userspace_request_t {
 
 static size_t userspace_request_i = 0;
 static struct userspace_request_t *userspace_requests = 0;
-static lock_t userspace_request_lock = 1;
+static lock_t userspace_request_lock = new_lock;
 static event_t userspace_event;
 
 static void userspace_send_request(int type, void *opaque_data) {
@@ -86,7 +86,7 @@ void execve_send_request(pid_t pid, const char *filename, const char **argv, con
     }
 
     execve_request->err_lock = kalloc(sizeof(lock_t));
-    *(execve_request->err_lock) = 1;
+    *(execve_request->err_lock) = new_lock;
     execve_request->err = kalloc(sizeof(int));
     *(execve_request->err) = 0;
 

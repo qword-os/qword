@@ -4,12 +4,10 @@
 #include <lib/cio.h>
 #include <lib/lock.h>
 
-static lock_t qemu_debug_lock = 1;
+static lock_t qemu_debug_lock = new_lock;
 
 void qemu_debug_puts(const char *str) {
-    if (!spinlock_read(&qemu_debug_lock))
-        return;
-    spinlock_dec(&qemu_debug_lock);
+    while (!spinlock_test_and_acquire(&qemu_debug_lock));
     for (size_t i = 0; str[i]; i++)
         port_out_b(0xe9, str[i]);
     spinlock_release(&qemu_debug_lock);

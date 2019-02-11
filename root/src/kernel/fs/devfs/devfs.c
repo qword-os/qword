@@ -41,7 +41,7 @@ static int devfs_open(char *path, int flags, int unused) {
     struct devfs_handle_t new_handle = {0};
 
     new_handle.refcount = 1;
-    new_handle.lock = 1;
+    new_handle.lock = new_lock;
 
     if (flags & O_APPEND) {
         errno = EROFS;
@@ -76,7 +76,7 @@ void device_sync_worker(void *arg) {
     (void)arg;
 
     for (;;) {
-        for (size_t i = 0; i < spinlock_read(&devices_i); i++) {
+        for (size_t i = 0; i < locked_read(size_t, &devices_i); i++) {
             struct device_t *device = dynarray_getelem(struct device_t, devices, i);
             if (!device)
                 continue;
@@ -357,7 +357,7 @@ static int devfs_readdir(int fd, struct dirent *dir) {
 
     for (;;) {
         // check if past directory table
-        if (devfs_handle->ptr >= spinlock_read(&devices_i)) {
+        if (devfs_handle->ptr >= locked_read(size_t, &devices_i)) {
             errno = 0;
             spinlock_release(&devfs_handle->lock);
             dynarray_unref(devfs_handles, fd);
