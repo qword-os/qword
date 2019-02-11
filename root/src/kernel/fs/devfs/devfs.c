@@ -36,7 +36,7 @@ dev_t device_add(struct device_t *device) {
     return dynarray_add(struct device_t, devices, device);
 }
 
-static int devfs_open(char *path, int flags, int unused) {
+static int devfs_open(const char *path, int flags, int unused) {
     (void)unused;
     struct devfs_handle_t new_handle = {0};
 

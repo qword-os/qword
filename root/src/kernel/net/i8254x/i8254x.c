@@ -48,7 +48,7 @@ static const uint16_t i8254x_devices[] = {
     0xffff
 };
 
-int init_net_i8254x(void) {
+void init_net_i8254x(void) {
     // First of all see if there is such a NIC present
     for (int i = 0; i8254x_devices[i] != 0xffff; i++) {
         struct pci_device_t device = {0};

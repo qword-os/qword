@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <lib/qemu.h>
 
+#define DEADLOCK_MAX_ITER 0x8000000
+
 struct last_acquirer_t {
     const char *file;
     const char *func;
@@ -31,10 +33,29 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     asm volatile ( \
         "lock xadd %1, %0;" \
         : "+r" (ret) \
-        : "m" (*var) \
+        : "m" (*(var)) \
         : "memory", "cc" \
     ); \
     ret; \
+})
+
+#define locked_write(type, var, val) ({ \
+    asm volatile ( \
+        "lock xchg %0, %1;" \
+        :  \
+        : "m" (*(var)), "r" ((val)) \
+        : "memory" \
+    ); \
+})
+
+#define locked_xchg(type, var, val) ({ \
+    asm volatile ( \
+        "lock xchg %1, %0;" \
+        : "+r" ((val)) \
+        : "m" (*(var)) \
+        : "memory" \
+    ); \
+    val; \
 })
 
 #define locked_inc(var) ({ \
@@ -42,7 +63,7 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     asm volatile ( \
         "lock inc %1;" \
         : "=@ccnz" (ret) \
-        : "m" (*var) \
+        : "m" (*(var)) \
         : "memory" \
     ); \
     ret; \
@@ -53,17 +74,17 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     asm volatile ( \
         "lock dec %1;" \
         : "=@ccnz" (ret) \
-        : "m" (*var) \
+        : "m" (*(var)) \
         : "memory" \
     ); \
     ret; \
 })
 
-#define uint_to_str(val) ({ \
+#define __puts_uint(val) ({ \
     char buf[21] = {0}; \
     int i; \
-    int val_copy = (val); \
-    if (!(val)) { \
+    int val_copy = (uint64_t)(val); \
+    if (!val_copy) { \
         buf[0] = '0'; \
         buf[1] = 0; \
         i = 0; \
@@ -74,8 +95,10 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
         } \
         i++; \
     } \
-    (const char *)(buf + i); \
+    qemu_debug_puts_urgent(buf + i); \
 })
+
+__attribute__((unused)) static int deadlock_detect_lock = 0;
 
 __attribute__((noinline)) __attribute__((unused)) static void deadlock_detect(const char *file,
                        const char *function,
@@ -83,6 +106,7 @@ __attribute__((noinline)) __attribute__((unused)) static void deadlock_detect(co
                        const char *lockname,
                        lock_t *lock,
                        size_t iter) {
+    while (locked_read(int, &deadlock_detect_lock));
     qemu_debug_puts_urgent("\n---\npossible deadlock at: spinlock_acquire(");
     qemu_debug_puts_urgent(lockname);
     qemu_debug_puts_urgent(");");
@@ -91,28 +115,28 @@ __attribute__((noinline)) __attribute__((unused)) static void deadlock_detect(co
     qemu_debug_puts_urgent("\nfunction: ");
     qemu_debug_puts_urgent(function);
     qemu_debug_puts_urgent("\nline: ");
-    qemu_debug_puts_urgent(uint_to_str(line));
+    __puts_uint(line);
     qemu_debug_puts_urgent("\n---\nlast acquirer:");
     qemu_debug_puts_urgent("\nfile: ");
     qemu_debug_puts_urgent(lock->last_acquirer.file);
     qemu_debug_puts_urgent("\nfunction: ");
     qemu_debug_puts_urgent(lock->last_acquirer.func);
     qemu_debug_puts_urgent("\nline: ");
-    qemu_debug_puts_urgent(uint_to_str(lock->last_acquirer.line));
+    __puts_uint(lock->last_acquirer.line);
     qemu_debug_puts_urgent("\n---\nassumed locked after it spun for ");
-    qemu_debug_puts_urgent(uint_to_str(iter));
-    qemu_debug_puts_urgent("iterations\n---");
+    __puts_uint(iter);
+    qemu_debug_puts_urgent(" iterations\n---\n");
+    locked_write(int, &deadlock_detect_lock, 0);
 }
 
 #define spinlock_acquire(lock) ({ \
     __label__ retry; \
     __label__ out; \
-    size_t i = 0x1000000; \
 retry:; \
-    for (; i; i--) \
+    for (size_t i = 0; i < DEADLOCK_MAX_ITER; i++) \
         if (spinlock_test_and_acquire(lock)) \
             goto out; \
-    deadlock_detect(__FILE__, __func__, __LINE__, #lock, lock, i); \
+    deadlock_detect(__FILE__, __func__, __LINE__, #lock, lock, DEADLOCK_MAX_ITER); \
     goto retry; \
 out:; \
 })

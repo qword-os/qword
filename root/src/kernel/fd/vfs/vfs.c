@@ -34,7 +34,7 @@ static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
     if (!mnts)
         return NULL;
 
-    size_t guess = -1;
+    ssize_t guess = -1;
     size_t guess_size = 0;
 
     for (size_t i = 0; i < size; i++) {

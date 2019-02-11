@@ -78,6 +78,7 @@ struct thread_t {
     size_t fs_base;
     struct ctx_t ctx;
     uint8_t fxstate[512] __attribute__((aligned(16)));
+    int acquired_locks;
 };
 
 #define AT_ENTRY 10

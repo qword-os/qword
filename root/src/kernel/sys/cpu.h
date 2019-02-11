@@ -13,7 +13,7 @@
                     : "=r" (cpu_number) \
                     : \
                     : "memory", "cc"); \
-    cpu_number; \
+    (int)cpu_number; \
 })
 
 struct cpu_local_t {
