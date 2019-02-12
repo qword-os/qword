@@ -9,7 +9,7 @@ void init_fd(void) {
     init_fd_vfs();
 }
 
-public_dynarray_new(struct file_descriptor_t, file_descriptors);
+dynarray_new(struct file_descriptor_t, file_descriptors);
 
 int fd_create(struct file_descriptor_t *fd) {
     return dynarray_add(struct file_descriptor_t, file_descriptors, fd);
@@ -34,18 +34,16 @@ int dup(int fd) {
 
 int getfdflags(int fd) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
-    int intern_fd = fd_ptr->intern_fd;
-    int ret = fd_ptr->fd_handler.getfdflags(intern_fd);
+    int ret = fd_ptr->fdflags;
     dynarray_unref(file_descriptors, fd);
     return ret;
 }
 
 int setfdflags(int fd, int fdflags) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
-    int intern_fd = fd_ptr->intern_fd;
-    int ret = fd_ptr->fd_handler.setfdflags(intern_fd, fdflags);
+    fd_ptr->fdflags = fdflags;
     dynarray_unref(file_descriptors, fd);
-    return ret;
+    return 0;
 }
 
 int getflflags(int fd) {

@@ -735,10 +735,7 @@ static int fcntl_getfd(int fd) {
         return -1;
     }
 
-    //int ret = file_descriptors[fd_sys].fdflags;
-
-    //return ret;
-    return 0;
+    return getfdflags(fd_sys);
 }
 
 static int fcntl_setfd(int fd, int fdflags) {
@@ -756,9 +753,43 @@ static int fcntl_setfd(int fd, int fdflags) {
         return -1;
     }
 
-    //file_descriptors[fd_sys].fdflags = fdflags;
+    return setfdflags(fd_sys, fdflags);
+}
 
-    return 0;
+static int fcntl_getfl(int fd) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    int fd_sys = process->file_handles[fd];
+    spinlock_release(&process->file_handles_lock);
+
+    if (fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    return getflflags(fd_sys);
+}
+
+static int fcntl_setfl(int fd, int flflags) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    spinlock_acquire(&process->file_handles_lock);
+    int fd_sys = process->file_handles[fd];
+    spinlock_release(&process->file_handles_lock);
+
+    if (fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    return setflflags(fd_sys, flflags);
 }
 
 int syscall_fcntl(struct ctx_t *ctx) {
@@ -785,11 +816,11 @@ int syscall_fcntl(struct ctx_t *ctx) {
         case F_GETFL:
             kprint(KPRN_DBG, "fcntl(%d, F_GETFL, %d);",
                     fd, (int)ctx->rdx);
-            break;
+            return fcntl_getfl(fd);
         case F_SETFL:
             kprint(KPRN_DBG, "fcntl(%d, F_SETFL, %d);",
                     fd, (int)ctx->rdx);
-            break;
+            return fcntl_setfl(fd, (int)ctx->rdx);
         case F_GETLK:
             kprint(KPRN_DBG, "fcntl(%d, F_GETLK, %d);",
                     fd, (int)ctx->rdx);

@@ -96,8 +96,6 @@ struct fd_handler_t {
     int (*readdir)(int, struct dirent *);
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
-    int (*getfdflags)(int);
-    int (*setfdflags)(int, int);
     int (*getflflags)(int);
     int (*setflflags)(int, int);
     int (*perfmon_attach)(int);
@@ -105,12 +103,10 @@ struct fd_handler_t {
 
 struct file_descriptor_t {
     int intern_fd;
+    int fdflags;
     struct fd_handler_t fd_handler;
 };
 
-public_dynarray_prototype(struct file_descriptor_t, file_descriptors);
-
-void init_fd(void);
 int fd_create(struct file_descriptor_t *);
 int close(int);
 int fstat(int, struct stat *);
@@ -121,11 +117,13 @@ int dup(int);
 int readdir(int, struct dirent *);
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
-int getfdflags(int);
-int setfdflags(int, int);
 int getflflags(int);
 int setflflags(int, int);
 int perfmon_attach(int);
+
+void init_fd(void);
+int getfdflags(int);
+int setfdflags(int, int);
 
 __attribute__((unused)) static int bogus_fstat() {
     errno = EINVAL;
@@ -176,20 +174,14 @@ __attribute__((unused)) static int bogus_tcsetattr() {
     return -1;
 }
 
-__attribute__((unused)) static int bogus_getfdflags() {
-    return 0;
-}
-
-__attribute__((unused)) static int bogus_setfdflags() {
-    return 0;
-}
-
 __attribute__((unused)) static int bogus_getflflags() {
-    return 0;
+    errno = EINVAL;
+    return -1;
 }
 
 __attribute__((unused)) static int bogus_setflflags() {
-    return 0;
+    errno = EINVAL;
+    return -1;
 }
 
 __attribute__((unused)) static int bogus_perfmon_attach() {
@@ -207,8 +199,6 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_readdir,
     (void *)bogus_tcgetattr,
     (void *)bogus_tcsetattr,
-    (void *)bogus_getfdflags,
-    (void *)bogus_setfdflags,
     (void *)bogus_getflflags,
     (void *)bogus_setflflags,
     (void *)bogus_perfmon_attach
