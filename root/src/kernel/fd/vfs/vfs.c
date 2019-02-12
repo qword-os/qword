@@ -183,7 +183,9 @@ int vfs_install_fs(struct fs_t *filesystem) {
         if (!p[i])
             p[i] = (size_t)vfs_call_invalid;
 
-    return ht_add(struct fs_t, filesystems, filesystem);
+    struct fs_t *fs_glob = kalloc(sizeof(struct fs_t));
+    *fs_glob = *filesystem;
+    return ht_add(struct fs_t, filesystems, fs_glob);
 }
 
 static int vfs_dup(int fd) {
@@ -324,13 +326,13 @@ int mount(const char *source, const char *target,
     if (res == -1)
         return -1;
 
-    struct mnt_t mount;
+    struct mnt_t *mount = kalloc(sizeof(struct mnt_t));
 
-    kstrcpy(mount.name, target);
-    mount.fs = fs;
-    mount.magic = res;
+    kstrcpy(mount->name, target);
+    mount->fs = fs;
+    mount->magic = res;
 
-    if (ht_add(struct mnt_t, mountpoints, (&mount)) == -1)
+    if (ht_add(struct mnt_t, mountpoints, mount) == -1)
         return -1;
 
     kprint(KPRN_INFO, "vfs: Mounted `%s` on `%s`, type `%s`.", source, target, fs_type);

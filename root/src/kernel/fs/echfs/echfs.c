@@ -579,9 +579,9 @@ next:
         rd_entry(&path_result->parent, mnt, search_res);
     } else {
         uint64_t search_res = search(mnt, name, path_result->parent.payload, &path_result->type);
-        if (search_res == SEARCH_FAILURE)
+        if (search_res == SEARCH_FAILURE) {
             path_result->not_found = 1;
-        else {
+        } else {
             rd_entry(&path_result->target, mnt, search_res);
             path_result->target_entry = search_res;
         }

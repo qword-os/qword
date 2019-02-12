@@ -5,7 +5,7 @@
 #include <lib/alloc.h>
 #include <lib/lock.h>
 
-#define ENTRIES_PER_HASHING_LEVEL 1024
+#define ENTRIES_PER_HASHING_LEVEL 65536
 #define MAX_HASHING_LEVELS 16
 
 static uint64_t hashes_per_level[MAX_HASHING_LEVELS] = {
@@ -80,7 +80,7 @@ static void **__ht_dump(void **ht, void **buf, size_t *size) {
         ret = -1; \
         goto out; \
     } \
-    spinlock_release(&hashtable##_lock); \
+    hashtable##_lock = new_lock; \
 out: \
     ret; \
 })
@@ -124,13 +124,7 @@ out: \
     for (current_level = 0; ; current_level++) { \
         uint64_t hash = ht_hash_str(element->name, current_level); \
         if (!ht[hash]) { \
-            type *new_entry = kalloc(sizeof(type)); \
-            if (!new_entry) { \
-                ret = -1; \
-                goto out; \
-            } \
-            *new_entry = *element; \
-            ht[hash] = new_entry; \
+            ht[hash] = element; \
             goto out; \
         } else if ((size_t)ht[hash] & 1) { \
             ht = (void *)((size_t)ht[hash] - 1); \
