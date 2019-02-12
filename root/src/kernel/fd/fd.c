@@ -32,6 +32,38 @@ int dup(int fd) {
     return fd_create(&new_fd);
 }
 
+int getfdflags(int fd) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.getfdflags(intern_fd);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
+int setfdflags(int fd, int fdflags) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.setfdflags(intern_fd, fdflags);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
+int getflflags(int fd) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.getflflags(intern_fd);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
+int setflflags(int fd, int flflags) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.setflflags(intern_fd, flflags);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
 int tcsetattr(int fd, int optional_actions, struct termios *buf) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
     int intern_fd = fd_ptr->intern_fd;

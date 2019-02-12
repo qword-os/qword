@@ -12,6 +12,7 @@
 struct pipe_t {
     lock_t lock;
     int fdflags;
+    int flflags;
     void *buffer;
     size_t size;
     event_t event;
@@ -19,6 +20,42 @@ struct pipe_t {
 };
 
 dynarray_new(struct pipe_t, pipes);
+
+static int pipe_getfdflags(int fd) {
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
+
+    int ret = pipe->fdflags;
+
+    dynarray_unref(pipes, fd);
+    return ret;
+}
+
+static int pipe_setfdflags(int fd, int fdflags) {
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
+
+    pipe->fdflags = fdflags;
+
+    dynarray_unref(pipes, fd);
+    return 0;
+}
+
+static int pipe_getflflags(int fd) {
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
+
+    int ret = pipe->flflags;
+
+    dynarray_unref(pipes, fd);
+    return ret;
+}
+
+static int pipe_setflflags(int fd, int flflags) {
+    struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
+
+    pipe->flflags = flflags;
+
+    dynarray_unref(pipes, fd);
+    return 0;
+}
 
 static int pipe_close(int fd) {
     struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
@@ -45,7 +82,7 @@ static int pipe_read(int fd, void *buf, size_t count) {
     spinlock_acquire(&pipe->lock);
 
     while (count > pipe->size) {
-        if (pipe->fdflags & O_NONBLOCK) {
+        if (pipe->flflags & O_NONBLOCK) {
             count = pipe->size;
             break;
         } else {
@@ -157,6 +194,10 @@ int pipe(int *pipefd) {
     pipe_functions.write = pipe_write;
     pipe_functions.lseek = pipe_lseek;
     pipe_functions.dup = pipe_dup;
+    pipe_functions.getfdflags = pipe_getfdflags;
+    pipe_functions.setfdflags = pipe_setfdflags;
+    pipe_functions.getflflags = pipe_getflflags;
+    pipe_functions.setflflags = pipe_setflflags;
 
     struct file_descriptor_t fd_read = {0};
     struct file_descriptor_t fd_write = {0};

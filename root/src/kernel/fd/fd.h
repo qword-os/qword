@@ -96,6 +96,10 @@ struct fd_handler_t {
     int (*readdir)(int, struct dirent *);
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
+    int (*getfdflags)(int);
+    int (*setfdflags)(int, int);
+    int (*getflflags)(int);
+    int (*setflflags)(int, int);
 };
 
 struct file_descriptor_t {
@@ -116,6 +120,10 @@ int dup(int);
 int readdir(int, struct dirent *);
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
+int getfdflags(int);
+int setfdflags(int, int);
+int getflflags(int);
+int setflflags(int, int);
 
 __attribute__((unused)) static int bogus_fstat() {
     errno = EINVAL;
@@ -166,6 +174,22 @@ __attribute__((unused)) static int bogus_tcsetattr() {
     return -1;
 }
 
+__attribute__((unused)) static int bogus_getfdflags() {
+    return 0;
+}
+
+__attribute__((unused)) static int bogus_setfdflags() {
+    return 0;
+}
+
+__attribute__((unused)) static int bogus_getflflags() {
+    return 0;
+}
+
+__attribute__((unused)) static int bogus_setflflags() {
+    return 0;
+}
+
 __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_close,
     (void *)bogus_fstat,
@@ -175,7 +199,11 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_dup,
     (void *)bogus_readdir,
     (void *)bogus_tcgetattr,
-    (void *)bogus_tcsetattr
+    (void *)bogus_tcsetattr,
+    (void *)bogus_getfdflags,
+    (void *)bogus_setfdflags,
+    (void *)bogus_getflflags,
+    (void *)bogus_setflflags
 };
 
 #endif

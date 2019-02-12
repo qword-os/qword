@@ -267,18 +267,6 @@ static int vfs_tcsetattr(int fd, int optional_actions, struct termios *buf) {
     return ret;
 }
 
-static struct fd_handler_t vfs_functions = {
-    vfs_close,
-    vfs_fstat,
-    vfs_read,
-    vfs_write,
-    vfs_lseek,
-    vfs_dup,
-    vfs_readdir,
-    vfs_tcgetattr,
-    vfs_tcsetattr
-};
-
 int open(const char *path, int mode) {
     struct vfs_handle_t vfs_handle = {0};
 
@@ -303,6 +291,18 @@ int open(const char *path, int mode) {
     struct file_descriptor_t fd = {0};
 
     fd.intern_fd = vfs_fd;
+
+    struct fd_handler_t vfs_functions = default_fd_handler;
+    vfs_functions.close = vfs_close;
+    vfs_functions.fstat = vfs_fstat;
+    vfs_functions.read = vfs_read;
+    vfs_functions.write = vfs_write;
+    vfs_functions.lseek = vfs_lseek;
+    vfs_functions.dup = vfs_dup;
+    vfs_functions.readdir = vfs_readdir;
+    vfs_functions.tcgetattr = vfs_tcgetattr;
+    vfs_functions.tcsetattr = vfs_tcsetattr;
+
     fd.fd_handler = vfs_functions;
 
     return fd_create(&fd);
