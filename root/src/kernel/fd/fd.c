@@ -80,6 +80,14 @@ int tcgetattr(int fd, struct termios *buf) {
     return ret;
 }
 
+int perfmon_attach(int fd) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.perfmon_attach(intern_fd);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
 int readdir(int fd, struct dirent *buf) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
     int intern_fd = fd_ptr->intern_fd;

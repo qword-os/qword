@@ -2,11 +2,9 @@
 #define __PERFMON_H__
 
 int perfmon_create(void);
-int perfmon_attach(int);
 
 struct perfmon_t {
     int refcount;
-    int glob_fd;
     uint64_t cpu_time;
     uint64_t syscall_time;
     uint64_t mman_time;

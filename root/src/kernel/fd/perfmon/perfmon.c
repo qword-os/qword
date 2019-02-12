@@ -22,8 +22,7 @@ void perfmon_unref(struct perfmon_t *perfmon) {
         kfree(perfmon);
 }
 
-int perfmon_attach(int fd) {
-    int intern_fd = file_descriptors[fd]->data.intern_fd;
+int perfmon_do_attach(int intern_fd) {
     struct perfmon_t *perfmon = &perfmons[intern_fd]->data;
     perfmon_ref(perfmon);
 
@@ -88,14 +87,6 @@ static int perfmon_dup(int fd) {
     return fd;
 }
 
-static int perfmon_readdir(int fd, struct dirent *buf) {
-    (void)fd;
-    (void)buf;
-
-    errno = ENOTDIR;
-    return -1;
-}
-
 static int perfmon_write(int fd, const void *buf, size_t len) {
     (void)fd;
     (void)buf;
@@ -111,35 +102,6 @@ static int perfmon_close(int fd) {
     return 0;
 }
 
-static int perfmon_lseek(int fd, off_t offset, int type) {
-    (void)fd;
-    (void)offset;
-    (void)type;
-
-    errno = EINVAL;
-    return -1;
-}
-
-static int perfmon_fstat(int fd, struct stat *st) {
-    (void)fd;
-    (void)st;
-
-    errno = EINVAL;
-    return -1;
-}
-
-static struct fd_handler_t perfmon_functions = {
-    perfmon_close,
-    perfmon_fstat,
-    perfmon_read,
-    perfmon_write,
-    perfmon_lseek,
-    perfmon_dup,
-    perfmon_readdir,
-    (void *)bogus_tcgetattr,
-    (void *)bogus_tcsetattr
-};
-
 int perfmon_create(void) {
     struct perfmon_t perfmon = {0};
     perfmon.refcount = 1;
@@ -148,13 +110,17 @@ int perfmon_create(void) {
     if (x == -1)
         return -1;
 
+    struct fd_handler_t perfmon_functions = default_fd_handler;
+    perfmon_functions.close = perfmon_close;
+    perfmon_functions.read = perfmon_read;
+    perfmon_functions.write = perfmon_write;
+    perfmon_functions.dup = perfmon_dup;
+    perfmon_functions.perfmon_attach = perfmon_do_attach;
+
     struct file_descriptor_t fd = {0};
 
     fd.intern_fd = x;
     fd.fd_handler = perfmon_functions;
 
-    int glob_fd = fd_create(&fd);
-    perfmons[x]->data.glob_fd = glob_fd;
-
-    return glob_fd;
+    return fd_create(&fd);
 }
