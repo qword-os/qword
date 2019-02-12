@@ -136,19 +136,19 @@ static int devfs_read(int fd, void *ptr, size_t len) {
 
     spinlock_acquire(&devfs_handle->lock);
 
+    if (devfs_handle->size)
+        if (devfs_handle->ptr + len >= devfs_handle->size)
+            len -= devfs_handle->size - devfs_handle->ptr;
+
     int ret = devfs_handle->device->calls.read(
                 devfs_handle->dev_fd,
                 ptr,
                 devfs_handle->ptr,
                 len);
 
-    if (ret == -1) {
-        spinlock_release(&devfs_handle->lock);
-        dynarray_unref(devfs_handles, fd);
-        return -1;
-    }
+    if (ret != -1 && devfs_handle->size)
+        devfs_handle->ptr += ret;
 
-    devfs_handle->ptr += ret;
     spinlock_release(&devfs_handle->lock);
     dynarray_unref(devfs_handles, fd);
 
@@ -172,19 +172,19 @@ static int devfs_write(int fd, const void *ptr, size_t len) {
 
     spinlock_acquire(&devfs_handle->lock);
 
+    if (devfs_handle->size)
+        if (devfs_handle->ptr + len >= devfs_handle->size)
+            len -= devfs_handle->size - devfs_handle->ptr;
+
     int ret = devfs_handle->device->calls.write(
                 devfs_handle->dev_fd,
                 ptr,
                 devfs_handle->ptr,
                 len);
 
-    if (ret == -1) {
-        spinlock_release(&devfs_handle->lock);
-        dynarray_unref(devfs_handles, fd);
-        return -1;
-    }
+    if (ret != -1 && devfs_handle->size)
+        devfs_handle->ptr += ret;
 
-    devfs_handle->ptr += ret;
     spinlock_release(&devfs_handle->lock);
     dynarray_unref(devfs_handles, fd);
 
@@ -332,7 +332,7 @@ static int devfs_lseek(int fd, off_t offset, int type) {
             return -1;
     }
 
-    long ret = devfs_handle->ptr;
+    int ret = (int)devfs_handle->ptr;
     spinlock_release(&devfs_handle->lock);
     dynarray_unref(devfs_handles, fd);
     return ret;
