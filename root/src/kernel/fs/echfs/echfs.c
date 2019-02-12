@@ -10,10 +10,7 @@
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff
 #define BYTES_PER_SECT          512
-#define SECTORS_PER_BLOCK       (mnt->bytesperblock / BYTES_PER_SECT)
-#define BYTES_PER_BLOCK         (mnt->bytesperblock)
 #define ENTRIES_PER_SECT        2
-#define ENTRIES_PER_BLOCK       (SECTORS_PER_BLOCK * ENTRIES_PER_SECT)
 #define FILENAME_LEN            218
 #define RESERVED_BLOCKS         16
 #define FILE_TYPE               0
@@ -26,10 +23,7 @@
 #define CACHE_READY 1
 #define CACHE_DIRTY 2
 
-#define MAX_ECHFS_HANDLES 32768
-#define MAX_ECHFS_MOUNTS 1024
 #define MAX_CACHED_BLOCKS 8192
-#define MAX_CACHED_FILES 8192
 
 struct entry_t {
     uint64_t parent_id;
@@ -61,6 +55,7 @@ struct cached_block_t {
 
 struct cached_file_t {
     char name[2048];
+    struct mount_t *mnt;
     struct path_result_t path_res;
     struct cached_block_t *cached_blocks;
     int overwritten_slot;
@@ -72,11 +67,12 @@ struct cached_file_t {
 
 struct mount_t {
     lock_t lock;
-    int free;
     char name[128];
     int device;
     uint64_t blocks;
     uint64_t bytesperblock;
+    uint64_t sectorsperblock;
+    uint64_t entriesperblock;
     uint64_t fatsize;
     uint64_t fatstart;
     uint64_t dirsize;
@@ -87,10 +83,9 @@ struct mount_t {
 };
 
 struct echfs_handle_t {
-    int free;
     int refcount;
     uint8_t type;
-    int mnt;
+    struct mount_t *mnt;
     char path[1024];
     int flags;
     uint64_t ptr;
@@ -98,10 +93,8 @@ struct echfs_handle_t {
     struct cached_file_t *cached_file;
 };
 
-static struct echfs_handle_t **echfs_handles;
-static lock_t echfs_handle_lock = new_lock;
-static struct mount_t **mounts;
-static lock_t echfs_mount_lock = new_lock;
+dynarray_new(struct echfs_handle_t, handles);
+dynarray_new(struct mount_t, mounts);
 
 static inline uint8_t rd_byte(int handle, uint64_t loc) {
     uint8_t buf[1];
@@ -171,55 +164,58 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     return;
 }
 
-static int synchronise_cached_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
+static void synchronise_cached_file(struct cached_file_t *cached_file) {
+    struct mount_t *mnt = cached_file->mnt;
+
+    spinlock_acquire(&mnt->lock);
+
     if (cached_file->changed_entry) {
         wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
         cached_file->changed_entry = 0;
     }
-    if (cached_file->path_res.type != FILE_TYPE)
-        return 0;
+    if (cached_file->path_res.type != FILE_TYPE) {
+        spinlock_release(&mnt->lock);
+        return;
+    }
     if (cached_file->changed_cache) {
         struct cached_block_t *cached_blocks = cached_file->cached_blocks;
         for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
             if (cached_blocks[i].status == CACHE_DIRTY) {
                 lseek(mnt->device,
-                      cached_file->alloc_map[cached_blocks[i].block] * BYTES_PER_BLOCK,
+                      cached_file->alloc_map[cached_blocks[i].block] * mnt->bytesperblock,
                       SEEK_SET);
                 write(mnt->device,
                       cached_blocks[i].cache,
-                      BYTES_PER_BLOCK);
+                      mnt->bytesperblock);
                 cached_blocks[i].status = CACHE_READY;
             }
         }
         cached_file->changed_cache = 0;
     }
-    return 0;
+
+    spinlock_release(&mnt->lock);
+    return;
 }
 
-static int echfs_sync(void) {
-    spinlock_acquire(&echfs_mount_lock);
-    for (size_t i = 0; i < MAX_ECHFS_MOUNTS; i++) {
-        if (!mounts[i])
-            break;
-        if (mounts[i]->free)
+static void echfs_sync(void) {
+    for (size_t i = 0; i < locked_read(size_t, &mounts_i); i++) {
+        struct mount_t *mnt = dynarray_getelem(struct mount_t, mounts, i);
+        if (!mnt)
             continue;
-        struct mount_t *mnt = mounts[i];
 
         spinlock_acquire(&mnt->cached_files_lock);
         size_t total_cached_files;
         struct cached_file_t **cached_files = ht_dump(struct cached_file_t, mnt->cached_files, &total_cached_files);
 
-        for (size_t i = 0; i < total_cached_files; i++) {
-            spinlock_acquire(&mnt->lock);
-            synchronise_cached_file(mnt, cached_files[i]);
-            spinlock_release(&mnt->lock);
-        }
+        for (size_t i = 0; i < total_cached_files; i++)
+            synchronise_cached_file(cached_files[i]);
 
         kfree(cached_files);
         spinlock_release(&mnt->cached_files_lock);
+
+        dynarray_unref(mounts, i);
     }
-    spinlock_release(&echfs_mount_lock);
-    return 0;
+    return;
 }
 
 static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {
@@ -245,7 +241,8 @@ static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {
 }
 
 // free on disk allocated space for this file and flush its cache
-static int erase_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
+static int erase_file(struct cached_file_t *cached_file) {
+    struct mount_t *mnt = cached_file->mnt;
     // erase block chain first
     uint64_t empty = 0;
     uint64_t block = cached_file->path_res.target.payload;
@@ -280,9 +277,8 @@ static int erase_file(struct mount_t *mnt, struct cached_file_t *cached_file) {
     return 0;
 }
 
-static int find_block(int handle, uint64_t block) {
-    struct cached_block_t *cached_blocks =
-        echfs_handles[handle]->cached_file->cached_blocks;
+static int find_block(struct cached_file_t *cached_file, uint64_t block) {
+    struct cached_block_t *cached_blocks = cached_file->cached_blocks;
 
     for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++)
         if ((cached_blocks[i].block == block)
@@ -292,11 +288,9 @@ static int find_block(int handle, uint64_t block) {
     return -1;
 }
 
-static int cache_block(int handle, uint64_t block) {
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
-    struct cached_file_t *cached_file = echfs_handles[handle]->cached_file;
-    struct cached_block_t *cached_blocks =
-        echfs_handles[handle]->cached_file->cached_blocks;
+static int cache_block(struct cached_file_t *cached_file, uint64_t block) {
+    struct cached_block_t *cached_blocks = cached_file->cached_blocks;
+    struct mount_t *mnt = cached_file->mnt;
     int targ;
 
     /* Find empty block */
@@ -312,18 +306,20 @@ static int cache_block(int handle, uint64_t block) {
     /* Flush device cache */
     if (cached_blocks[targ].status == CACHE_DIRTY) {
         lseek(mnt->device,
-              cached_file->alloc_map[cached_blocks[targ].block] * BYTES_PER_BLOCK,
+              cached_file->alloc_map[cached_blocks[targ].block] * mnt->bytesperblock,
               SEEK_SET);
         write(mnt->device,
               cached_blocks[targ].cache,
-              BYTES_PER_BLOCK);
+              mnt->bytesperblock);
     }
 
     goto notfnd;
 
 fnd:
     /* Allocate some cache for this device */
-    cached_blocks[targ].cache = kalloc(BYTES_PER_BLOCK);
+    cached_blocks[targ].cache = kalloc(mnt->bytesperblock);
+    if (!cached_blocks[targ].cache)
+        return -1;
 
 notfnd:
 
@@ -348,11 +344,11 @@ notfnd:
 
     /* Load sector into cache */
     lseek(mnt->device,
-          cached_file->alloc_map[block] * BYTES_PER_BLOCK,
+          cached_file->alloc_map[block] * mnt->bytesperblock,
           SEEK_SET);
     read(mnt->device,
          cached_blocks[targ].cache,
-         BYTES_PER_BLOCK);
+         mnt->bytesperblock);
 
     cached_blocks[targ].block = block;
     cached_blocks[targ].status = CACHE_READY;
@@ -361,159 +357,119 @@ notfnd:
 }
 
 static int echfs_read(int handle, void *buf, size_t count) {
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
-
-    spinlock_acquire(&mnt->lock);
-
-    if (echfs_handles[handle]->type == DIRECTORY_TYPE) {
-        spinlock_release(&mnt->lock);
+    if (echfs_handle->type == DIRECTORY_TYPE) {
+        dynarray_unref(handles, handle);
         errno = EISDIR;
         return -1;
     }
 
-    if ((size_t)echfs_handles[handle]->ptr + count
-      >= (size_t)echfs_handles[handle]->end) {
-        count -= ((size_t)echfs_handles[handle]->ptr + count) - (size_t)echfs_handles[handle]->end;
-    }
+    if ((size_t)echfs_handle->ptr + count >= (size_t)echfs_handle->end)
+        count = (size_t)echfs_handle->end - (size_t)echfs_handle->ptr;
 
+    struct mount_t *mnt = echfs_handle->mnt;
+
+    spinlock_acquire(&mnt->lock);
+
+    struct cached_file_t *cached_file = echfs_handle->cached_file;
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the block */
-        uint64_t block = (echfs_handles[handle]->ptr + progress) / BYTES_PER_BLOCK;
-        int slot = find_block(handle, block);
+        uint64_t block = (echfs_handle->ptr + progress) / mnt->bytesperblock;
+        int slot = find_block(cached_file, block);
         if (slot == -1) {
-            slot = cache_block(handle, block);
+            slot = cache_block(cached_file, block);
             if (slot == -1) {
                 spinlock_release(&mnt->lock);
+                dynarray_unref(handles, handle);
+                errno = EIO;
                 return -1;
             }
         }
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (echfs_handles[handle]->ptr + progress) % BYTES_PER_BLOCK;
-        if (chunk > BYTES_PER_BLOCK - offset)
-            chunk = BYTES_PER_BLOCK - offset;
+        uint64_t offset = (echfs_handle->ptr + progress) % mnt->bytesperblock;
+        if (chunk > mnt->bytesperblock - offset)
+            chunk = mnt->bytesperblock - offset;
 
-        kmemcpy(buf + progress, &echfs_handles[handle]->cached_file->cached_blocks[slot].cache[offset], chunk);
+        kmemcpy(buf + progress, &cached_file->cached_blocks[slot].cache[offset], chunk);
         progress += chunk;
     }
 
-    echfs_handles[handle]->ptr += count;
+    echfs_handle->ptr += count;
 
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return (int)count;
 }
 
 static int echfs_write(int handle, const void *buf, size_t count) {
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
-
-    spinlock_acquire(&mnt->lock);
-
-    if (echfs_handles[handle]->type == DIRECTORY_TYPE) {
-        spinlock_release(&mnt->lock);
+    if (echfs_handle->type == DIRECTORY_TYPE) {
+        dynarray_unref(handles, handle);
         errno = EISDIR;
         return -1;
     }
 
-    if (echfs_handles[handle]->flags & O_APPEND)
-        echfs_handles[handle]->ptr = echfs_handles[handle]->end;
+    struct mount_t *mnt = echfs_handle->mnt;
 
+    spinlock_acquire(&mnt->lock);
+
+    if (echfs_handle->flags & O_APPEND)
+        echfs_handle->ptr = echfs_handle->end;
+
+    struct cached_file_t *cached_file = echfs_handle->cached_file;
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the block */
-        uint64_t block = (echfs_handles[handle]->ptr + progress) / BYTES_PER_BLOCK;
-        int slot = find_block(handle, block);
+        uint64_t block = (echfs_handle->ptr + progress) / mnt->bytesperblock;
+        int slot = find_block(cached_file, block);
         if (slot == -1) {
-            slot = cache_block(handle, block);
+            slot = cache_block(cached_file, block);
             if (slot == -1) {
                 spinlock_release(&mnt->lock);
+                dynarray_unref(handles, handle);
+                errno = EIO;
                 return -1;
             }
         }
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (echfs_handles[handle]->ptr + progress) % BYTES_PER_BLOCK;
-        if (chunk > BYTES_PER_BLOCK - offset)
-            chunk = BYTES_PER_BLOCK - offset;
+        uint64_t offset = (echfs_handle->ptr + progress) % mnt->bytesperblock;
+        if (chunk > mnt->bytesperblock - offset)
+            chunk = mnt->bytesperblock - offset;
 
-        kmemcpy(&echfs_handles[handle]->cached_file->cached_blocks[slot].cache[offset], buf + progress, chunk);
-        echfs_handles[handle]->cached_file->cached_blocks[slot].status = CACHE_DIRTY;
-        echfs_handles[handle]->cached_file->changed_cache = 1;
+        kmemcpy(&cached_file->cached_blocks[slot].cache[offset], buf + progress, chunk);
+        cached_file->cached_blocks[slot].status = CACHE_DIRTY;
+        cached_file->changed_cache = 1;
         progress += chunk;
     }
 
-    echfs_handles[handle]->ptr += count;
+    echfs_handle->ptr += count;
 
-    if (echfs_handles[handle]->ptr > echfs_handles[handle]->end) {
-        echfs_handles[handle]->end = echfs_handles[handle]->ptr;
-        echfs_handles[handle]->cached_file->path_res.target.size = echfs_handles[handle]->ptr;
-        echfs_handles[handle]->cached_file->changed_entry = 1;
+    if (echfs_handle->ptr > echfs_handle->end) {
+        echfs_handle->end = echfs_handle->ptr;
+        cached_file->path_res.target.size = echfs_handle->ptr;
+        cached_file->changed_entry = 1;
     }
 
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return (int)count;
-}
-
-static int echfs_create_handle(struct echfs_handle_t *handle) {
-    spinlock_acquire(&echfs_handle_lock);
-
-    int handle_n;
-
-    /* Check for a free handle */
-    for (size_t i = 0; i < MAX_ECHFS_HANDLES; i++) {
-        if (!echfs_handles[i] || echfs_handles[i]->free) {
-            handle_n = i;
-            goto load_handle;
-        }
-    }
-
-    /* TODO catch this and do something about it */
-    panic("", 0, 0);
-
-load_handle:
-    echfs_handles[handle_n] = kalloc(sizeof(struct echfs_handle_t));
-    *echfs_handles[handle_n] = *handle;
-
-    spinlock_release(&echfs_handle_lock);
-    return handle_n;
-}
-
-static int echfs_create_mount(struct mount_t *mount) {
-    spinlock_acquire(&echfs_mount_lock);
-
-    int mount_n;
-
-    /* Check for a free handle */
-    for (size_t i = 0; i < MAX_ECHFS_MOUNTS; i++) {
-        if (!mounts[i] || mounts[i]->free) {
-            mount_n = i;
-            goto load_mount;
-        }
-    }
-
-    /* TODO catch this and do something about it */
-    panic("", 0, 0);
-
-load_mount:
-    mounts[mount_n] = kalloc(sizeof(struct mount_t));
-    *mounts[mount_n] = *mount;
-
-    spinlock_release(&echfs_mount_lock);
-    return mount_n;
 }
 
 static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, uint8_t *type) {
@@ -522,7 +478,7 @@ static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, u
     uint64_t loc = mnt->dirstart * mnt->bytesperblock;
     lseek(mnt->device, loc, SEEK_SET);
     for (uint64_t i = 0; ; i++) {
-        if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
+        if (i >= (mnt->dirsize * mnt->entriesperblock)) return SEARCH_FAILURE;  // check if past directory table
         read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
         if ((entry.parent_id == parent) && (!kstrcmp(entry.name, name))) {
@@ -540,7 +496,7 @@ static uint64_t find_free_entry(struct mount_t *mnt) {
     lseek(mnt->device, loc, SEEK_SET);
 
     for (i = 0; ; i++) {
-        if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
+        if (i >= (mnt->dirsize * mnt->entriesperblock)) return SEARCH_FAILURE;  // check if past directory table
         read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) break;              // check if past last entry
         if (entry.parent_id == DELETED_ENTRY) break;
@@ -558,7 +514,7 @@ static uint64_t get_free_id(struct mount_t *mnt) {
     lseek(mnt->device, loc, SEEK_SET);
 
     for (i = 0; ; i++) {
-        if (i >= (mnt->dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
+        if (i >= (mnt->dirsize * mnt->entriesperblock)) return SEARCH_FAILURE;  // check if past directory table
         read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) break;              // check if past last entry
         if (entry.parent_id == DELETED_ENTRY) continue;
@@ -637,22 +593,18 @@ next:
 }
 
 static int echfs_close(int handle) {
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+    if (!(--echfs_handle->refcount))
+        dynarray_remove(handles, handle);
 
-    spinlock_acquire(&mnt->lock);
-
-    if (!(--echfs_handles[handle]->refcount)) {
-        echfs_handles[handle]->free = 1;
-    }
-
-    spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return 0;
 }
 
@@ -672,6 +624,8 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
 
     kstrcpy(cached_file->name, path);
     cached_file->path_res = path_result;
+
+    cached_file->mnt = mnt;
 
     if (path_result.not_found || path_result.type == FILE_TYPE) {
         cached_file->cached_blocks =
@@ -700,13 +654,18 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
     return cached_file;
 }
 
-static int echfs_open(const char *path, int flags, int mnt) {
-    spinlock_acquire(&mounts[mnt]->lock);
+static int echfs_open(const char *path, int flags, int m) {
+    struct mount_t *mnt = dynarray_getelem(struct mount_t, mounts, m);
+    if (!mnt)
+        return -1;
+
+    spinlock_acquire(&mnt->lock);
 
     struct echfs_handle_t new_handle = {0};
-    struct cached_file_t *cached_file = cache_file(mounts[mnt], path);
+    struct cached_file_t *cached_file = cache_file(mnt, path);
     if (!cached_file) {
-        spinlock_release(&mounts[mnt]->lock);
+        spinlock_release(&mnt->lock);
+        dynarray_unref(mounts, m);
         errno = ENOENT;
         return -1;
     }
@@ -714,14 +673,14 @@ static int echfs_open(const char *path, int flags, int mnt) {
     struct path_result_t *path_result = &cached_file->path_res;
 
     if (path_result->not_found && !(flags & O_CREAT)) {
-        spinlock_release(&mounts[mnt]->lock);
+        spinlock_release(&mnt->lock);
+        dynarray_unref(mounts, m);
         errno = ENOENT;
         return -1;
     }
 
-    if (!path_result->not_found && flags & O_TRUNC) {
-        erase_file(mounts[mnt], cached_file);
-    }
+    if (!path_result->not_found && flags & O_TRUNC)
+        erase_file(cached_file);
 
     if (path_result->not_found && flags & O_CREAT) {
         // create new entry
@@ -737,9 +696,9 @@ static int echfs_open(const char *path, int flags, int mnt) {
         entry.payload = END_OF_CHAIN;
         entry.size = 0;
 
-        uint64_t new_entry = find_free_entry(mounts[mnt]);
+        uint64_t new_entry = find_free_entry(mnt);
 
-        wr_entry(mounts[mnt], new_entry, &entry);
+        wr_entry(mnt, new_entry, &entry);
 
         path_result->target = entry;
         path_result->target_entry = new_entry;
@@ -753,7 +712,8 @@ static int echfs_open(const char *path, int flags, int mnt) {
         // it's a directory
         if ((flags & O_ACCMODE) == O_WRONLY
          || (flags & O_ACCMODE) == O_RDWR) {
-            spinlock_release(&mounts[mnt]->lock);
+            spinlock_release(&mnt->lock);
+            dynarray_unref(mounts, m);
             errno = EISDIR;
             return -1;
         }
@@ -771,32 +731,31 @@ static int echfs_open(const char *path, int flags, int mnt) {
 
     new_handle.cached_file = cached_file;
 
-    new_handle.free = 0;
     new_handle.refcount = 1;
 
-    int ret = echfs_create_handle(&new_handle);
-    spinlock_release(&mounts[mnt]->lock);
+    int ret = dynarray_add(struct echfs_handle_t, handles, &new_handle);
+    spinlock_release(&mnt->lock);
+    dynarray_unref(mounts, m);
     return ret;
 }
 
 static int echfs_lseek(int handle, off_t offset, int type) {
-    long ret;
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
 
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+    struct mount_t *mnt = echfs_handle->mnt;
 
     spinlock_acquire(&mnt->lock);
 
-    int flags = echfs_handles[handle]->flags;
+    int flags = echfs_handle->flags;
     switch (type) {
         case SEEK_SET:
-            if ((uint64_t)offset >= echfs_handles[handle]->end
+            if ((uint64_t)offset >= echfs_handle->end
                 && !(
                     (
                         ((flags & O_ACCMODE) == O_WRONLY)
@@ -805,10 +764,10 @@ static int echfs_lseek(int handle, off_t offset, int type) {
                 )) {
                 goto einval;
             }
-            echfs_handles[handle]->ptr = offset;
+            echfs_handle->ptr = offset;
             break;
         case SEEK_END:
-            if (echfs_handles[handle]->end + offset >= echfs_handles[handle]->end
+            if (echfs_handle->end + offset >= echfs_handle->end
                 && !(
                     (
                         ((flags & O_ACCMODE) == O_WRONLY)
@@ -817,10 +776,10 @@ static int echfs_lseek(int handle, off_t offset, int type) {
                 )) {
                 goto einval;
             }
-            echfs_handles[handle]->ptr = echfs_handles[handle]->end + offset;
+            echfs_handle->ptr = echfs_handle->end + offset;
             break;
         case SEEK_CUR:
-            if (echfs_handles[handle]->ptr + offset >= echfs_handles[handle]->end
+            if (echfs_handle->ptr + offset >= echfs_handle->end
                 && !(
                     (
                         ((flags & O_ACCMODE) == O_WRONLY)
@@ -829,67 +788,74 @@ static int echfs_lseek(int handle, off_t offset, int type) {
                 )) {
                 goto einval;
             }
-            echfs_handles[handle]->ptr += offset;
+            echfs_handle->ptr += offset;
             break;
         default:
         einval:
             spinlock_release(&mnt->lock);
+            dynarray_unref(handles, handle);
             errno = EINVAL;
             return -1;
     }
 
-    ret = echfs_handles[handle]->ptr;
+    long ret = echfs_handle->ptr;
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return ret;
 }
 
 static int echfs_dup(int handle) {
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+    echfs_handle->refcount++;
 
-    spinlock_acquire(&mnt->lock);
-
-    echfs_handles[handle]->refcount++;
-
-    spinlock_release(&mnt->lock);
-
+    dynarray_unref(handles, handle);
     return 0;
 }
 
 static int echfs_readdir(int handle, struct dirent *dir) {
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+    if (echfs_handle->type != DIRECTORY_TYPE) {
+        dynarray_unref(handles, handle);
+        errno = ENOTDIR;
+        return -1;
+    }
+
+    struct mount_t *mnt = echfs_handle->mnt;
 
     spinlock_acquire(&mnt->lock);
 
-    uint64_t dir_id = echfs_handles[handle]->cached_file->path_res.target.payload;
+    struct cached_file_t *cached_file = echfs_handle->cached_file;
+
+    uint64_t dir_id = cached_file->path_res.target.payload;
 
     struct entry_t entry;
     uint64_t loc = mnt->dirstart * mnt->bytesperblock +
-                    echfs_handles[handle]->ptr * sizeof(struct entry_t);
+                    echfs_handle->ptr * sizeof(struct entry_t);
     lseek(mnt->device, loc, SEEK_SET);
 
     for (;;) {
         // check if past directory table
-        if (echfs_handles[handle]->ptr >= (mnt->dirsize * ENTRIES_PER_BLOCK)) goto end_of_dir;
+        if (echfs_handle->ptr >= (mnt->dirsize * mnt->entriesperblock)) goto end_of_dir;
         read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) goto end_of_dir;              // check if past last entry
-        echfs_handles[handle]->ptr++;
+        echfs_handle->ptr++;
         if (entry.parent_id == dir_id) {
             // valid entry
-            dir->d_ino = echfs_handles[handle]->ptr;
+            dir->d_ino = echfs_handle->ptr + 1;
             kstrcpy(dir->d_name, entry.name);
             dir->d_reclen = sizeof(struct dirent);
             switch (entry.type) {
@@ -905,27 +871,30 @@ static int echfs_readdir(int handle, struct dirent *dir) {
     }
 
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return 0;
 
 end_of_dir:
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     errno = 0;
     return -1;
 }
 
 static int echfs_fstat(int handle, struct stat *st) {
-    if (   handle < 0
-        || handle >= MAX_ECHFS_HANDLES
-        || echfs_handles[handle]->free) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
         errno = EBADF;
         return -1;
     }
 
-    struct mount_t *mnt = mounts[echfs_handles[handle]->mnt];
+    struct mount_t *mnt = echfs_handle->mnt;
 
     spinlock_acquire(&mnt->lock);
 
-    struct path_result_t *path_res = &echfs_handles[handle]->cached_file->path_res;
+    struct path_result_t *path_res = &echfs_handle->cached_file->path_res;
 
     st->st_dev = mnt->device;
     st->st_ino = path_res->target_entry + 1;
@@ -944,7 +913,7 @@ static int echfs_fstat(int handle, struct stat *st) {
     st->st_ctim.tv_nsec = 0;
 
     st->st_mode = 0;
-    switch (echfs_handles[handle]->type) {
+    switch (echfs_handle->type) {
         case DIRECTORY_TYPE:
             st->st_mode |= S_IFDIR;
             break;
@@ -954,11 +923,11 @@ static int echfs_fstat(int handle, struct stat *st) {
     }
 
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return 0;
 }
 
 static int echfs_mount(const char *source) {
-
     /* open device */
     int device = open(source, O_RDWR);
     if (device == -1) {
@@ -983,32 +952,23 @@ static int echfs_mount(const char *source) {
     kstrcpy(mount.name, source);
     mount.blocks = rd_qword(device, 12);
     mount.bytesperblock = rd_qword(device, 28);
+    mount.sectorsperblock = mount.bytesperblock / BYTES_PER_SECT;
+    mount.entriesperblock = mount.sectorsperblock * ENTRIES_PER_SECT;
     mount.fatsize = (mount.blocks * sizeof(uint64_t)) / mount.bytesperblock;
     if ((mount.blocks * sizeof(uint64_t)) % mount.bytesperblock) mount.fatsize++;
     mount.fatstart = RESERVED_BLOCKS;
     mount.dirsize = rd_qword(device, 20);
     mount.dirstart = mount.fatstart + mount.fatsize;
     mount.datastart = RESERVED_BLOCKS + mount.fatsize + mount.dirsize;
-
     ht_init(mount.cached_files);
-
-    mount.free = 0;
     mount.lock = new_lock;
 
-    int ret = echfs_create_mount(&mount);
+    int ret = dynarray_add(struct mount_t, mounts, &mount);
 
     return ret;
 }
 
 void init_fs_echfs(void) {
-    echfs_handles = kalloc(MAX_ECHFS_HANDLES * sizeof(void *));
-    if (!echfs_handles)
-        panic("out of memory while allocating echfs_handles", 0, 0);
-
-    mounts = kalloc(MAX_ECHFS_MOUNTS * sizeof(void *));
-    if (!mounts)
-        panic("out of memory while allocating echfs_mounts", 0, 0);
-
     struct fs_t echfs = {0};
 
     kstrcpy(echfs.name, "echfs");
