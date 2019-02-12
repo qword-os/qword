@@ -1,5 +1,28 @@
 #include <fs/devfs/devfs.h>
 #include <lib/klib.h>
+#include <lib/rand.h>
+
+/** /dev/urandom **/
+
+static int urandom_write(int unused1, const void *unused2, uint64_t unused3, size_t count) {
+    (void)unused1;
+    (void)unused2;
+    (void)unused3;
+
+    return (int)count;
+}
+
+static int urandom_read(int unused1, void *buf, uint64_t unused2, size_t count) {
+    (void)unused1;
+    (void)unused2;
+
+    uint8_t *buf1 = buf;
+
+    for (size_t i = 0; i < count; i++)
+        buf1[i] = (uint8_t)(rand() % 0x100);
+
+    return count;
+}
 
 /** /dev/null **/
 
@@ -57,5 +80,10 @@ void init_dev_streams(void) {
     kstrcpy(device.name, "zero");
     device.calls.read = zero_read;
     device.calls.write = zero_write;
+    device_add(&device);
+
+    kstrcpy(device.name, "urandom");
+    device.calls.read = urandom_read;
+    device.calls.write = urandom_write;
     device_add(&device);
 }

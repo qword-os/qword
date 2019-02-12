@@ -24,6 +24,7 @@
 #include <fd/fd.h>
 #include <devices/dev.h>
 #include <sys/vga_font.h>
+#include <lib/rand.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -136,6 +137,7 @@ void kmain(void) {
     init_vmm();
 
     /* Early inits */
+    init_rand();
     init_vbe();
 
     /* Time stuff */
