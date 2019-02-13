@@ -38,7 +38,7 @@
     ); \
 })
 
-struct ctx_t {
+struct regs_t {
     uint64_t r15;
     uint64_t r14;
     uint64_t r13;
@@ -61,6 +61,11 @@ struct ctx_t {
     uint64_t ss;
 };
 
+struct ctx_t {
+    struct regs_t regs;
+    uint8_t fxstate[512] __attribute__((aligned(16)));
+};
+
 struct thread_t {
     tid_t tid;
     tid_t task_id;
@@ -77,7 +82,6 @@ struct thread_t {
     size_t thread_errno;
     size_t fs_base;
     struct ctx_t ctx;
-    uint8_t fxstate[512] __attribute__((aligned(16)));
 };
 
 #define AT_ENTRY 10

@@ -31,8 +31,8 @@ int64_t task_count = 0;
 
 /* These represent the default new-thread register contexts for kernel space and
  * userspace. See kernel/include/ctx.h for the register order. */
-static struct ctx_t default_krnl_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
-static struct ctx_t default_usr_ctx = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
+static struct regs_t default_krnl_regs = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
+static struct regs_t default_usr_regs = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
 
 static uint8_t default_fxstate[512];
 
@@ -172,7 +172,7 @@ __attribute__((noinline)) static void idle(void) {
     _idle();
 }
 
-void task_resched(struct ctx_t *ctx) {
+void task_resched(struct regs_t *regs) {
     spinlock_acquire(&resched_lock);
 
     if (!spinlock_test_and_acquire(&scheduler_lock)) {
@@ -187,9 +187,9 @@ void task_resched(struct ctx_t *ctx) {
         struct thread_t *current_thread = task_table[current_task];
         /* Save current context */
         current_thread->active_on_cpu = -1;
-        current_thread->ctx = *ctx;
+        current_thread->ctx.regs = *regs;
         /* Save FPU context */
-        fxsave(&current_thread->fxstate);
+        fxsave(&current_thread->ctx.fxstate);
         /* Save user rsp */
         current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
         /* Save errno */
@@ -223,7 +223,7 @@ void task_resched(struct ctx_t *ctx) {
     thread->active_on_cpu = current_cpu;
 
     /* Restore FPU context */
-    fxrstor(&thread->fxstate);
+    fxrstor(&thread->ctx.fxstate);
 
     /* Restore thread FS base */
     load_fs_base(thread->fs_base);
@@ -231,16 +231,16 @@ void task_resched(struct ctx_t *ctx) {
     /* Swap cr3, if necessary */
     if (task_table[last_task]->process != thread->process) {
         /* Switch cr3 and return to the thread */
-        task_spinup(&thread->ctx, (size_t)process_table[thread->process]->pagemap->pml4 - MEM_PHYS_OFFSET);
+        task_spinup(&thread->ctx.regs, (size_t)process_table[thread->process]->pagemap->pml4 - MEM_PHYS_OFFSET);
     } else {
         /* Don't switch cr3 and return to the thread */
-        task_spinup(&thread->ctx, 0);
+        task_spinup(&thread->ctx.regs, 0);
     }
 }
 
 static int pit_ticks = 0;
 
-void task_resched_bsp(struct ctx_t *ctx) {
+void task_resched_bsp(struct regs_t *regs) {
     if (scheduler_ready) {
         if (++pit_ticks == SMP_TIMESLICE_MS) {
             pit_ticks = 0;
@@ -252,7 +252,7 @@ void task_resched_bsp(struct ctx_t *ctx) {
             lapic_send_ipi(i, IPI_RESCHED);
 
         /* Call task_scheduler on the BSP */
-        task_resched(ctx);
+        task_resched(regs);
     }
 }
 
@@ -466,9 +466,9 @@ found_new_task_id:;
 
     /* Set registers to defaults */
     if (pid)
-        new_thread->ctx = default_usr_ctx;
+        new_thread->ctx.regs = default_usr_regs;
     else
-        new_thread->ctx = default_krnl_ctx;
+        new_thread->ctx.regs = default_krnl_regs;
 
     /* Set up a user stack for the thread */
     if (pid) {
@@ -561,24 +561,24 @@ found_new_task_id:;
         }
         /* Add a guard page */
         unmap_page(process_table[pid]->pagemap, stack_guardpage);
-        new_thread->ctx.rsp = stack_bottom + STACK_SIZE - ((sbase - sp) * sizeof(size_t));
+        new_thread->ctx.regs.rsp = stack_bottom + STACK_SIZE - ((sbase - sp) * sizeof(size_t));
     } else {
         /* If it's a kernel thread, kstack is the main stack */
-        new_thread->ctx.rsp = new_thread->kstack;
+        new_thread->ctx.regs.rsp = new_thread->kstack;
     }
 
     /* Set instruction pointer to entry point */
     if (abi == tcreate_fn_call) {
         const struct tcreate_fn_call_data *data = opaque_data;
-        new_thread->ctx.rip = (size_t)data->fn;
-        new_thread->ctx.rdi = (size_t)data->arg;
+        new_thread->ctx.regs.rip = (size_t)data->fn;
+        new_thread->ctx.regs.rdi = (size_t)data->arg;
     } else {
         panic_unless(abi == tcreate_elf_exec);
         const struct tcreate_elf_exec_data *data = opaque_data;
-        new_thread->ctx.rip = (size_t)data->entry;
+        new_thread->ctx.regs.rip = (size_t)data->entry;
     }
 
-    kmemcpy(new_thread->fxstate, default_fxstate, 512);
+    kmemcpy(new_thread->ctx.fxstate, default_fxstate, 512);
 
     new_thread->fs_base = 0;
 

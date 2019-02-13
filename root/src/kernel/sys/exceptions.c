@@ -62,30 +62,30 @@ static const char *exception_names[] = {
     "Security"
 };
 
-void exception_handler(int exception, struct ctx_t *ctx, size_t error_code) {
+void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
     kprint(KPRN_PANIC, "Exception \"%s\" (int %x)", exception_names[exception], exception);
     kprint(KPRN_PANIC, "Error code: %X", error_code);
     kprint(KPRN_PANIC, "CPU #%d status at fault:", current_cpu);
-    kprint(KPRN_PANIC, "RAX:    %X", ctx->rax);
-    kprint(KPRN_PANIC, "RBX:    %X", ctx->rbx);
-    kprint(KPRN_PANIC, "RCX:    %X", ctx->rcx);
-    kprint(KPRN_PANIC, "RDX:    %X", ctx->rdx);
-    kprint(KPRN_PANIC, "RSI:    %X", ctx->rsi);
-    kprint(KPRN_PANIC, "RDI:    %X", ctx->rdi);
-    kprint(KPRN_PANIC, "RBP:    %X", ctx->rbp);
-    kprint(KPRN_PANIC, "RSP:    %X", ctx->rsp);
-    kprint(KPRN_PANIC, "R8:     %X", ctx->r8);
-    kprint(KPRN_PANIC, "R9:     %X", ctx->r9);
-    kprint(KPRN_PANIC, "R10:    %X", ctx->r10);
-    kprint(KPRN_PANIC, "R11:    %X", ctx->r11);
-    kprint(KPRN_PANIC, "R12:    %X", ctx->r12);
-    kprint(KPRN_PANIC, "R13:    %X", ctx->r13);
-    kprint(KPRN_PANIC, "R14:    %X", ctx->r14);
-    kprint(KPRN_PANIC, "R15:    %X", ctx->r15);
-    kprint(KPRN_PANIC, "RFLAGS: %X", ctx->rflags);
-    kprint(KPRN_PANIC, "RIP:    %X", ctx->rip);
-    kprint(KPRN_PANIC, "CS:     %X", ctx->cs);
-    kprint(KPRN_PANIC, "SS:     %X", ctx->ss);
+    kprint(KPRN_PANIC, "RAX:    %X", regs->rax);
+    kprint(KPRN_PANIC, "RBX:    %X", regs->rbx);
+    kprint(KPRN_PANIC, "RCX:    %X", regs->rcx);
+    kprint(KPRN_PANIC, "RDX:    %X", regs->rdx);
+    kprint(KPRN_PANIC, "RSI:    %X", regs->rsi);
+    kprint(KPRN_PANIC, "RDI:    %X", regs->rdi);
+    kprint(KPRN_PANIC, "RBP:    %X", regs->rbp);
+    kprint(KPRN_PANIC, "RSP:    %X", regs->rsp);
+    kprint(KPRN_PANIC, "R8:     %X", regs->r8);
+    kprint(KPRN_PANIC, "R9:     %X", regs->r9);
+    kprint(KPRN_PANIC, "R10:    %X", regs->r10);
+    kprint(KPRN_PANIC, "R11:    %X", regs->r11);
+    kprint(KPRN_PANIC, "R12:    %X", regs->r12);
+    kprint(KPRN_PANIC, "R13:    %X", regs->r13);
+    kprint(KPRN_PANIC, "R14:    %X", regs->r14);
+    kprint(KPRN_PANIC, "R15:    %X", regs->r15);
+    kprint(KPRN_PANIC, "RFLAGS: %X", regs->rflags);
+    kprint(KPRN_PANIC, "RIP:    %X", regs->rip);
+    kprint(KPRN_PANIC, "CS:     %X", regs->cs);
+    kprint(KPRN_PANIC, "SS:     %X", regs->ss);
     kprint(KPRN_PANIC, "CR2:    %X", read_cr2());
     panic("CPU exception", 0, 0);
 }
