@@ -250,6 +250,17 @@ await:
         }
     }
 
+    if (ctrl_active) {
+        switch (input_byte) {
+            case 0x2e:
+                // ctrl-c
+                add_to_buf(current_tty, "\x3", 1);
+                goto out;
+            default:
+                break;
+        }
+    }
+
     /* Assign the correct character for this scancode based on modifiers */
     if (input_byte < MAX_CODE) {
         if (!capslock_active && !shift_active)
