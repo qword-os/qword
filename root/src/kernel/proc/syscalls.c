@@ -71,6 +71,37 @@ void leave_syscall() {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_sigaction(struct regs_t *regs) {
+    int signum = (int)regs->rdi;
+    struct sigaction *act = (void *)regs->rsi;
+    struct sigaction *oldact = (void *)regs->rdx;
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t pid = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[pid];
+
+    if (oldact)
+        *oldact = process->signal_handlers[signum];
+    if (act)
+        process->signal_handlers[signum] = *act;
+
+    spinlock_release(&scheduler_lock);
+    return 0;
+}
+
+int syscall_return_from_signal(void) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t pid = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[pid];
+    spinlock_release(&scheduler_lock);
+
+    /* Unpause all threads */
+    for (size_t i = 0; i < MAX_THREADS; i++)
+        task_tresume(pid, i);
+
+    task_tkill(CURRENT_PROCESS, CURRENT_THREAD);
+}
+
 int syscall_kill(struct regs_t *regs) {
     // rdi: pid
     // rsi: signal

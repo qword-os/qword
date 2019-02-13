@@ -99,25 +99,35 @@ void yield(uint64_t ms) {
 int kill(pid_t pid, int signal) {
     spinlock_acquire(&scheduler_lock);
     struct process_t *process = process_table[pid];
+    pid_t current_tid = cpu_locals[current_cpu].current_thread;
+    pid_t current_pid = cpu_locals[current_cpu].current_process;
     spinlock_release(&scheduler_lock);
 
-    switch ((size_t)process->signal_handlers[signal]) {
+    kprint(0, "kernel: delivering %s to PID %d", signames[signal], pid);
+
+    // find out if sa_handler or whatever
+    panic_unless(!(process->signal_handlers[signal].sa_flags & SA_SIGINFO));
+    void *handler = process->signal_handlers[signal].sa_handler;
+
+    switch ((size_t)handler) {
         case (size_t)SIG_DFL:
-            kprint(0, "Process %U got signal %s, default", pid, signames[signal]);
             return;
     }
 
     /* Pause all threads */
     for (size_t i = 0; i < MAX_THREADS; i++)
-        task_tpause(pid, i);
+        if (pid != current_pid || i != current_tid)
+            task_tpause(pid, i);
 
-    uint64_t arg = (uint64_t)process->signal_handlers[signal] & 0x0000ffffffffffff;
+    uint64_t arg = (uint64_t)handler & 0x0000ffffffffffff;
     arg += (uint64_t)signal * 0x1000000000000;
 
     task_tcreate(pid, tcreate_fn_call,
             tcreate_fn_call_data((void*)SIGNAL_TRAMPOLINE_VADDR,
                                  (void*)arg));
 
+    if (pid == current_pid)
+        task_tpause(pid, current_tid);
     return 0;
 }
 
@@ -368,7 +378,7 @@ found_new_pid:
     }
 
     for (size_t i = 0; i < SIGNAL_MAX; i++)
-        new_process->signal_handlers[i] = SIG_DFL;
+        new_process->signal_handlers[i].sa_handler = SIG_DFL;
 
     new_process->pid = new_pid;
 
@@ -410,7 +420,11 @@ int task_tpause(pid_t pid, tid_t tid) {
     process_table[pid]->threads[tid]->paused = 1;
     int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
 
+    if (active_on_cpu == current_cpu)
+        force_resched();
+
     spinlock_release(&scheduler_lock);
+
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         lapic_send_ipi(active_on_cpu, IPI_RESCHED);
 

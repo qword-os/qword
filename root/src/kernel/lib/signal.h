@@ -1,11 +1,26 @@
 #ifndef __SIGNAL_H__
 #define __SIGNAL_H__
 
-#define SIGNAL_MAX 128
+#define SIGNAL_MAX 64
 
 #define SIGNAL_TRAMPOLINE_VADDR ((size_t)0x0000740000000000)
 
 typedef long sigset_t;
+
+struct sigaction {
+	void (*sa_handler)(int);
+	sigset_t sa_mask;
+	int sa_flags;
+	void (*sa_sigaction)(int, /*siginfo_t*/void *, void *);
+};
+
+#define SA_NOCLDSTOP (1 << 0)
+#define SA_ONSTACK (1 << 1)
+#define SA_RESETHAND (1 << 2)
+#define SA_RESTART (1 << 3)
+#define SA_SIGINFO (1 << 4)
+#define SA_NOCLDWAIT (1 << 5)
+#define SA_NODEFER (1 << 6)
 
 // from: mlibc/options/ansi/include/signal.h
 

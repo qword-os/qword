@@ -299,6 +299,10 @@ syscall_table:
     dq syscall_getrusage ;26
     extern syscall_kill
     dq syscall_kill ;27
+    extern syscall_return_from_signal
+    dq syscall_return_from_signal ;28
+    extern syscall_sigaction
+    dq syscall_sigaction ;29
   .end:
 
 section .text

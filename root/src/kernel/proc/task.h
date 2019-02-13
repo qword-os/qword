@@ -130,7 +130,7 @@ struct process_t {
     lock_t usage_lock;
     struct rusage_t own_usage;
     struct rusage_t child_usage;
-    void *signal_handlers[SIGNAL_MAX];
+    struct sigaction signal_handlers[SIGNAL_MAX];
     sigset_t sigmask;
 };
 
