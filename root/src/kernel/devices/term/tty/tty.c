@@ -5,8 +5,7 @@
 #include <fs/devfs/devfs.h>
 #include <lib/lock.h>
 #include <sys/apic.h>
-
-#include <misc/vbe.h>
+#include <devices/display/vbe/vbe.h>
 #include <sys/vga_font.h>
 
 #define MAX_TTYS 6

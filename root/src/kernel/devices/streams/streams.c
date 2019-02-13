@@ -62,7 +62,7 @@ static int zero_read(int unused1, void *buf, uint64_t unused2, size_t count) {
     for (size_t i = 0; i < count; i++)
         buf1[i] = 0;
 
-    return count;
+    return (int)count;
 }
 
 /** initialise **/

@@ -1,5 +1,5 @@
-#ifndef __VBE_H__
-#define __VBE_H__
+#ifndef __VBE_PRIVATE__
+#define __VBE_PRIVATE__
 
 #include <stdint.h>
 
@@ -59,19 +59,5 @@ struct get_vbe_t {
     uint32_t vbe_mode_info;      // is a 32 bit pointer to vbe_mode_info_t
     uint16_t mode;
 };
-
-extern uint32_t *vbe_framebuffer;
-extern int vbe_width;
-extern int vbe_height;
-extern int vbe_pitch;
-
-extern int vbe_available;
-
-void get_vbe_info(struct vbe_info_struct_t *);
-void get_edid_info(struct edid_info_struct_t *);
-void get_vbe_mode_info(struct get_vbe_t *);
-void set_vbe_mode(uint16_t);
-
-void init_vbe(void);
 
 #endif

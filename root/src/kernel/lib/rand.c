@@ -5,8 +5,7 @@ static uint64_t seed;
 
 void init_rand(void) {
     if (!rdrand_supported) {
-        kprint(KPRN_WARN, "kernel: rdrand instruction not supported\n"
-                          "        /dev/random entropy might suffer");
+        kprint(KPRN_WARN, "kernel: rdrand instruction not supported");
         seed = rdtsc(uint64_t);
     } else {
         seed = rdrand(uint64_t);

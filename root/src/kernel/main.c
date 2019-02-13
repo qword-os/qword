@@ -3,7 +3,7 @@
 #include <lib/cio.h>
 #include <lib/klib.h>
 #include <misc/serial.h>
-#include <misc/vbe.h>
+#include <devices/display/vbe/vbe.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
 #include <sys/idt.h>
@@ -138,7 +138,7 @@ void kmain(void) {
 
     /* Early inits */
     init_rand();
-    init_vbe();
+    early_init_vbe();
 
     /* Time stuff */
     struct s_time_t s_time;
