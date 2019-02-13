@@ -7,6 +7,7 @@
 
 void init_rand(void);
 int rand(void);
+int srand(uint64_t);
 
 #define rdrand_supported ({ \
     int ret; \
