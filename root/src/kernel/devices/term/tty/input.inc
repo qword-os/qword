@@ -165,6 +165,14 @@ await:
         // extra scancodes
         extra_scancodes = 0;
         switch (input_byte) {
+            case 0x47:
+                // home
+                add_to_buf(current_tty, "\e[H", 3);
+                goto out;
+            case 0x4f:
+                // end
+                add_to_buf(current_tty, "\e[F", 3);
+                goto out;
             case 0x48:
                 // cursor up
                 add_to_buf(current_tty, "\e[A", 3);
@@ -183,12 +191,15 @@ await:
                 goto out;
             case 0x49:
                 // pgup
+                add_to_buf(current_tty, "\e[5~", 4);
                 goto out;
             case 0x51:
                 // pgdown
+                add_to_buf(current_tty, "\e[6~", 4);
                 goto out;
             case 0x53:
                 // delete
+                add_to_buf(current_tty, "\e[3~", 4);
                 goto out;
             case CTRL:
                 ctrl_active = 1;
