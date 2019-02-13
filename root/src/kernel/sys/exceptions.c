@@ -67,12 +67,13 @@ void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
 
     if (regs->cs == 0x23) {
         // userspace
+        asm volatile ("sti");
         switch (exception) {
             case 13:
             case 14:
                 kill(cpu_locals[current_cpu].current_process, SIGSEGV);
-                for (;;) { asm volatile ("hlt"); }
             default:
+                asm volatile ("cli");
                 break;
         }
     }

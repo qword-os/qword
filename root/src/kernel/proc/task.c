@@ -119,6 +119,14 @@ int kill(pid_t pid, int signal) {
                     yield(1000);
                 return 0;
             }
+            case SIGTERM: {
+                const char *msg = "Terminated (SIGTERM)\n";
+                write(process->file_handles[2], msg, kstrlen(msg));
+                exit_send_request(pid, 143);
+                if (pid == current_pid)
+                    yield(1000);
+                return 0;
+            }
             default: {
                 const char *msg = "Unhandled signal occurred (";
                 write(process->file_handles[2], msg, kstrlen(msg));
