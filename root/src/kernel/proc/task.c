@@ -181,6 +181,7 @@ void task_resched(struct regs_t *regs) {
     }
 
     pid_t current_task = cpu_locals[current_cpu].current_task;
+    pid_t current_process = cpu_locals[current_cpu].current_process;
     pid_t last_task = current_task;
 
     if (current_task != -1) {
@@ -188,14 +189,16 @@ void task_resched(struct regs_t *regs) {
         /* Save current context */
         current_thread->active_on_cpu = -1;
         current_thread->ctx.regs = *regs;
-        /* Save FPU context */
-        fxsave(&current_thread->ctx.fxstate);
-        /* Save user rsp */
-        current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
-        /* Save errno */
-        current_thread->thread_errno = cpu_locals[current_cpu].thread_errno;
-        /* Update statistics. */
-        current_thread->total_cputime += uptime_raw - cpu_locals[current_cpu].last_schedule_time;
+        if (current_process) {
+            /* Save FPU context */
+            fxsave(&current_thread->ctx.fxstate);
+            /* Save user rsp */
+            current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
+            /* Save errno */
+            current_thread->thread_errno = cpu_locals[current_cpu].thread_errno;
+            /* Update statistics. */
+            current_thread->total_cputime += uptime_raw - cpu_locals[current_cpu].last_schedule_time;
+        }
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
     }
@@ -215,15 +218,15 @@ void task_resched(struct regs_t *regs) {
     cpu_local->current_thread = thread->tid;
     cpu_local->current_process = thread->process;
 
-    cpu_local->thread_kstack = thread->kstack;
-    cpu_local->thread_ustack = thread->ustack;
-
-    cpu_local->thread_errno = thread->thread_errno;
+    if (thread->process) {
+       cpu_local->thread_kstack = thread->kstack;
+       cpu_local->thread_ustack = thread->ustack;
+       cpu_local->thread_errno = thread->thread_errno;
+       /* Restore FPU context */
+       fxrstor(&thread->ctx.fxstate);
+    }
 
     thread->active_on_cpu = current_cpu;
-
-    /* Restore FPU context */
-    fxrstor(&thread->ctx.fxstate);
 
     /* Restore thread FS base */
     load_fs_base(thread->fs_base);

@@ -17,24 +17,31 @@
 #define CURRENT_PROCESS cpu_locals[current_cpu].current_process
 #define CURRENT_THREAD cpu_locals[current_cpu].current_thread
 
-#define fxsave(PTR) ({ \
-    asm volatile ("fxsave [rbx];" : : "b" (PTR)); \
-})
-
-#define fxrstor(PTR) ({ \
-    asm volatile ("fxrstor [rbx];" : : "b" (PTR)); \
-})
-
-#define load_fs_base(PTR) ({ \
+#define fxsave(ptr) ({ \
     asm volatile ( \
-        "mov rcx, 0xc0000100;" \
+                "fxsave %0;" \
+                : \
+                : "m" (*(ptr)) \
+    ); \
+})
+
+#define fxrstor(ptr) ({ \
+    asm volatile ( \
+                "fxrstor %0;" \
+                : \
+                : "m" (*(ptr)) \
+    ); \
+})
+
+#define load_fs_base(base) ({ \
+    asm volatile ( \
         "mov eax, edx;" \
         "shr rdx, 32;" \
         "mov edx, edx;" \
         "wrmsr;" \
         : \
-        : "d" (PTR) \
-        : "rax", "rcx" \
+        : "d" (base), "c" (0xc0000100) \
+        : "rax", "cc" \
     ); \
 })
 

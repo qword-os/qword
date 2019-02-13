@@ -420,8 +420,7 @@ int syscall_fork(struct regs_t *regs) {
 
     new_process->ppid = current_process;
 
-    pmm_free((void *)new_process->pagemap->pml4 - MEM_PHYS_OFFSET, 1);
-    kfree(new_process->pagemap);
+    free_address_space(new_process->pagemap);
 
     new_process->pagemap = new_pagemap;
     kmemset(&new_process->own_usage, 0, sizeof(struct rusage_t));
