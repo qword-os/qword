@@ -85,11 +85,11 @@ void device_sync_worker(void *arg) {
                     /* flush is a no-op */
                     break;
                 default:
-                    yield(100);
+                    relaxed_sleep(100);
                     break;
             }
             dynarray_unref(devices, i);
-            yield(1000);
+            relaxed_sleep(1000);
         }
     }
 }

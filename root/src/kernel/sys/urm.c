@@ -47,12 +47,11 @@ struct execve_request_t {
     char *filename;
     char **argv;
     char **envp;
-    lock_t *err_lock;
-    int *err;
+    event_t *err_event;
 };
 
 void execve_send_request(pid_t pid, const char *filename, const char **argv, const char **envp,
-                    lock_t **err_lock, int **err) {
+                    event_t **err_event) {
     struct execve_request_t *execve_request = kalloc(sizeof(struct execve_request_t));
 
     execve_request->pid = pid;
@@ -86,13 +85,8 @@ void execve_send_request(pid_t pid, const char *filename, const char **argv, con
         kstrcpy(execve_request->envp[i], envp[i]);
     }
 
-    execve_request->err_lock = kalloc(sizeof(lock_t));
-    *(execve_request->err_lock) = new_lock;
-    execve_request->err = kalloc(sizeof(int));
-    *(execve_request->err) = 0;
-
-    *err_lock = execve_request->err_lock;
-    *err = execve_request->err;
+    execve_request->err_event = kalloc(sizeof(event_t));
+    *err_event = execve_request->err_event;
 
     userspace_send_request(USER_REQUEST_EXECVE, execve_request);
 }
@@ -122,15 +116,10 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
     }
     kfree(execve_request->envp);
 
-    if (ret) {
-        spinlock_acquire(execve_request->err_lock);
-        *(execve_request->err) = 1;
-        spinlock_release(execve_request->err_lock);
-    } else {
-        kfree((void *)execve_request->err_lock);
-        kfree(execve_request->err);
-    }
+    if (ret)
+        event_trigger(execve_request->err_event);
 
+    kfree(execve_request->err_event);
     kfree(execve_request);
 }
 
@@ -148,6 +137,11 @@ void exit_send_request(pid_t pid, int exit_code, int signalled) {
     exit_request->signalled = signalled;
 
     userspace_send_request(USER_REQUEST_EXIT, exit_request);
+
+    if (pid == cpu_locals[current_cpu].current_process) {
+        for (;;)
+            yield();
+    }
 }
 
 static void exit_receive_request(struct exit_request_t *exit_request) {

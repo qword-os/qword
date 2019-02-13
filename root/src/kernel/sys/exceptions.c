@@ -79,6 +79,8 @@ void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
         }
     }
 
+    // this is a kernel exception/unhandled exception, ouch!
+
     kprint(KPRN_PANIC, "Exception \"%s\" (int %x)", exception_names[exception], exception);
     kprint(KPRN_PANIC, "Error code: %X", error_code);
     kprint(KPRN_PANIC, "CPU #%d status at fault:", current_cpu);

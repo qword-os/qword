@@ -144,7 +144,8 @@ extern struct process_t **process_table;
 extern struct thread_t **task_table;
 
 void init_sched(void);
-void yield(uint64_t);
+void yield(void);
+void relaxed_sleep(uint64_t);
 
 enum tcreate_abi {
 	tcreate_fn_call,

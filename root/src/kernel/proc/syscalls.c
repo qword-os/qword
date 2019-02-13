@@ -379,8 +379,6 @@ int syscall_exit(struct regs_t *regs) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
     exit_send_request(current_process, regs->rdi, 0);
-
-    for (;;) { yield(1000); }
 }
 
 int syscall_execve(struct regs_t *regs) {
@@ -388,9 +386,6 @@ int syscall_execve(struct regs_t *regs) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
-
-    lock_t *err_lock;
-    int *err;
 
     /* FIXME check if filename and argv/envp are in userspace */
 
@@ -401,29 +396,20 @@ int syscall_execve(struct regs_t *regs) {
     vfs_get_absolute_path(abs_path, path, process->cwd);
     spinlock_release(&process->cwd_lock);
 
+    event_t *execve_error;
+
     execve_send_request(current_process,
         abs_path,
         (void *)regs->rsi,
         (void *)regs->rdx,
-        &err_lock,
-        &err);
+        &execve_error);
 
-    for (;;) {
-        yield(10);
-        spinlock_acquire(&scheduler_lock);
-        spinlock_acquire(err_lock);
-        if (*err)
-            break;
-        spinlock_release(err_lock);
-        spinlock_release(&scheduler_lock);
-    }
+    event_await(execve_error);
 
-    spinlock_release(&scheduler_lock);
     kprint(0, "execve failed");
 
     /* error occurred */
-    kfree((void *)err_lock);
-    kfree(err);
+    kfree((void *)execve_error);
 
     return -1;
 }

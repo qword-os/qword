@@ -164,7 +164,7 @@ void vfs_sync_worker(void *arg) {
     (void)arg;
 
     for (;;) {
-        yield(2000);
+        relaxed_sleep(2000);
         vfs_sync();
     }
 }

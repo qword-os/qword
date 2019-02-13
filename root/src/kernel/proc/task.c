@@ -68,6 +68,22 @@ void init_sched(void) {
     return;
 }
 
+void yield(void) {
+    spinlock_acquire(&scheduler_lock);
+    force_resched();
+}
+
+void relaxed_sleep(uint64_t ms) {
+    spinlock_acquire(&scheduler_lock);
+
+    uint64_t yield_target = (uptime_raw + (ms * (PIT_FREQUENCY / 1000))) + 1;
+
+    tid_t current_task = cpu_locals[current_cpu].current_task;
+    task_table[current_task]->yield_target = yield_target;
+
+    force_resched();
+}
+
 int task_send_child_event(pid_t pid, struct child_event_t *child_event) {
     spinlock_acquire(&scheduler_lock);
     struct process_t *process = process_table[pid];
@@ -86,17 +102,6 @@ int task_send_child_event(pid_t pid, struct child_event_t *child_event) {
     return 0;
 }
 
-void yield(uint64_t ms) {
-    spinlock_acquire(&scheduler_lock);
-
-    uint64_t yield_target = (uptime_raw + (ms * (PIT_FREQUENCY / 1000))) + 1;
-
-    tid_t current_task = cpu_locals[current_cpu].current_task;
-    task_table[current_task]->yield_target = yield_target;
-
-    force_resched();
-}
-
 int kill(pid_t pid, int signal) {
     spinlock_acquire(&scheduler_lock);
     struct process_t *process = process_table[pid];
@@ -113,19 +118,11 @@ int kill(pid_t pid, int signal) {
     if (handler == SIG_DFL) {
         switch (signal) {
             case SIGSEGV: {
-                const char *msg = "Segmentation fault (SIGSEGV)\n";
-                write(process->file_handles[2], msg, kstrlen(msg));
                 exit_send_request(pid, 139, 1);
-                if (pid == current_pid)
-                    yield(1000);
                 return 0;
             }
             case SIGTERM: {
-                const char *msg = "Terminated (SIGTERM)\n";
-                write(process->file_handles[2], msg, kstrlen(msg));
                 exit_send_request(pid, 143, 1);
-                if (pid == current_pid)
-                    yield(1000);
                 return 0;
             }
             default: {
@@ -484,11 +481,9 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
 
-    if (active_on_cpu != -1 && active_on_cpu != current_cpu) {
+    if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         /* Send abort execution IPI */
         lapic_send_ipi(active_on_cpu, IPI_ABORTEXEC);
-        ksleep(1);
-    }
 
     task_table[process_table[pid]->threads[tid]->task_id] = EMPTY;
 
