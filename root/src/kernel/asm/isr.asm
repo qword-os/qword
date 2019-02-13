@@ -296,7 +296,9 @@ syscall_table:
     extern syscall_clock_gettime
     dq syscall_clock_gettime ;25
     extern syscall_getrusage
-    dq syscall_getrusage ; 26
+    dq syscall_getrusage ;26
+    extern syscall_kill
+    dq syscall_kill ;27
   .end:
 
 section .text

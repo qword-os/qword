@@ -6,6 +6,20 @@ extern resched_lock
 
 extern task_resched
 
+section .data
+
+signal_trampoline_size equ signal_trampoline.end - signal_trampoline
+global signal_trampoline_size
+global signal_trampoline
+signal_trampoline:
+    mov rax, rdi
+    shr rdi, 52  ; signum
+    and rax, 0x0000ffffffffffff
+    call rax ; handler address
+    mov rax, 28
+    syscall     ; end of signal syscall
+  .end:
+
 section .text
 
 task_spinup:

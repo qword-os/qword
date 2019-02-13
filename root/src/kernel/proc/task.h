@@ -8,6 +8,7 @@
 #include <fd/perfmon/perfmon.h>
 #include <lib/time.h>
 #include <lib/types.h>
+#include <lib/signal.h>
 
 #define MAX_PROCESSES 65536
 #define MAX_THREADS 1024
@@ -79,6 +80,7 @@ struct thread_t {
     pid_t process;
     lock_t lock;
     uint64_t yield_target;
+    int paused;
     event_t *event_ptr;
     int active_on_cpu;
     uint64_t syscall_entry_time;
@@ -128,6 +130,8 @@ struct process_t {
     lock_t usage_lock;
     struct rusage_t own_usage;
     struct rusage_t child_usage;
+    void *signal_handlers[SIGNAL_MAX];
+    sigset_t sigmask;
 };
 
 int task_send_child_event(pid_t, struct child_event_t *);
@@ -167,7 +171,11 @@ struct tcreate_elf_exec_data {
 tid_t task_tcreate(pid_t, enum tcreate_abi, const void *);
 pid_t task_pcreate(void);
 int task_tkill(pid_t, tid_t);
+int task_tpause(pid_t, tid_t);
+int task_tresume(pid_t, tid_t);
 
 void force_resched(void);
+
+int kill(pid_t, int);
 
 #endif

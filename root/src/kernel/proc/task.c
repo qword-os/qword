@@ -12,6 +12,7 @@
 #include <fd/vfs/vfs.h>
 #include <lib/time.h>
 #include <lib/event.h>
+#include <lib/signal.h>
 #include <misc/pit.h>
 
 #define SMP_TIMESLICE_MS 5
@@ -95,6 +96,31 @@ void yield(uint64_t ms) {
     force_resched();
 }
 
+int kill(pid_t pid, int signal) {
+    spinlock_acquire(&scheduler_lock);
+    struct process_t *process = process_table[pid];
+    spinlock_release(&scheduler_lock);
+
+    switch ((size_t)process->signal_handlers[signal]) {
+        case (size_t)SIG_DFL:
+            kprint(0, "Process %U got signal %s, default", pid, signames[signal]);
+            return;
+    }
+
+    /* Pause all threads */
+    for (size_t i = 0; i < MAX_THREADS; i++)
+        task_tpause(pid, i);
+
+    uint64_t arg = (uint64_t)process->signal_handlers[signal] & 0x0000ffffffffffff;
+    arg += (uint64_t)signal * 0x1000000000000;
+
+    task_tcreate(pid, tcreate_fn_call,
+            tcreate_fn_call_data((void*)SIGNAL_TRAMPOLINE_VADDR,
+                                 (void*)arg));
+
+    return 0;
+}
+
 /* Search for a new task to run */
 static inline tid_t task_get_next(tid_t current_task) {
     if (current_task != -1) {
@@ -115,6 +141,9 @@ static inline tid_t task_get_next(tid_t current_task) {
             goto skip;
         }
         if (thread->yield_target > uptime_raw) {
+            goto next;
+        }
+        if (thread->paused) {
             goto next;
         }
         if (!spinlock_test_and_acquire(&thread->lock)) {
@@ -338,6 +367,9 @@ found_new_pid:
         return -1;
     }
 
+    for (size_t i = 0; i < SIGNAL_MAX; i++)
+        new_process->signal_handlers[i] = SIG_DFL;
+
     new_process->pid = new_pid;
 
     // Actually "enable" the new process
@@ -366,6 +398,39 @@ void abort_thread_exec(int scheduler_is_locked) {
 
 #define STACK_LOCATION_TOP ((size_t)0x0000800000000000)
 #define STACK_SIZE ((size_t)32768)
+
+int task_tpause(pid_t pid, tid_t tid) {
+    spinlock_acquire(&scheduler_lock);
+
+    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
+        spinlock_release(&scheduler_lock);
+        return -1;
+    }
+
+    process_table[pid]->threads[tid]->paused = 1;
+    int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
+
+    spinlock_release(&scheduler_lock);
+    if (active_on_cpu != -1 && active_on_cpu != current_cpu)
+        lapic_send_ipi(active_on_cpu, IPI_RESCHED);
+
+    return 0;
+}
+
+int task_tresume(pid_t pid, tid_t tid) {
+    spinlock_acquire(&scheduler_lock);
+
+    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
+        spinlock_release(&scheduler_lock);
+        return -1;
+    }
+
+    process_table[pid]->threads[tid]->paused = 0;
+
+    spinlock_release(&scheduler_lock);
+
+    return 0;
+}
 
 /* Kill a thread in a given process */
 /* Return -1 on failure */

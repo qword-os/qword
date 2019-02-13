@@ -9,6 +9,7 @@
 #include <lib/event.h>
 #include <sys/panic.h>
 #include <fd/perfmon/perfmon.h>
+#include <lib/signal.h>
 
 #define USER_REQUEST_EXECVE 1
 #define USER_REQUEST_EXIT 2
@@ -221,6 +222,9 @@ void userspace_request_monitor(void *arg) {
     }
 }
 
+extern void *signal_trampoline[];
+extern void *signal_trampoline_size[];
+
 int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]) {
     int ret;
     size_t entry;
@@ -283,6 +287,16 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
     /* Destroy all previous threads */
     for (size_t i = 0; i < MAX_THREADS; i++)
         task_tkill(pid, i);
+
+    // Map the sig ret trampoline into process
+    void *trampoline_ptr = pmm_allocz(1);
+    kmemcpy(trampoline_ptr + MEM_PHYS_OFFSET,
+            (size_t)signal_trampoline,
+            (size_t)signal_trampoline_size);
+    map_page(new_pagemap,
+             (size_t)trampoline_ptr,
+             (size_t)(SIGNAL_TRAMPOLINE_VADDR),
+             0x05);
 
     /* Free previous address space */
     free_address_space(old_pagemap);

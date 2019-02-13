@@ -71,6 +71,15 @@ void leave_syscall() {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_kill(struct regs_t *regs) {
+    // rdi: pid
+    // rsi: signal
+    pid_t pid = (pid_t)regs->rdi;
+    int signal = (int)regs->rsi;
+
+    return kill(pid, signal);
+}
+
 int syscall_getrusage(struct regs_t *regs) {
     /* rdi: who
      * rsi: usage
