@@ -25,6 +25,7 @@
 #include <devices/dev.h>
 #include <sys/vga_font.h>
 #include <lib/rand.h>
+#include <sys/urm.h>
 
 void kmain_thread(void *arg) {
     (void)arg;

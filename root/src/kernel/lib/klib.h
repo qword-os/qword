@@ -43,10 +43,6 @@ int exec(pid_t, const char *, const char **, const char **);
 pid_t kexec(const char *, const char **, const char **,
             const char *, const char *, const char *);
 
-void execve_send_request(pid_t, const char *, const char **, const char **, lock_t **, int **);
-void exit_send_request(pid_t, int);
-void userspace_request_monitor(void *);
-
 int ktolower(int);
 char *kstrchrnul(const char *, int);
 char *kstrcpy(char *, const char *);

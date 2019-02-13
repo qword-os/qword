@@ -31,6 +31,6 @@ int rand(void) {
     return (int)((xorshifted >> rot) | (xorshifted << ((-rot) & 31)));
 }
 
-int srand(uint64_t c) {
+void srand(uint64_t c) {
     locked_write(uint64_t, &inc, c);
 }

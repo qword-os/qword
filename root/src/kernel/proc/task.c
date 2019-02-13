@@ -14,6 +14,7 @@
 #include <lib/event.h>
 #include <lib/signal.h>
 #include <misc/pit.h>
+#include <sys/urm.h>
 
 #define SMP_TIMESLICE_MS 5
 
@@ -109,12 +110,12 @@ int kill(pid_t pid, int signal) {
     panic_unless(!(process->signal_handlers[signal].sa_flags & SA_SIGINFO));
     void *handler = process->signal_handlers[signal].sa_handler;
 
-    if (handler = SIG_DFL) {
+    if (handler == SIG_DFL) {
         switch (signal) {
             case SIGSEGV: {
                 const char *msg = "Segmentation fault (SIGSEGV)\n";
                 write(process->file_handles[2], msg, kstrlen(msg));
-                exit_send_request(pid, 139);
+                exit_send_request(pid, 139, 1);
                 if (pid == current_pid)
                     yield(1000);
                 return 0;
@@ -122,7 +123,7 @@ int kill(pid_t pid, int signal) {
             case SIGTERM: {
                 const char *msg = "Terminated (SIGTERM)\n";
                 write(process->file_handles[2], msg, kstrlen(msg));
-                exit_send_request(pid, 143);
+                exit_send_request(pid, 143, 1);
                 if (pid == current_pid)
                     yield(1000);
                 return 0;

@@ -13,6 +13,7 @@
 #include <lib/errno.h>
 #include <lib/event.h>
 #include <devices/term/tty/tty.h>
+#include <sys/urm.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -92,7 +93,6 @@ int syscall_sigaction(struct regs_t *regs) {
 int syscall_return_from_signal(void) {
     spinlock_acquire(&scheduler_lock);
     pid_t pid = cpu_locals[current_cpu].current_process;
-    struct process_t *process = process_table[pid];
     spinlock_release(&scheduler_lock);
 
     /* Unpause all threads */
@@ -324,11 +324,6 @@ int syscall_chdir(struct regs_t *regs) {
     return 0;
 }
 
-// Macros from mlibc: options/posix/include/sys/wait.h
-#define WCONTINUED 1
-#define WNOHANG 2
-#define WUNTRACED 4
-
 int syscall_waitpid(struct regs_t *regs) {
     pid_t pid = (pid_t)regs->rdi;
     int *status = (int *)regs->rsi;
@@ -383,7 +378,7 @@ int syscall_waitpid(struct regs_t *regs) {
 int syscall_exit(struct regs_t *regs) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
-    exit_send_request(current_process, regs->rdi);
+    exit_send_request(current_process, regs->rdi, 0);
 
     for (;;) { yield(1000); }
 }
