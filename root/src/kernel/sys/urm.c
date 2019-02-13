@@ -118,8 +118,9 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
 
     if (ret)
         event_trigger(execve_request->err_event);
+    else
+        kfree(execve_request->err_event);
 
-    kfree(execve_request->err_event);
     kfree(execve_request);
 }
 
