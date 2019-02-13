@@ -6,6 +6,7 @@
 #include <lib/klib.h>
 #include <sys/smp.h>
 #include <sys/cpu.h>
+#include <lib/signal.h>
 
 #define EXC_DIV0 0x0
 #define EXC_DEBUG 0x1
@@ -63,6 +64,19 @@ static const char *exception_names[] = {
 };
 
 void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
+
+    if (regs->cs == 0x23) {
+        // userspace
+        switch (exception) {
+            case 13:
+            case 14:
+                kill(cpu_locals[current_cpu].current_process, SIGSEGV);
+                for (;;) { asm volatile ("hlt"); }
+            default:
+                break;
+        }
+    }
+
     kprint(KPRN_PANIC, "Exception \"%s\" (int %x)", exception_names[exception], exception);
     kprint(KPRN_PANIC, "Error code: %X", error_code);
     kprint(KPRN_PANIC, "CPU #%d status at fault:", current_cpu);

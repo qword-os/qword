@@ -109,9 +109,26 @@ int kill(pid_t pid, int signal) {
     panic_unless(!(process->signal_handlers[signal].sa_flags & SA_SIGINFO));
     void *handler = process->signal_handlers[signal].sa_handler;
 
-    switch ((size_t)handler) {
-        case (size_t)SIG_DFL:
-            return;
+    if (handler = SIG_DFL) {
+        switch (signal) {
+            case SIGSEGV: {
+                const char *msg = "Segmentation fault (SIGSEGV)\n";
+                write(process->file_handles[2], msg, kstrlen(msg));
+                exit_send_request(pid, 139);
+                if (pid == current_pid)
+                    yield(1000);
+                return 0;
+            }
+            default: {
+                const char *msg = "Unhandled signal occurred (";
+                write(process->file_handles[2], msg, kstrlen(msg));
+                msg = signames[signal];
+                write(process->file_handles[2], msg, kstrlen(msg));
+                msg = ")\n";
+                write(process->file_handles[2], msg, kstrlen(msg));
+                return 0;
+            }
+        }
     }
 
     /* Pause all threads */
