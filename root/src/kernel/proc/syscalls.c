@@ -23,7 +23,13 @@ static inline int privilege_check(size_t base, size_t len) {
         return 0;
 }
 
-void enter_syscall() {
+void enter_syscall(int syscall) {
+    while (locked_read(int, &task_table[CURRENT_TASK]->event_abrt))
+        yield();
+
+    locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 1);
+    task_table[CURRENT_TASK]->last_syscall = syscall;
+
     spinlock_acquire(&scheduler_lock);
     pid_t current_task = cpu_locals[current_cpu].current_task;
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -43,7 +49,7 @@ void enter_syscall() {
     spinlock_release(&scheduler_lock);
 }
 
-void leave_syscall() {
+void leave_syscall(void) {
     spinlock_acquire(&scheduler_lock);
     pid_t current_task = cpu_locals[current_cpu].current_task;
     pid_t current_process = cpu_locals[current_cpu].current_process;
@@ -59,6 +65,7 @@ void leave_syscall() {
         process->own_usage.ru_stime.tv_sec += 1;
     }
     spinlock_release(&process->usage_lock);
+
     spinlock_release(&scheduler_lock);
 
     spinlock_acquire(&process->perfmon_lock);
@@ -66,6 +73,8 @@ void leave_syscall() {
         atomic_add_uint64_relaxed(&process->active_perfmon->syscall_time,
                 uptime_raw - thread->syscall_entry_time);
     spinlock_release(&process->perfmon_lock);
+
+    locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
 }
 
 /* Prototype syscall: int syscall_name(struct regs_t *regs) */
@@ -371,7 +380,11 @@ int syscall_waitpid(struct regs_t *regs) {
             return 0;
         }
 
-        event_await(&process->child_event);
+        if (event_await(&process->child_event)) {
+            // signal is aborting us, bail
+            errno = EINTR;
+            return -1;
+        }
     }
 }
 
@@ -379,32 +392,37 @@ int syscall_exit(struct regs_t *regs) {
     pid_t current_process = cpu_locals[current_cpu].current_process;
 
     exit_send_request(current_process, regs->rdi, 0);
+
+    locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
+
+    for (;;)
+        yield();
 }
 
 int syscall_execve(struct regs_t *regs) {
-    spinlock_acquire(&scheduler_lock);
-    pid_t current_process = cpu_locals[current_cpu].current_process;
-    struct process_t *process = process_table[current_process];
-    spinlock_release(&scheduler_lock);
-
     /* FIXME check if filename and argv/envp are in userspace */
 
     char *path = (char *)regs->rdi;
 
     char abs_path[2048];
-    spinlock_acquire(&process->cwd_lock);
-    vfs_get_absolute_path(abs_path, path, process->cwd);
-    spinlock_release(&process->cwd_lock);
+    spinlock_acquire(&process_table[CURRENT_PROCESS]->cwd_lock);
+    vfs_get_absolute_path(abs_path, path, process_table[CURRENT_PROCESS]->cwd);
+    spinlock_release(&process_table[CURRENT_PROCESS]->cwd_lock);
 
     event_t *execve_error;
 
-    execve_send_request(current_process,
+    execve_send_request(
+        CURRENT_PROCESS,
+        CURRENT_TASK,
         abs_path,
         (void *)regs->rsi,
         (void *)regs->rdx,
         &execve_error);
 
-    event_await(execve_error);
+    if (event_await(execve_error) == -1) {
+        locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
+        yield();
+    }
 
     kprint(0, "execve failed");
 
@@ -1026,7 +1044,7 @@ int syscall_read(struct regs_t *regs) {
             step = regs->rdx % SYSCALL_IO_CAP;
         else
             step = SYSCALL_IO_CAP;
-        size_t ret = read(process->file_handles[regs->rdi], (void *)(regs->rsi + ptr), step);
+        int ret = read(process->file_handles[regs->rdi], (void *)(regs->rsi + ptr), step);
         ptr += ret;
         if (ret < step)
             break;
@@ -1073,7 +1091,7 @@ int syscall_write(struct regs_t *regs) {
             step = regs->rdx % SYSCALL_IO_CAP;
         else
             step = SYSCALL_IO_CAP;
-        size_t ret = write(process->file_handles[regs->rdi], (void *)(regs->rsi + ptr), step);
+        int ret = write(process->file_handles[regs->rdi], (void *)(regs->rsi + ptr), step);
         ptr += ret;
         if (ret < step)
             break;

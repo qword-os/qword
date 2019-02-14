@@ -8,6 +8,7 @@
 #include <sys/irq.h>
 #include <lib/cio.h>
 #include <proc/task.h>
+#include <lib/signal.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a
@@ -63,8 +64,13 @@ int tty_read(int tty, void *void_buf, uint64_t unused, size_t count) {
     char *buf = void_buf;
     int wait = 1;
 
-    while (!spinlock_test_and_acquire(&ttys[tty].read_lock))
-        event_await(&ttys[tty].kbd_event);
+    while (!spinlock_test_and_acquire(&ttys[tty].read_lock)) {
+        if (event_await(&ttys[tty].kbd_event)) {
+            // signal is aborting us, bail
+            errno = EINTR;
+            return -1;
+        }
+    }
 
     for (size_t i = 0; i < count; ) {
         if (ttys[tty].big_buf_i) {
@@ -78,7 +84,11 @@ int tty_read(int tty, void *void_buf, uint64_t unused, size_t count) {
             if (wait) {
                 spinlock_release(&ttys[tty].read_lock);
                 do {
-                    event_await(&ttys[tty].kbd_event);
+                    if (event_await(&ttys[tty].kbd_event)) {
+                        // signal is aborting us, bail
+                        errno = EINTR;
+                        return -1;
+                    }
                 } while (!spinlock_test_and_acquire(&ttys[tty].read_lock));
             } else {
                 spinlock_release(&ttys[tty].read_lock);
@@ -141,8 +151,17 @@ out:
 }
 
 static void add_to_buf(int tty, const char *s, size_t cnt) {
-    for (size_t i = 0; i < cnt; i++)
+    for (size_t i = 0; i < cnt; i++) {
+        if (ttys[tty].termios.c_lflag & ISIG) {
+            // accept signal characters
+            if (s[i] == ttys[tty].termios.c_cc[VINTR]) {
+                // sigint
+                kill(1, SIGINT);
+                continue;
+            }
+        }
         add_to_buf_char(tty, s[i]);
+    }
     event_trigger(&ttys[tty].kbd_event);
 }
 

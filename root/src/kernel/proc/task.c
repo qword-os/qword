@@ -114,14 +114,15 @@ int kill(pid_t pid, int signal) {
     panic_unless(!(process->signal_handlers[signal].sa_flags & SA_SIGINFO));
     void *handler = process->signal_handlers[signal].sa_handler;
 
-    if (handler == SIG_DFL) {
+    if (handler == SIG_IGN) {
+        return 0;
+    } else if (handler == SIG_DFL) {
         switch (signal) {
-            case SIGSEGV: {
-                exit_send_request(pid, 0, SIGSEGV);
-                return 0;
-            }
-            case SIGTERM: {
-                exit_send_request(pid, 0, SIGTERM);
+            case SIGSEGV:
+            case SIGTERM:
+            case SIGILL:
+            case SIGFPE: {
+                exit_send_request(pid, 0, signal);
                 return 0;
             }
             default: {
@@ -195,12 +196,14 @@ static inline tid_t task_get_next(tid_t current_task) {
             goto next;
         }
         if (thread->event_ptr) {
-            if (locked_read(event_t, thread->event_ptr)) {
-                locked_dec(thread->event_ptr);
-                thread->event_ptr = 0;
-            } else {
-                spinlock_release(&thread->lock);
-                goto next;
+            if (!thread->event_abrt) {
+                if (locked_read(event_t, thread->event_ptr)) {
+                    locked_dec(thread->event_ptr);
+                    thread->event_ptr = 0;
+                } else {
+                    spinlock_release(&thread->lock);
+                    goto next;
+                }
             }
         }
         return current_task;
@@ -444,21 +447,21 @@ void abort_thread_exec(int scheduler_is_locked) {
 #define STACK_SIZE ((size_t)32768)
 
 int task_tpause(pid_t pid, tid_t tid) {
-    spinlock_acquire(&scheduler_lock);
-
     if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
-        spinlock_release(&scheduler_lock);
         return -1;
     }
 
-    process_table[pid]->threads[tid]->paused = 1;
-
+    struct thread_t *thread = process_table[pid]->threads[tid];
     int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
 
-    if (active_on_cpu == current_cpu)
-        force_resched();
+    locked_write(int, &thread->event_abrt, 1);
 
-    spinlock_release(&scheduler_lock);
+    while (locked_read(int, &thread->in_syscall));
+
+    thread->paused = 1;
+
+    if (active_on_cpu == current_cpu)
+        yield();
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         lapic_send_ipi(active_on_cpu, IPI_RESCHED);
@@ -474,6 +477,7 @@ int task_tresume(pid_t pid, tid_t tid) {
         return -1;
     }
 
+    process_table[pid]->threads[tid]->event_abrt = 0;
     process_table[pid]->threads[tid]->paused = 0;
 
     spinlock_release(&scheduler_lock);
@@ -484,14 +488,18 @@ int task_tresume(pid_t pid, tid_t tid) {
 /* Kill a thread in a given process */
 /* Return -1 on failure */
 int task_tkill(pid_t pid, tid_t tid) {
-    spinlock_acquire(&scheduler_lock);
-
     if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
-        spinlock_release(&scheduler_lock);
         return -1;
     }
 
-    int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
+    struct thread_t *thread = process_table[pid]->threads[tid];
+    int active_on_cpu = thread->active_on_cpu;
+
+    locked_write(int, &thread->event_abrt, 1);
+
+    while (locked_read(int, &thread->in_syscall));
+
+    spinlock_acquire(&scheduler_lock);
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         /* Send abort execution IPI */

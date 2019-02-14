@@ -325,6 +325,7 @@ syscall_entry:
     jae .err
 
     mov rbx, rax ; move to callee-saved register
+    mov rdi, rax
     call enter_syscall
     mov rdi, rsp
     call [syscall_table + rbx * 8]

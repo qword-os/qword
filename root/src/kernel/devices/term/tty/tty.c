@@ -144,7 +144,8 @@ void init_tty_extended(uint32_t *__fb,
         ttys[i].kbd_lock = new_lock;
         ttys[i].kbd_buf_i = 0;
         ttys[i].big_buf_i = 0;
-        ttys[i].termios.c_lflag = (ICANON | ECHO);
+        ttys[i].termios.c_lflag = (ISIG | ICANON | ECHO);
+        ttys[i].termios.c_cc[VINTR] = 0x03;
         ttys[i].grid = kalloc(rows * cols);
         ttys[i].gridbg = kalloc(rows * cols * sizeof(uint32_t));
         ttys[i].gridfg = kalloc(rows * cols * sizeof(uint32_t));

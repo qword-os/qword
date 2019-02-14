@@ -69,6 +69,14 @@ void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
         // userspace
         asm volatile ("sti");
         switch (exception) {
+            case 0:
+            case 16:
+            case 19:
+                kill(cpu_locals[current_cpu].current_process, SIGFPE);
+                break;
+            case 6:
+                kill(cpu_locals[current_cpu].current_process, SIGILL);
+                break;
             case 13:
             case 14:
                 kill(cpu_locals[current_cpu].current_process, SIGSEGV);

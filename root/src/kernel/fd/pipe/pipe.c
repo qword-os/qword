@@ -73,7 +73,11 @@ static int pipe_read(int fd, void *buf, size_t count) {
             }
             // block until there's enough data available
             spinlock_release(&pipe->lock);
-            event_await(&pipe->event);
+            if (event_await(&pipe->event)) {
+                // signal is aborting us, bail
+                errno = EINTR;
+                return -1;
+            }
             spinlock_acquire(&pipe->lock);
         }
     }

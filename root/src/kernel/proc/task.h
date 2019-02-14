@@ -17,6 +17,7 @@
 
 #define CURRENT_PROCESS cpu_locals[current_cpu].current_process
 #define CURRENT_THREAD cpu_locals[current_cpu].current_thread
+#define CURRENT_TASK cpu_locals[current_cpu].current_task
 
 #define fxsave(ptr) ({ \
     asm volatile ( \
@@ -79,6 +80,9 @@ struct thread_t {
     tid_t task_id;
     pid_t process;
     lock_t lock;
+    int in_syscall;
+    int last_syscall;
+    int event_abrt;
     uint64_t yield_target;
     int paused;
     event_t *event_ptr;

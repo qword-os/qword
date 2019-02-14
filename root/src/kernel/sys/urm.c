@@ -49,17 +49,19 @@ static void userspace_send_request(int type, void *opaque_data) {
 
 struct execve_request_t {
     pid_t pid;
+    tid_t tid;
     char *filename;
     char **argv;
     char **envp;
     event_t *err_event;
 };
 
-void execve_send_request(pid_t pid, const char *filename, const char **argv, const char **envp,
+void execve_send_request(pid_t pid, tid_t tid, const char *filename, const char **argv, const char **envp,
                     event_t **err_event) {
     struct execve_request_t *execve_request = kalloc(sizeof(struct execve_request_t));
 
     execve_request->pid = pid;
+    execve_request->tid = tid;
 
     execve_request->filename = kalloc(kstrlen(filename) + 1);
     kstrcpy(execve_request->filename, filename);
@@ -123,8 +125,10 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
 
     if (ret)
         event_trigger(execve_request->err_event);
-    else
+    else {
         kfree(execve_request->err_event);
+        locked_write(int, &task_table[execve_request->tid]->in_syscall, 0);
+    }
 
     kfree(execve_request);
 }
@@ -143,11 +147,6 @@ void exit_send_request(pid_t pid, int exit_code, int signal) {
     exit_request->signal = signal;
 
     userspace_send_request(USER_REQUEST_EXIT, exit_request);
-
-    if (pid == cpu_locals[current_cpu].current_process) {
-        for (;;)
-            yield();
-    }
 }
 
 static void exit_receive_request(struct exit_request_t *exit_request) {
