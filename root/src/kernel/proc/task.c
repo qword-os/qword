@@ -21,7 +21,6 @@
 static int scheduler_ready = 0;
 
 void task_spinup(void *, size_t);
-void force_resched(void);
 
 lock_t scheduler_lock = new_lock_acquired;
 lock_t resched_lock = new_lock;
@@ -118,11 +117,11 @@ int kill(pid_t pid, int signal) {
     if (handler == SIG_DFL) {
         switch (signal) {
             case SIGSEGV: {
-                exit_send_request(pid, 139, 1);
+                exit_send_request(pid, 0, SIGSEGV);
                 return 0;
             }
             case SIGTERM: {
-                exit_send_request(pid, 143, 1);
+                exit_send_request(pid, 0, SIGTERM);
                 return 0;
             }
             default: {
@@ -372,6 +371,10 @@ found_new_pid:
         new_process->file_handles[i] = -1;
     }
 
+    /* Make all signal handlers SIG_DFL */
+    for (size_t i = 0; i < SIGNAL_MAX; i++)
+        new_process->signal_handlers[i].sa_handler = SIG_DFL;
+
     new_process->file_handles_lock = new_lock;
 
     kstrcpy(new_process->cwd, "/");
@@ -399,9 +402,6 @@ found_new_pid:
         spinlock_release(&scheduler_lock);
         return -1;
     }
-
-    for (size_t i = 0; i < SIGNAL_MAX; i++)
-        new_process->signal_handlers[i].sa_handler = SIG_DFL;
 
     new_process->pid = new_pid;
 
@@ -441,6 +441,7 @@ int task_tpause(pid_t pid, tid_t tid) {
     }
 
     process_table[pid]->threads[tid]->paused = 1;
+
     int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
 
     if (active_on_cpu == current_cpu)

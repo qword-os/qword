@@ -465,6 +465,12 @@ int syscall_fork(struct regs_t *regs) {
         new_process->file_handles[i] = dup(old_process->file_handles[i]);
     }
 
+    /* Copy signal handlers */
+    for (size_t i = 0; i < SIGNAL_MAX; i++)
+        new_process->signal_handlers[i].sa_handler =
+            old_process->signal_handlers[i].sa_handler;
+    new_process->sigmask = old_process->sigmask;
+
     new_process->threads[0] = kalloc(sizeof(struct thread_t));
     struct thread_t *new_thread = new_process->threads[0];
 

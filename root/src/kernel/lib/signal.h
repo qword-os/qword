@@ -1,7 +1,7 @@
 #ifndef __SIGNAL_H__
 #define __SIGNAL_H__
 
-#define SIGNAL_MAX 64
+#define SIGNAL_MAX (sizeof(signames) / sizeof(char *))
 
 #define SIGNAL_TRAMPOLINE_VADDR ((size_t)0x0000740000000000)
 
@@ -28,6 +28,7 @@ struct sigaction {
 #define SIG_DFL (void *)(-2)
 #define SIG_IGN (void *)(-3)
 
+// XXX fix these once they're fixed in mlibc
 #define SIGABRT 1
 #define SIGFPE 2
 #define SIGILL 3
@@ -35,10 +36,27 @@ struct sigaction {
 #define SIGSEGV 5
 #define SIGTERM 6
 #define SIGPROF 7
-#define SIGIO 9
-#define SIGPWR 10
-#define SIGRTMIN 11
-#define SIGRTMAX 12
+#define SIGALRM 8
+#define SIGBUS 9
+#define SIGCHLD 10
+#define SIGCONT 11
+#define SIGHUP 12
+#define SIGKILL 13
+#define SIGPIPE 14
+#define SIGQUIT 15
+#define SIGSTOP 16
+#define SIGTSTP 17
+#define SIGTTIN 18
+#define SIGTTOU 19
+#define SIGUSR1 20
+#define SIGUSR2 21
+#define SIGSYS 22
+#define SIGTRAP 23
+#define SIGURG 24
+#define SIGVTALRM 25
+#define SIGXCPU 26
+#define SIGXFSZ 27
+#define SIGWINCH 28
 
 __attribute__((unused)) static const char *signames[] = {
     "0",
@@ -49,11 +67,27 @@ __attribute__((unused)) static const char *signames[] = {
     "SIGSEGV",
     "SIGTERM",
     "SIGPROF",
-    "8",
-    "SIGIO",
-    "SIGPWR",
-    "SIGRTMIN",
-    "SIGRTMAX"
+    "SIGALRM",
+    "SIGBUS",
+    "SIGCHLD",
+    "SIGCONT",
+    "SIGHUP",
+    "SIGKILL",
+    "SIGPIPE",
+    "SIGQUIT",
+    "SIGSTOP",
+    "SIGTSTP",
+    "SIGTTIN",
+    "SIGTTOU",
+    "SIGUSR1",
+    "SIGUSR2",
+    "SIGSYS",
+    "SIGTRAP",
+    "SIGURG",
+    "SIGVTALRM",
+    "SIGXCPU",
+    "SIGXFSZ",
+    "SIGWINCH"
 };
 
 #endif

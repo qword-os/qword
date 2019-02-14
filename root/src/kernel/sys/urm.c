@@ -8,8 +8,13 @@
 #include <sys/urm.h>
 
 // Macros from mlibc: options/posix/include/sys/wait.h
-#define WSIGNALLED 0x400
-#define WEXITED 0x200
+#define WAITPID_IFCONTINUED 0x00000100
+#define WAITPID_IFEXITED 0x00000200
+#define WAITPID_IFSIGNALED 0x00000400
+#define WAITPID_IFSTOPPED 0x00000800
+#define WAITPID_EXITSTATUS(x) ((x) & 0x000000ff)
+#define WAITPID_STOPSIG(x) (((x) & 0x000000ff) << 16)
+#define WAITPID_TERMSIG(x) (((x) & 0x000000ff) << 24)
 
 #define USER_REQUEST_EXECVE 1
 #define USER_REQUEST_EXIT 2
@@ -126,16 +131,16 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
 
 struct exit_request_t {
     pid_t pid;
-    int signalled;
+    int signal;
     int exit_code;
 };
 
-void exit_send_request(pid_t pid, int exit_code, int signalled) {
+void exit_send_request(pid_t pid, int exit_code, int signal) {
     struct exit_request_t *exit_request = kalloc(sizeof(struct exit_request_t));
 
     exit_request->pid = pid;
     exit_request->exit_code = exit_code;
-    exit_request->signalled = signalled;
+    exit_request->signal = signal;
 
     userspace_send_request(USER_REQUEST_EXIT, exit_request);
 
@@ -175,11 +180,14 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
 
     child_event.pid = exit_request->pid;
     child_event.status = 0;
-    child_event.status |= (uint8_t)(exit_request->exit_code & 0xff);
-    child_event.status |= WEXITED;
+    child_event.status |= WAITPID_EXITSTATUS(exit_request->exit_code);
 
-    if (exit_request->signalled)
-        child_event.status |= WSIGNALLED;
+    if (exit_request->signal) {
+        child_event.status |= WAITPID_IFSIGNALED;
+        child_event.status |= WAITPID_TERMSIG(exit_request->signal);
+    } else {
+        child_event.status |= WAITPID_IFEXITED;
+    }
 
     task_send_child_event(process->ppid, &child_event);
 
