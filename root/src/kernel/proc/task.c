@@ -35,7 +35,7 @@ int64_t task_count = 0;
 static struct regs_t default_krnl_regs = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
 static struct regs_t default_usr_regs = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
 
-static uint8_t default_fxstate[512];
+static uint8_t default_fxstate[512] __attribute__((aligned(16)));
 
 void init_sched(void) {
     fxsave(&default_fxstate);
@@ -144,8 +144,20 @@ int kill(pid_t pid, int signal) {
     uint64_t arg = (uint64_t)handler & 0x0000ffffffffffff;
     arg += (uint64_t)signal * 0x1000000000000;
 
-    task_tcreate(pid, tcreate_fn_call,
-            tcreate_fn_call_data((void*)SIGNAL_TRAMPOLINE_VADDR,
+    // We need our new thread to have a valid thread local FS base.
+    size_t fs_base;
+    spinlock_acquire(&scheduler_lock);
+    for (size_t i = 0; i < MAX_THREADS; i++) {
+        if (process->threads[i] == (void *)(-1) || !process->threads[i])
+            continue;
+        fs_base = process->threads[i]->fs_base;
+        break;
+    }
+    spinlock_release(&scheduler_lock);
+
+    tid_t handler_tid = task_tcreate(pid, tcreate_fn_call,
+            tcreate_fn_call_data((void*)fs_base,
+                                 (void*)SIGNAL_TRAMPOLINE_VADDR,
                                  (void*)arg));
 
     if (pid == current_pid)
@@ -285,12 +297,11 @@ void task_resched(struct regs_t *regs) {
        cpu_local->thread_errno = thread->thread_errno;
        /* Restore FPU context */
        fxrstor(&thread->ctx.fxstate);
+       /* Restore thread FS base */
+       load_fs_base(thread->fs_base);
     }
 
     thread->active_on_cpu = current_cpu;
-
-    /* Restore thread FS base */
-    load_fs_base(thread->fs_base);
 
     /* Swap cr3, if necessary */
     if (task_table[last_task]->process != thread->process) {
@@ -676,6 +687,7 @@ found_new_task_id:;
         const struct tcreate_fn_call_data *data = opaque_data;
         new_thread->ctx.regs.rip = (size_t)data->fn;
         new_thread->ctx.regs.rdi = (size_t)data->arg;
+        new_thread->fs_base = (size_t)data->fsbase;
     } else {
         panic_unless(abi == tcreate_elf_exec);
         const struct tcreate_elf_exec_data *data = opaque_data;
@@ -683,8 +695,6 @@ found_new_task_id:;
     }
 
     kmemcpy(new_thread->ctx.fxstate, default_fxstate, 512);
-
-    new_thread->fs_base = 0;
 
     new_thread->tid = new_tid;
     new_thread->task_id = new_task_id;

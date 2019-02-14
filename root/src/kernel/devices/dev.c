@@ -16,5 +16,5 @@ void init_dev(void) {
     init_dev_vesafb();
 
     /* Launch the device cache sync worker */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(device_sync_worker, 0));
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, device_sync_worker, 0));
 }

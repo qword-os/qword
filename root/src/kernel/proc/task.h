@@ -153,6 +153,7 @@ enum tcreate_abi {
 };
 
 struct tcreate_fn_call_data{
+    void *fsbase;
     void (*fn)(void *);
     void *arg;
 };
@@ -164,8 +165,8 @@ struct tcreate_elf_exec_data {
     const struct auxval_t *auxval;
 };
 
-#define tcreate_fn_call_data(fn_, arg_) \
-    &((struct tcreate_fn_call_data){.fn=fn_, .arg=arg_})
+#define tcreate_fn_call_data(fsbase_, fn_, arg_) \
+    &((struct tcreate_fn_call_data){.fsbase=fsbase_, .fn=fn_, .arg=arg_})
 #define tcreate_elf_exec_data(entry_, argv_, envp_, auxval_) \
     &((struct tcreate_elf_exec_data){.entry=entry_, .argv=argv_, .envp=envp_, .auxval=auxval_})
 

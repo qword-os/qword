@@ -170,7 +170,7 @@ void init_tty_extended(uint32_t *__fb,
     }
 
     io_apic_set_mask(0, 1, 1);
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kbd_handler, 0));
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, kbd_handler, 0));
 
     tty_ready = 1;
     kprint(KPRN_INFO, "tty: Ready!");

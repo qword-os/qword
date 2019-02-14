@@ -31,7 +31,7 @@ void kmain_thread(void *arg) {
     (void)arg;
 
     /* Launch the urm */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(userspace_request_monitor, 0));
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, userspace_request_monitor, 0));
 
     /* Initialise PCI */
     init_pci();
@@ -174,7 +174,7 @@ void kmain(void) {
     spinlock_release(&scheduler_lock);
 
     /* Start a main kernel thread which will take over when the scheduler is running */
-    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(kmain_thread, 0));
+    task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, kmain_thread, 0));
 
     /*** DO NOT ADD ANYTHING TO THIS FUNCTION AFTER THIS POINT, ADD TO kmain_thread
          INSTEAD! ***/
