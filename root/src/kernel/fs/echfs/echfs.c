@@ -206,12 +206,13 @@ static void echfs_sync(void) {
         spinlock_acquire(&mnt->cached_files_lock);
         size_t total_cached_files;
         struct cached_file_t **cached_files = ht_dump(struct cached_file_t, mnt->cached_files, &total_cached_files);
+        if (!cached_files)
+            return;
 
         for (size_t i = 0; i < total_cached_files; i++)
             synchronise_cached_file(cached_files[i]);
 
-        if (cached_files)
-            kfree(cached_files);
+        kfree(cached_files);
         spinlock_release(&mnt->cached_files_lock);
 
         dynarray_unref(mounts, i);
