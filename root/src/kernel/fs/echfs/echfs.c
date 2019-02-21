@@ -210,7 +210,8 @@ static void echfs_sync(void) {
         for (size_t i = 0; i < total_cached_files; i++)
             synchronise_cached_file(cached_files[i]);
 
-        kfree(cached_files);
+        if (cached_files)
+            kfree(cached_files);
         spinlock_release(&mnt->cached_files_lock);
 
         dynarray_unref(mounts, i);
