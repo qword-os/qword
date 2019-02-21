@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include "ahci_private.h"
+#include "sata_private.h"
 #include <misc/pci.h>
 #include <lib/klib.h>
 #include <fs/devfs/devfs.h>
@@ -10,17 +10,7 @@ static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);
 static int ahci_flush(int device);
 
-static const char *ahci_names[] = {
-    "sda", "sdb", "sdc", "sdd",
-    "sde", "sdf", "sdg", "sdh",
-    "sdi", "sdj", "sdk", "sdl",
-    "sdm", "sdn", "sdo", "sdp",
-    "sdq", "sdr", "sds", "sdt",
-    "sdu", "sdv", "sdw", "sdx",
-    "sdy", "sdz", "sdaa", "sdab",
-    "sdac", "sdad", "sdae", "sdaf",
-    NULL
-};
+static const char *sata_basename = "sata";
 
 struct cached_block_t {
     uint8_t *cache;
@@ -114,7 +104,7 @@ static void stop_cmd(volatile struct hba_port_t *port) {
     return;
 }
 
-void init_dev_ahci(void) {
+void init_dev_sata(void) {
     /* initialise the device array */
     struct pci_device_t device = {0};
     ahci_devices = kalloc(MAX_AHCI_DEVICES * sizeof(struct ahci_device_t));
@@ -156,7 +146,10 @@ void init_dev_ahci(void) {
                 } else {
                     struct device_t device = {0};
                     device.calls = default_device_calls;
-                    kstrcpy(device.name, ahci_names[i]);
+                    char *dev_name = prefixed_itoa(sata_basename, i, 10);
+                    kstrcpy(device.name, dev_name);
+                    kprint(KPRN_INFO, "ahci: Initialised /dev/%s", dev_name);
+                    kfree(dev_name);
                     device.intern_fd = i;
                     device.size = ahci_devices[i].sector_count * 512;
                     device.calls.read = ahci_read;
@@ -280,7 +273,6 @@ static int init_ahci_device(struct ahci_device_t *device,
 
     kprint(KPRN_INFO, "ahci: Sector count = %U", device->sector_count);
     kprint(KPRN_INFO, "ahci: Identify successful");
-    kprint(KPRN_INFO, "ahci: Initialised /dev/%s", ahci_names[portno]);
 
     pmm_free(identify, 1);
 

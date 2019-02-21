@@ -9,6 +9,42 @@
 #include <lib/time.h>
 #include <fd/vfs/vfs.h>
 
+static const char *base_digits = "0123456789abcdef";
+
+char *prefixed_itoa(const char *prefix, int n, int base) {
+    int prefix_len = kstrlen(prefix);
+    char *final_buf = kalloc(prefix_len + 1);
+    kstrcpy(final_buf, prefix);
+    const int buf_size = 64;
+    char *buf = kalloc(buf_size);
+
+    int i;
+    if (!n) {
+        buf[buf_size - 2] = '0';
+        i = buf_size - 2;
+    } else {
+        int sign = n < 0;
+        if (sign)
+            n = -n;
+
+        for (i = buf_size - 2; n; i--) {
+            buf[i] = base_digits[n % base];
+            n /= base;
+        }
+        if (sign)
+            buf[i] = '-';
+        else
+            i++;
+    }
+
+    final_buf = krealloc(final_buf, prefix_len + kstrlen(buf + i) + 1);
+    kstrcpy(final_buf + prefix_len, buf + i);
+
+    kfree(buf);
+
+    return final_buf;
+}
+
 int ktolower(int c) {
     if (c >= 0x41 && c <= 0x5a)
         return c + 0x20;

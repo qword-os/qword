@@ -4,15 +4,15 @@
 
 void init_dev_streams(void);
 void init_dev_tty(void);
-void init_dev_ata(void);
-void init_dev_ahci(void);
+void init_dev_ide(void);
+void init_dev_sata(void);
 void init_dev_vesafb(void);
 
 void init_dev(void) {
     init_dev_streams();
     init_dev_tty();
-    init_dev_ata();
-    init_dev_ahci();
+    init_dev_ide();
+    init_dev_sata();
     init_dev_vesafb();
 
     /* Launch the device cache sync worker */

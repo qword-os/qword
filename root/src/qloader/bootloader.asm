@@ -182,7 +182,7 @@ jmp 0x100000					; Jump to the newly loaded kernel
 ;Data
 
 kernel_name		db 'kernel.bin', 0x00
-kernel_cmdline  db 'display=vbe edid=enabled root=/dev/sda rootfs=echfs init=/bin/bash', 0x00
+kernel_cmdline  db 'display=vbe edid=enabled root=/dev/sata0 rootfs=echfs init=/bin/bash', 0x00
 
 A20Msg			db 'Enabling A20 line...', 0x00
 UnrealMsg		db 'Entering Unreal Mode...', 0x00
