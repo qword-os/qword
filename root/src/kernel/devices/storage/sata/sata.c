@@ -105,21 +105,15 @@ static void stop_cmd(volatile struct hba_port_t *port) {
 }
 
 void init_dev_sata(void) {
-    /* initialise the device array */
     struct pci_device_t device = {0};
     ahci_devices = kalloc(MAX_AHCI_DEVICES * sizeof(struct ahci_device_t));
 
-    /* Search for an AHCI controller and calculate the base address for
-     * AHCI MMIO */
-    uint8_t class_mass_storage = 0x01;
-    uint8_t subclass_serial_ata = 0x06;
-    int ret = pci_get_device(&device, class_mass_storage, subclass_serial_ata);
+    int ret = pci_get_device(&device, AHCI_CLASS, AHCI_SUBCLASS, AHCI_PROG_IF);
     if (ret == -1) {
         kprint(KPRN_WARN, "ahci: Failed to find AHCI controller. SATA support unavailable");
         return;
     }
 
-    /* ensure the AHCI controller is the bus master */
     uint32_t cmd_register = pci_read_device(&device, 0x4);
     if (!(cmd_register & (1 << 2))) {
         kprint(KPRN_DBG, "enabling busmastering");
@@ -137,10 +131,13 @@ void init_dev_sata(void) {
         switch (probe_port(ahci_base, i)) {
             case AHCI_DEV_SATA:
                 kprint(KPRN_INFO, "ahci: Found sata device at port index %u", i);
-                /* setup per-port memory structures */
+
+                // setup device memory structures
                 port_rebase(&ahci_base->ports[i]);
-                /* identify a SATA drive and install it as a device */
+
+                // identify a sata drive and install it as a device
                 int ret = init_ahci_device(&ahci_devices[i], &ahci_base->ports[i], 0xec, i);
+
                 if (ret == -1) {
                     kprint(KPRN_WARN, "failed to initialise sata device at index %u", i);
                 } else {

@@ -4,6 +4,7 @@
 #include <misc/pci.h>
 #include "nvme_private.h"
 #include <lib/klib.h>
+#include <devices/dev.h>
 
 size_t nvme_base;
 
@@ -16,27 +17,15 @@ static void nvme_wread(size_t reg, uint32_t data) {
     return;
 }
 
-// FIXME: this function exists only as a placeholder for now
-void init_nvme(void) {
-    uint8_t class_mass_storage = 0x01;
-    uint8_t subclass_nvm_controller = 0x08;
-
+void init_dev_nvme(void) {
     struct pci_device_t device = {0};
-    int ret = pci_get_device(&device, class_mass_storage, subclass_nvm_controller);
+    int ret = pci_get_device(&device, NVME_CLASS, NVME_SUBCLASS, NVME_PROG_IF);
     if (ret == -1) {
-        kprint(KPRN_INFO, "nvme: Failed to locate NVM controller");
+        kprint(KPRN_INFO, "nvme: Failed to locate NVME controller");
         return;
     }
 
-    kprint(KPRN_INFO, "nvme: Found NVM controller");
-
-    // Now find a device with an prog if matching that of NVME
-    // TODO: build this functionality into PCI interface
-    size_t prog_if = (pci_read_device(&device, 0x8)) >> 8; // possibly broken
-    if (prog_if != 0x02) {
-        kprint(KPRN_INFO, "nvme: Controller is non-nvme, exiting...");
-        return;
-    }
+    kprint(KPRN_INFO, "nvme: Found NVME controller");
 
     size_t bar0 = pci_read_device(&device, 0x10);
     size_t bar1 = pci_read_device(&device, 0x14);

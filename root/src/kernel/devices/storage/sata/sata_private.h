@@ -25,6 +25,11 @@
 #define AHCI_DEV_PM 3
 #define AHCI_DEV_SATAPI 4
 
+#define AHCI_CLASS      0x01
+#define AHCI_SUBCLASS   0x06
+#define AHCI_PROG_IF    0x01
+
+
 #define ATA_DEV_BUSY 0x80
 #define ATA_DEV_DRQ 0x08
 #define ATA_CMD_READ_DMA_EXT 0x25

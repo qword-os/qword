@@ -226,7 +226,8 @@ void init_dev_ide(void) {
     kprint(KPRN_INFO, "ide: Initialising ide device driver...");
 
     struct pci_device_t pci_device = {0};
-    int ret = pci_get_device(&pci_device, 0x1, 0x1);
+    // TODO figure out correct prog if and define these values elsewhere
+    int ret = pci_get_device(&pci_device, 0x1, 0x1, 0x85);
     if (ret) {
         kprint(KPRN_ERR, "ide: could not find pci device!");
         return;

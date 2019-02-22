@@ -41,14 +41,11 @@ void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t f
     device->rev_id = (uint8_t)config_8;
     device->subclass = (uint8_t)(config_8 >> 16);
     device->device_class = (uint8_t)(config_8 >> 24);
+    device->prog_if = (uint8_t)(config_8 >> 8);
     if (config_c & 0x800000)
         device->multifunction = 1;
     else
         device->multifunction = 0;
-    for (size_t i = 0; i < 6; i++) {
-        device->bars[i] = 0;
-    }
-
     device->available = 1;
     available_count++;
 
@@ -87,30 +84,9 @@ void pci_set_device_flag(struct pci_device_t *device, uint32_t offset, uint32_t 
     return;
 }
 
-void pci_load_bars(struct pci_device_t *device) {
-    for (size_t i = 0; i < 6; i++) {
-        /* Bars exist at offset spacings of 4 bytes */
-        uint32_t bar = pci_read_device(device, (i * 4) + 0x10);
-        if (bar > 0) {
-            device->bars[i] = bar;
-            pci_write_device(device, i * 4 + 0x10, 0xffffffff);
-            uint32_t size = (0xffffffff - (pci_read_device(device, i * 4 + 0x10) & 0xfffffff0)) + 1;
-            pci_write_device(device, i * 4 + 0x10, bar);
-            if (size > 0) {
-                device->bars[i] = size;
-                continue;
-            }
-        }
-    }
-}
-
-uint32_t pci_get_bar(struct pci_device_t *device, size_t index) {
-    return device->bars[index];
-}
-
-int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass) {
+int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass, uint8_t prog_if) {
     for (size_t i = 0; i < device_count; i++) {
-        if ((pci_devices[i].device_class == class) && (pci_devices[i].subclass == subclass)) {
+        if ((pci_devices[i].device_class == class) && (pci_devices[i].subclass == subclass) && (pci_devices[i].prog_if == prog_if)) {
             *device = pci_devices[i];
             return 0;
         }
@@ -144,7 +120,6 @@ void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
     if (device.available) {
         for (size_t i = 0; i < device_count; i++) {
             if (!pci_devices[i].available) {
-                pci_load_bars(&device);
                 pci_devices[i] = device;
                 return;
             }

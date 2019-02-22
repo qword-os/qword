@@ -19,6 +19,10 @@
 #define REG_BPMBL    0x48
 #define REG_SQ0TDBL  0x1000
 
+#define NVME_CLASS 0x01
+#define NVME_SUBCLASS 0x08
+#define NVME_PROG_IF 0x02
+
 /* structure of CDW0
  offset (bits)   desc
  31:16           command id - provides unique id for this command when used with sqid
