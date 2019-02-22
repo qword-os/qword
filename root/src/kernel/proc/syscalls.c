@@ -238,6 +238,32 @@ int syscall_tcsetattr(struct regs_t *regs) {
     return ret;
 }
 
+int syscall_tcflow(struct regs_t *regs) {
+    /* rdi: fd
+     * rsi: action
+     */
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    if (regs->rdi >= MAX_FILE_HANDLES) {
+        errno = EBADF;
+        return -1;
+    }
+    spinlock_acquire(&process->file_handles_lock);
+    if (process->file_handles[regs->rdi] == -1) {
+        spinlock_release(&process->file_handles_lock);
+        errno = EBADF;
+        return -1;
+    }
+
+    size_t ret = tcflow(process->file_handles[regs->rdi], regs->rsi);
+
+    spinlock_release(&process->file_handles_lock);
+    return ret;
+}
+
 int syscall_getcwd(struct regs_t *regs) {
     if (privilege_check(regs->rdi, regs->rsi)) {
         errno = EFAULT;

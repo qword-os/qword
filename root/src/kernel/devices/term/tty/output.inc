@@ -158,7 +158,6 @@ static void set_cursor_pos(int tty, int x, int y) {
 }
 
 static void sgr(int tty) {
-
     for (int i = 0; i < ttys[tty].esc_values_i; i++) {
 
         if (!ttys[tty].esc_values[i]) {
@@ -183,7 +182,6 @@ static void sgr(int tty) {
 }
 
 static void control_sequence_parse(int tty, char c) {
-
     if (c >= '0' && c <= '9') {
         ttys[tty].rrr = 1;
         ttys[tty].esc_values[ttys[tty].esc_values_i] *= 10;
@@ -294,6 +292,11 @@ int tty_write(int tty, const void *void_buf, uint64_t unused, size_t count) {
     (void)unused;
     if (!tty_ready)
         return 0;
+    if (ttys[tty].tcooff) {
+        errno = EINVAL;
+        return -1;
+    }
+
     const char *buf = void_buf;
     spinlock_acquire(&ttys[tty].write_lock);
     for (size_t i = 0; i < count; i++)

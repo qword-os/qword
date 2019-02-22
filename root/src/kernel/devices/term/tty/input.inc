@@ -60,6 +60,10 @@ int tty_read(int tty, void *void_buf, uint64_t unused, size_t count) {
 
     if (!tty_ready)
         return 0;
+    if (ttys[tty].tcioff) {
+        errno = EINVAL;
+        return -1;
+    }
 
     char *buf = void_buf;
     int wait = 1;

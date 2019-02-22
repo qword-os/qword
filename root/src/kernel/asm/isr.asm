@@ -303,6 +303,8 @@ syscall_table:
     dq syscall_return_from_signal ;28
     extern syscall_sigaction
     dq syscall_sigaction ;29
+    extern syscall_tcflow
+    dq syscall_tcflow ;30
   .end:
 
 section .text

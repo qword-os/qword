@@ -18,26 +18,26 @@ static int tty_ready = 0;
 struct tty_t {
     lock_t write_lock;
     lock_t read_lock;
-	int cursor_x;
-	int cursor_y;
-	int cursor_status;
-	uint32_t cursor_bg_col;
-	uint32_t cursor_fg_col;
-	uint32_t text_bg_col;
-	uint32_t text_fg_col;
-	uint32_t default_bg_col;
-	uint32_t default_fg_col;
-	char *grid;
-	uint32_t *gridbg;
-	uint32_t *gridfg;
+    int cursor_x;
+    int cursor_y;
+    int cursor_status;
+    uint32_t cursor_bg_col;
+    uint32_t cursor_fg_col;
+    uint32_t text_bg_col;
+    uint32_t text_fg_col;
+    uint32_t default_bg_col;
+    uint32_t default_fg_col;
+    char *grid;
+    uint32_t *gridbg;
+    uint32_t *gridfg;
     int control_sequence;
     int saved_cursor_x;
     int saved_cursor_y;
-	int escape;
+    int escape;
     int esc_values[MAX_ESC_VALUES];
     int esc_values_i;
     int rrr;
-	int tabsize;
+    int tabsize;
     event_t kbd_event;
     lock_t kbd_lock;
     size_t kbd_buf_i;
@@ -45,20 +45,22 @@ struct tty_t {
     size_t big_buf_i;
     char big_buf[BIG_BUF_SIZE];
     struct termios termios;
+    int tcioff;
+    int tcooff;
 };
 
 /*
-static uint32_t ansi_colours[] = {
-    0x00000000,              // black
-    0x00aa0000,              // red
-    0x0000aa00,              // green
-    0x00aa5500,              // brown
-    0x000000aa,              // blue
-    0x00aa00aa,              // magenta
-    0x0000aaaa,              // cyan
-    0x00aaaaaa               // grey
-};
-*/
+   static uint32_t ansi_colours[] = {
+   0x00000000,              // black
+   0x00aa0000,              // red
+   0x0000aa00,              // green
+   0x00aa5500,              // brown
+   0x000000aa,              // blue
+   0x00aa00aa,              // magenta
+   0x0000aaaa,              // cyan
+   0x00aaaaaa               // grey
+   };
+   */
 
 // Solarized-like scheme
 static uint32_t ansi_colours[] = {
@@ -105,13 +107,43 @@ static int tty_tcgetattr(int tty, struct termios *new_termios) {
     return 0;
 }
 
+// manage input/output flow. initially, tcooff = tcioff = 0
+static int tty_tcflow(int tty, int action) {
+    int ret = 0;
+
+    spinlock_acquire(&ttys[tty].read_lock);
+    spinlock_acquire(&ttys[tty].write_lock);
+
+    switch (action) {
+        case TCOOF:
+            ttys[tty].tcooff = 1;
+            break;
+        case TCOON:
+            ttys[tty].tcooff = 0;
+            break;
+        case TCIOFF:
+            ttys[tty].tcioff = 1;
+            break;
+        case TCION:
+            ttys[tty].tcioff = 0;
+            break;
+        default:
+            errno = EINVAL;
+            ret = -1;
+    }
+
+    spinlock_release(&ttys[tty].write_lock);
+    spinlock_release(&ttys[tty].read_lock);
+    return ret;
+}
+
 void init_tty_extended(uint32_t *__fb,
-              int __fb_height,
-              int __fb_width,
-              int __fb_pitch,
-              uint8_t *__font,
-              int __font_height,
-              int __font_width) {
+        int __fb_height,
+        int __fb_width,
+        int __fb_pitch,
+        uint8_t *__font,
+        int __font_height,
+        int __font_width) {
     kprint(KPRN_INFO, "tty: Initialising...");
 
     fb = __fb;
@@ -128,24 +160,26 @@ void init_tty_extended(uint32_t *__fb,
     for (int i = 0; i < MAX_TTYS; i++) {
         ttys[i].write_lock = new_lock;
         ttys[i].read_lock = new_lock;
-	    ttys[i].cursor_x = 0;
-	    ttys[i].cursor_y = 0;
-	    ttys[i].cursor_status = 1;
-	    ttys[i].cursor_bg_col = 0x00839496;
-	    ttys[i].cursor_fg_col = 0x00002b36;
-	    ttys[i].default_bg_col = 0x00002b36;
-	    ttys[i].default_fg_col = 0x00839496;
-	    ttys[i].text_bg_col = ttys[i].default_bg_col;
-	    ttys[i].text_fg_col = ttys[i].default_fg_col;
+        ttys[i].cursor_x = 0;
+        ttys[i].cursor_y = 0;
+        ttys[i].cursor_status = 1;
+        ttys[i].cursor_bg_col = 0x00839496;
+        ttys[i].cursor_fg_col = 0x00002b36;
+        ttys[i].default_bg_col = 0x00002b36;
+        ttys[i].default_fg_col = 0x00839496;
+        ttys[i].text_bg_col = ttys[i].default_bg_col;
+        ttys[i].text_fg_col = ttys[i].default_fg_col;
         ttys[i].control_sequence = 0;
-	    ttys[i].escape = 0;
-	    ttys[i].tabsize = 8;
+        ttys[i].escape = 0;
+        ttys[i].tabsize = 8;
         ttys[i].kbd_event = 0;
         ttys[i].kbd_lock = new_lock;
         ttys[i].kbd_buf_i = 0;
         ttys[i].big_buf_i = 0;
         ttys[i].termios.c_lflag = (ISIG | ICANON | ECHO);
         ttys[i].termios.c_cc[VINTR] = 0x03;
+        ttys[i].tcooff = 0;
+        ttys[i].tcioff = 0;
         ttys[i].grid = kalloc(rows * cols);
         ttys[i].gridbg = kalloc(rows * cols * sizeof(uint32_t));
         ttys[i].gridfg = kalloc(rows * cols * sizeof(uint32_t));
@@ -180,11 +214,11 @@ void init_tty_extended(uint32_t *__fb,
 
 void init_dev_tty(void) {
     init_tty_extended(
-        vbe_framebuffer,
-        vbe_height,
-        vbe_width,
-        vbe_pitch,
-        vga_font,
-        vga_font_height,
-        vga_font_width);
+            vbe_framebuffer,
+            vbe_height,
+            vbe_width,
+            vbe_pitch,
+            vga_font,
+            vga_font_height,
+            vga_font_width);
 }
