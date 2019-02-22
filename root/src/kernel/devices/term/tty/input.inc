@@ -156,7 +156,8 @@ static void add_to_buf(int tty, const char *s, size_t cnt) {
             // accept signal characters
             if (s[i] == ttys[tty].termios.c_cc[VINTR]) {
                 // sigint
-                kill(1, SIGINT);
+                // XXX fix hardcoded PID number
+                kill(7, SIGINT);
                 continue;
             }
         }

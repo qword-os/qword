@@ -114,6 +114,11 @@ int kill(pid_t pid, int signal) {
     panic_unless(!(process->signal_handlers[signal].sa_flags & SA_SIGINFO));
     void *handler = process->signal_handlers[signal].sa_handler;
 
+    if (signal == SIGKILL) {
+        exit_send_request(pid, 0, signal);
+        return 0;
+    }
+
     if (handler == SIG_IGN) {
         return 0;
     } else if (handler == SIG_DFL) {
@@ -121,7 +126,8 @@ int kill(pid_t pid, int signal) {
             case SIGSEGV:
             case SIGTERM:
             case SIGILL:
-            case SIGFPE: {
+            case SIGFPE:
+            case SIGINT: {
                 exit_send_request(pid, 0, signal);
                 return 0;
             }
@@ -298,7 +304,6 @@ void task_resched(struct regs_t *regs) {
     cpu_local->current_thread = thread->tid;
     cpu_local->current_process = thread->process;
 
-
     if (thread->process) {
        cpu_local->thread_kstack = thread->kstack;
        cpu_local->thread_ustack = thread->ustack;
@@ -466,11 +471,10 @@ int task_tpause(pid_t pid, tid_t tid) {
 
     locked_write(int, &thread->event_abrt, 1);
 
-    while (locked_read(int, &thread->in_syscall)) {
-        spinlock_release(&scheduler_lock);
+    spinlock_release(&scheduler_lock);
+    while (locked_read(int, &thread->in_syscall))
         yield();
-        spinlock_acquire(&scheduler_lock);
-    }
+    spinlock_acquire(&scheduler_lock);
 
     locked_write(int, &thread->paused, 1);
 
@@ -478,6 +482,8 @@ int task_tpause(pid_t pid, tid_t tid) {
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         lapic_send_ipi(active_on_cpu, IPI_RESCHED);
+
+    spinlock_release(&scheduler_lock);
 
     return 0;
 }
@@ -517,11 +523,10 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     locked_write(int, &thread->event_abrt, 1);
 
-    while (locked_read(int, &thread->in_syscall)) {
-        spinlock_release(&scheduler_lock);
+    spinlock_release(&scheduler_lock);
+    while (locked_read(int, &thread->in_syscall))
         yield();
-        spinlock_acquire(&scheduler_lock);
-    }
+    spinlock_acquire(&scheduler_lock);
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         /* Send abort execution IPI */
