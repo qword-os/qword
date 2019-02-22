@@ -172,9 +172,14 @@ static int devfs_write(int fd, const void *ptr, size_t len) {
 
     spinlock_acquire(&devfs_handle->lock);
 
-    if (devfs_handle->size)
+    if (devfs_handle->size) {
+        if (devfs_handle->ptr == devfs_handle->size) {
+            errno = ENOSPC;
+            return -1;
+        }
         if (devfs_handle->ptr + len >= devfs_handle->size)
             len -= devfs_handle->size - devfs_handle->ptr;
+    }
 
     int ret = devfs_handle->device->calls.write(
                 devfs_handle->dev_fd,

@@ -1,1 +1,1 @@
-objdump -d root/src/kernel/kernel.elf
+objdump -dS root/src/kernel/kernel.elf

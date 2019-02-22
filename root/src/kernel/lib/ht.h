@@ -5,7 +5,7 @@
 #include <lib/alloc.h>
 #include <lib/lock.h>
 
-#define ENTRIES_PER_HASHING_LEVEL 65536
+#define ENTRIES_PER_HASHING_LEVEL 4096
 #define MAX_HASHING_LEVELS 16
 
 static uint64_t hashes_per_level[MAX_HASHING_LEVELS] = {
