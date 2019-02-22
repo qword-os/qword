@@ -139,7 +139,7 @@ int kill(pid_t pid, int signal) {
 
     /* Pause all threads */
     for (size_t i = 0; i < MAX_THREADS; i++)
-        if (pid != current_pid || i != current_tid)
+        if (pid != current_pid && i != current_tid)
             task_tpause(pid, i);
 
     uint64_t arg = (uint64_t)handler & 0x0000ffffffffffff;
@@ -181,18 +181,19 @@ static inline tid_t task_get_next(tid_t current_task) {
             current_task = 0;
             thread = task_table[current_task];
         }
-        if (thread == EMPTY || thread == (void *)(-2)) {
+        if (thread == (void *)(-1) || thread == (void *)(-2)) {
             /* This is an empty thread, skip */
             goto skip;
         }
         if (thread->yield_target > uptime_raw) {
             goto next;
         }
-        if (thread->paused) {
-            goto next;
-        }
         if (!spinlock_test_and_acquire(&thread->lock)) {
             /* If unable to acquire the thread's lock, skip */
+            goto next;
+        }
+        if (locked_read(int, &thread->paused)) {
+            spinlock_release(&thread->lock);
             goto next;
         }
         if (thread->event_ptr) {
@@ -218,9 +219,10 @@ static inline tid_t task_get_next(tid_t current_task) {
 }
 
 __attribute__((noinline)) static void _idle(void) {
-    cpu_locals[current_cpu].current_task = -1;
-    cpu_locals[current_cpu].current_thread = -1;
-    cpu_locals[current_cpu].current_process = -1;
+    int _current_cpu = current_cpu;
+    cpu_locals[_current_cpu].current_task = -1;
+    cpu_locals[_current_cpu].current_thread = -1;
+    cpu_locals[_current_cpu].current_process = -1;
     spinlock_release(&scheduler_lock);
     spinlock_release(&resched_lock);
     asm volatile (
@@ -240,7 +242,7 @@ __attribute__((noinline)) static void idle(void) {
         "mov cr3, rax;"
         "1: "
         "mov rsp, qword ptr gs:[8];"
-        "call _idle;"
+        "jmp _idle;"
         :
         : "a" ((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET)
     );
@@ -256,8 +258,10 @@ void task_resched(struct regs_t *regs) {
         return;
     }
 
-    pid_t current_task = cpu_locals[current_cpu].current_task;
-    pid_t current_process = cpu_locals[current_cpu].current_process;
+    int _current_cpu = current_cpu;
+
+    pid_t current_task = cpu_locals[_current_cpu].current_task;
+    pid_t current_process = cpu_locals[_current_cpu].current_process;
     pid_t last_task = current_task;
 
     if (current_task != -1) {
@@ -279,7 +283,7 @@ void task_resched(struct regs_t *regs) {
         spinlock_release(&current_thread->lock);
     }
 
-    cpu_locals[current_cpu].last_schedule_time = uptime_raw;
+    cpu_locals[_current_cpu].last_schedule_time = uptime_raw;
 
     /* Get to the next task */
     current_task = task_get_next(current_task);
@@ -287,12 +291,13 @@ void task_resched(struct regs_t *regs) {
     if (current_task == -1)
         idle();
 
-    struct cpu_local_t *cpu_local = &cpu_locals[current_cpu];
+    struct cpu_local_t *cpu_local = &cpu_locals[_current_cpu];
     struct thread_t *thread = task_table[current_task];
 
     cpu_local->current_task = current_task;
     cpu_local->current_thread = thread->tid;
     cpu_local->current_process = thread->process;
+
 
     if (thread->process) {
        cpu_local->thread_kstack = thread->kstack;
@@ -304,7 +309,7 @@ void task_resched(struct regs_t *regs) {
        load_fs_base(thread->fs_base);
     }
 
-    thread->active_on_cpu = current_cpu;
+    thread->active_on_cpu = _current_cpu;
 
     /* Swap cr3, if necessary */
     if (task_table[last_task]->process != thread->process) {
@@ -447,7 +452,12 @@ void abort_thread_exec(int scheduler_is_locked) {
 #define STACK_SIZE ((size_t)32768)
 
 int task_tpause(pid_t pid, tid_t tid) {
-    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
+    spinlock_acquire(&scheduler_lock);
+
+    if (!process_table[pid]->threads[tid]
+        || process_table[pid]->threads[tid] == (void *)(-1)
+        || process_table[pid]->threads[tid] == (void *)(-2)) {
+        spinlock_release(&scheduler_lock);
         return -1;
     }
 
@@ -456,12 +466,15 @@ int task_tpause(pid_t pid, tid_t tid) {
 
     locked_write(int, &thread->event_abrt, 1);
 
-    while (locked_read(int, &thread->in_syscall));
-
-    thread->paused = 1;
-
-    if (active_on_cpu == current_cpu)
+    while (locked_read(int, &thread->in_syscall)) {
+        spinlock_release(&scheduler_lock);
         yield();
+        spinlock_acquire(&scheduler_lock);
+    }
+
+    locked_write(int, &thread->paused, 1);
+
+    panic_unless(active_on_cpu != current_cpu);
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         lapic_send_ipi(active_on_cpu, IPI_RESCHED);
@@ -472,13 +485,15 @@ int task_tpause(pid_t pid, tid_t tid) {
 int task_tresume(pid_t pid, tid_t tid) {
     spinlock_acquire(&scheduler_lock);
 
-    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
+    if (!process_table[pid]->threads[tid]
+        || process_table[pid]->threads[tid] == (void *)(-1)
+        || process_table[pid]->threads[tid] == (void *)(-2)) {
         spinlock_release(&scheduler_lock);
         return -1;
     }
 
-    process_table[pid]->threads[tid]->event_abrt = 0;
-    process_table[pid]->threads[tid]->paused = 0;
+    locked_write(int, &process_table[pid]->threads[tid]->event_abrt, 0);
+    locked_write(int, &process_table[pid]->threads[tid]->paused, 0);
 
     spinlock_release(&scheduler_lock);
 
@@ -488,7 +503,12 @@ int task_tresume(pid_t pid, tid_t tid) {
 /* Kill a thread in a given process */
 /* Return -1 on failure */
 int task_tkill(pid_t pid, tid_t tid) {
-    if (!process_table[pid]->threads[tid] || process_table[pid]->threads[tid] == (void *)(-1)) {
+    spinlock_acquire(&scheduler_lock);
+
+    if (!process_table[pid]->threads[tid]
+        || process_table[pid]->threads[tid] == (void *)(-1)
+        || process_table[pid]->threads[tid] == (void *)(-2)) {
+        spinlock_release(&scheduler_lock);
         return -1;
     }
 
@@ -497,21 +517,23 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     locked_write(int, &thread->event_abrt, 1);
 
-    while (locked_read(int, &thread->in_syscall));
-
-    spinlock_acquire(&scheduler_lock);
+    while (locked_read(int, &thread->in_syscall)) {
+        spinlock_release(&scheduler_lock);
+        yield();
+        spinlock_acquire(&scheduler_lock);
+    }
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         /* Send abort execution IPI */
         lapic_send_ipi(active_on_cpu, IPI_ABORTEXEC);
 
-    task_table[process_table[pid]->threads[tid]->task_id] = EMPTY;
+    task_table[process_table[pid]->threads[tid]->task_id] = (void *)(-1);
 
     void *kstack = (void *)(process_table[pid]->threads[tid]->kstack - STACK_SIZE);
 
     kfree(process_table[pid]->threads[tid]);
 
-    process_table[pid]->threads[tid] = EMPTY;
+    process_table[pid]->threads[tid] = (void *)(-1);
 
     task_count--;
 
