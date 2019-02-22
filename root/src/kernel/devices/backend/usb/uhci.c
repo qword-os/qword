@@ -12,12 +12,16 @@ struct uhci_td_t {
     uint32_t token;
     uint32_t buffer_pointer;
     uint32_t reserved[4];
-}__attribute__((packed));
+}__attribute__((aligned(16)));
 
 struct uhci_queue_head_t {
     uint32_t link_pointer;
     uint32_t element_pointer;
-}__attribute__((packed));
+
+    /* software fields */
+    struct uhci_td_t *td_head;
+    struct uhci_queue_head_t *qh_next;
+}__attribute__((aligned(16)));
 
 struct uhci_controller_t {
     uint32_t *frame_list;
@@ -89,11 +93,29 @@ static void uhci_init_td(struct uhci_td_t *td, uint8_t packet_id,
 }
 
 static void uhci_init_queue(struct uhci_queue_head_t *queue, struct uhci_td_t *td) {
+    queue->td_head = td;
+    queue->qh_next = NULL;
     queue->element_pointer = (uint32_t)(uintptr_t) (td - MEM_PHYS_OFFSET);
 }
 
 static void uhci_insert_queue(struct uhci_queue_head_t *queue) {
     uhci_controller.frame_list[0] = (uint32_t)(uintptr_t) (queue - MEM_PHYS_OFFSET) | (1 << 1);
+}
+
+static void uhci_free_queue(struct uhci_queue_head_t *queue) {
+    while (queue) {
+        struct uhci_td_t *td = queue->td_head;
+        while (1) {
+            uint32_t link_pointer = td->link_pointer & ~0xf;
+            kfree(td);
+            if (!link_pointer) break;
+            td = (struct uhci_td_t *)(uintptr_t)(link_pointer + MEM_PHYS_OFFSET);
+        }
+
+        struct uhci_queue_head_t *next = queue->qh_next;
+        kfree(queue);
+        queue = next;
+    }
 }
 
 static int uhci_send_control(struct usb_dev_t *device, char *data,
@@ -148,7 +170,9 @@ static int uhci_send_control(struct usb_dev_t *device, char *data,
     uhci_init_queue(queue, head);
     queue->link_pointer = 1;
     uhci_insert_queue(queue);
-    return uhci_wait_for_queue(queue);
+    int ret = uhci_wait_for_queue(queue);
+    uhci_free_queue(queue);
+    return ret;
 }
 
 static int uhci_send_bulk(struct usb_dev_t *device, char *data,
@@ -194,7 +218,9 @@ static int uhci_send_bulk(struct usb_dev_t *device, char *data,
     uhci_init_queue(queue, head);
     queue->link_pointer = 1;
     uhci_insert_queue(queue);
-    return uhci_wait_for_queue(queue);
+    int ret = uhci_wait_for_queue(queue);
+    uhci_free_queue(queue);
+    return ret;
 }
 
 static int uhci_reset_port(int port) {
