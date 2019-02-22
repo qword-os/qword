@@ -78,10 +78,10 @@ int tcgetattr(int fd, struct termios *buf) {
     return ret;
 }
 
-int tcflow(int fd, int action, struct termios *buf) {
+int tcflow(int fd, int action) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
     int intern_fd = fd_ptr->intern_fd;
-    int ret = fd_ptr->fd_handler.tcflow(intern_fd, action, buf);
+    int ret = fd_ptr->fd_handler.tcflow(intern_fd, action);
     dynarray_unref(file_descriptors, fd);
     return ret;
 }

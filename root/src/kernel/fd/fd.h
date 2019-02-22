@@ -96,7 +96,7 @@ struct fd_handler_t {
     int (*readdir)(int, struct dirent *);
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
-    int (*tcflow)(int, int, struct termios *);
+    int (*tcflow)(int, int);
     int (*getflflags)(int);
     int (*setflflags)(int, int);
     int (*perfmon_attach)(int);
@@ -118,7 +118,7 @@ int dup(int);
 int readdir(int, struct dirent *);
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
-int tcflow(int, int, struct termios *);
+int tcflow(int, int);
 int getflflags(int);
 int setflflags(int, int);
 int perfmon_attach(int);
