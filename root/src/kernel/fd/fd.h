@@ -176,7 +176,7 @@ __attribute__((unused)) static int bogus_tcsetattr() {
     return -1;
 }
 
-__attribute((unused)) static int bogus_tcflow() {
+__attribute__((unused)) static int bogus_tcflow() {
     errno = ENOTTY;
     return -1;
 }

@@ -199,6 +199,7 @@ void init_tty_extended(uint32_t *__fb,
         device.calls.read = tty_read;
         device.calls.write = tty_write;
         device.calls.flush = tty_flush;
+        device.calls.tcflow = tty_tcflow;
         device.calls.tcgetattr = tty_tcgetattr;
         device.calls.tcsetattr = tty_tcsetattr;
         device_add(&device);

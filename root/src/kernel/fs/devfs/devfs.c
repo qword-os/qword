@@ -119,6 +119,18 @@ static int devfs_tcsetattr(int fd, int optional_actions, struct termios *buf) {
     return ret;
 }
 
+static int devfs_tcflow(int fd, int action) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    int ret = devfs_handle->device->calls.tcflow(
+                devfs_handle->dev_fd,
+                action);
+
+    dynarray_unref(devfs_handles, fd);
+    return ret;
+}
+
 static int devfs_read(int fd, void *ptr, size_t len) {
     struct devfs_handle_t *devfs_handle =
         dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
@@ -411,6 +423,7 @@ void init_fs_devfs(void) {
     devfs.sync = devfs_sync;
     devfs.tcgetattr = devfs_tcgetattr;
     devfs.tcsetattr = devfs_tcsetattr;
+    devfs.tcflow = devfs_tcflow;
 
     vfs_install_fs(&devfs);
 }

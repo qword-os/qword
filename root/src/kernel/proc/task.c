@@ -471,10 +471,10 @@ int task_tpause(pid_t pid, tid_t tid) {
 
     locked_write(int, &thread->event_abrt, 1);
 
-    spinlock_release(&scheduler_lock);
-    while (locked_read(int, &thread->in_syscall))
-        yield();
-    spinlock_acquire(&scheduler_lock);
+    while (locked_read(int, &thread->in_syscall)) {
+        force_resched();
+        spinlock_acquire(&scheduler_lock);
+    }
 
     locked_write(int, &thread->paused, 1);
 
@@ -523,10 +523,10 @@ int task_tkill(pid_t pid, tid_t tid) {
 
     locked_write(int, &thread->event_abrt, 1);
 
-    spinlock_release(&scheduler_lock);
-    while (locked_read(int, &thread->in_syscall))
-        yield();
-    spinlock_acquire(&scheduler_lock);
+    while (locked_read(int, &thread->in_syscall)) {
+        force_resched();
+        spinlock_acquire(&scheduler_lock);
+    }
 
     if (active_on_cpu != -1 && active_on_cpu != current_cpu)
         /* Send abort execution IPI */

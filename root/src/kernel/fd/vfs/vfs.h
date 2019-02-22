@@ -21,6 +21,7 @@ struct fs_t {
     int (*sync)(void);
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
+    int (*tcflow)(int, int);
 };
 
 /* VFS calls */

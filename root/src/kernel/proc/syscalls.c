@@ -258,7 +258,7 @@ int syscall_tcflow(struct regs_t *regs) {
         return -1;
     }
 
-    size_t ret = tcflow(process->file_handles[regs->rdi], regs->rsi);
+    int ret = tcflow(process->file_handles[regs->rdi], regs->rsi);
 
     spinlock_release(&process->file_handles_lock);
     return ret;
