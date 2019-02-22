@@ -131,6 +131,16 @@ static int devfs_tcflow(int fd, int action) {
     return ret;
 }
 
+static int devfs_isatty(int fd) {
+    struct devfs_handle_t *devfs_handle =
+        dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
+
+    int ret = devfs_handle->device->calls.isatty(devfs_handle->dev_fd);
+
+    dynarray_unref(devfs_handles, fd);
+    return ret;
+}
+
 static int devfs_read(int fd, void *ptr, size_t len) {
     struct devfs_handle_t *devfs_handle =
         dynarray_getelem(struct devfs_handle_t, devfs_handles, fd);
@@ -409,6 +419,7 @@ static int devfs_sync(void) {
 void init_fs_devfs(void) {
     struct fs_t devfs = {0};
 
+    devfs = default_fs_handler;
     kstrcpy(devfs.name, "devfs");
     devfs.read = devfs_read;
     devfs.write = devfs_write;
@@ -424,6 +435,7 @@ void init_fs_devfs(void) {
     devfs.tcgetattr = devfs_tcgetattr;
     devfs.tcsetattr = devfs_tcsetattr;
     devfs.tcflow = devfs_tcflow;
+    devfs.isatty = devfs_isatty;
 
     vfs_install_fs(&devfs);
 }

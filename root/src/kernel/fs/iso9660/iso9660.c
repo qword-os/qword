@@ -879,6 +879,7 @@ static int iso9660_sync(void) {
 void init_fs_iso9660(void) {
     struct fs_t iso9660 = {0};
 
+    iso9660 = default_fs_handler;
     kstrcpy(iso9660.name, "iso9660");
     iso9660.mount = (void *)iso9660_mount;
     iso9660.open = iso9660_open;

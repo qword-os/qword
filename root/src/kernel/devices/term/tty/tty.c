@@ -130,11 +130,17 @@ static int tty_tcflow(int tty, int action) {
         default:
             errno = EINVAL;
             ret = -1;
+            break;
     }
 
     spinlock_release(&ttys[tty].write_lock);
     spinlock_release(&ttys[tty].read_lock);
     return ret;
+}
+
+static int tty_isatty(int fd) {
+    (void)fd;
+    return 1;
 }
 
 void init_tty_extended(uint32_t *__fb,
@@ -202,6 +208,7 @@ void init_tty_extended(uint32_t *__fb,
         device.calls.tcflow = tty_tcflow;
         device.calls.tcgetattr = tty_tcgetattr;
         device.calls.tcsetattr = tty_tcsetattr;
+        device.calls.isatty = tty_isatty;
         device_add(&device);
     }
 

@@ -305,6 +305,8 @@ syscall_table:
     dq syscall_sigaction ;29
     extern syscall_tcflow
     dq syscall_tcflow ;30
+    extern syscall_isatty
+    dq syscall_isatty ;31
   .end:
 
 section .text

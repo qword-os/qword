@@ -94,6 +94,7 @@ struct fd_handler_t {
     int (*lseek)(int, off_t, int);
     int (*dup)(int);
     int (*readdir)(int, struct dirent *);
+    int (*isatty)(int);
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
     int (*tcflow)(int, int);
@@ -116,6 +117,7 @@ int write(int, const void *, size_t);
 int lseek(int, off_t, int);
 int dup(int);
 int readdir(int, struct dirent *);
+int isatty(int);
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
 int tcflow(int, int);
@@ -196,6 +198,10 @@ __attribute__((unused)) static int bogus_perfmon_attach() {
     return -1;
 }
 
+__attribute__((unused)) static int bogus_isatty() {
+    return 0;
+}
+
 __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_close,
     (void *)bogus_fstat,
@@ -204,6 +210,7 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_lseek,
     (void *)bogus_dup,
     (void *)bogus_readdir,
+    (void *)bogus_isatty,
     (void *)bogus_tcgetattr,
     (void *)bogus_tcsetattr,
     (void *)bogus_tcflow,

@@ -17,6 +17,7 @@ struct device_calls_t {
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
     int (*tcflow)(int, int);
+    int (*isatty)(int);
 };
 
 __attribute__((unused)) static struct device_calls_t default_device_calls = {
@@ -25,7 +26,8 @@ __attribute__((unused)) static struct device_calls_t default_device_calls = {
     (void *)bogus_flush,
     (void *)bogus_tcgetattr,
     (void *)bogus_tcsetattr,
-    (void *)bogus_tcflow
+    (void *)bogus_tcflow,
+    (void *)bogus_isatty
 };
 
 struct device_t {

@@ -973,6 +973,7 @@ static int echfs_mount(const char *source) {
 void init_fs_echfs(void) {
     struct fs_t echfs = {0};
 
+    echfs = default_fs_handler;
     kstrcpy(echfs.name, "echfs");
     echfs.mount = (void *)echfs_mount;
     echfs.open = echfs_open;

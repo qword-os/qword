@@ -277,6 +277,14 @@ static int vfs_tcflow(int fd, int action) {
     return ret;
 }
 
+static int vfs_isatty(int fd) {
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->isatty(intern_fd);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
+}
+
 int open(const char *path, int mode) {
     struct vfs_handle_t vfs_handle = {0};
 
@@ -313,6 +321,7 @@ int open(const char *path, int mode) {
     vfs_functions.tcgetattr = vfs_tcgetattr;
     vfs_functions.tcsetattr = vfs_tcsetattr;
     vfs_functions.tcflow = vfs_tcflow;
+    vfs_functions.isatty = vfs_isatty;
 
     fd.fd_handler = vfs_functions;
 

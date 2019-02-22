@@ -22,6 +22,46 @@ struct fs_t {
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
     int (*tcflow)(int, int);
+    int (*isatty)(int);
+};
+
+__attribute__((unused)) static int bogus_mount() {
+    errno = EIO;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_umount() {
+    errno = EIO;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_open() {
+    errno = EIO;
+    return -1;
+}
+
+__attribute__((unused)) static int bogus_sync() {
+    errno = EIO;
+    return -1;
+}
+
+__attribute__((unused)) static struct fs_t default_fs_handler = {
+    "bogusfs",
+    (void *)bogus_mount,
+    (void *)bogus_umount,
+    (void *)bogus_open,
+    (void *)bogus_close,
+    (void *)bogus_fstat,
+    (void *)bogus_read,
+    (void *)bogus_write,
+    (void *)bogus_lseek,
+    (void *)bogus_dup,
+    (void *)bogus_readdir,
+    (void *)bogus_sync,
+    (void *)bogus_tcgetattr,
+    (void *)bogus_tcsetattr,
+    (void *)bogus_tcflow,
+    (void *)bogus_isatty
 };
 
 /* VFS calls */
