@@ -30,7 +30,7 @@ static struct ahci_device_t *ahci_devices;
 
 static void port_rebase(volatile struct hba_port_t *port);
 static int init_ahci_device(struct ahci_device_t *device,
-        volatile struct hba_port_t *port, uint8_t cmd, size_t portno);
+        volatile struct hba_port_t *port, uint8_t cmd);
 
 static int check_type(volatile struct hba_port_t *port) {
     uint32_t ssts = port->ssts;
@@ -135,8 +135,8 @@ void init_dev_sata(void) {
                 // setup device memory structures
                 port_rebase(&ahci_base->ports[i]);
 
-                // identify a sata drive and install it as a device
-                int ret = init_ahci_device(&ahci_devices[i], &ahci_base->ports[i], 0xec, i);
+                // identify a sata drive
+                int ret = init_ahci_device(&ahci_devices[i], &ahci_base->ports[i], 0xec);
 
                 if (ret == -1) {
                     kprint(KPRN_WARN, "failed to initialise sata device at index %u", i);
@@ -195,7 +195,7 @@ static void port_rebase(volatile struct hba_port_t *port) {
 }
 
 static int init_ahci_device(struct ahci_device_t *device,
-        volatile struct hba_port_t *port, uint8_t cmd, size_t portno) {
+        volatile struct hba_port_t *port, uint8_t cmd) {
     uint16_t *identify = pmm_allocz(1);
     int spin = 0;
 

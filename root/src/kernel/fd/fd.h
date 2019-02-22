@@ -206,6 +206,7 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_readdir,
     (void *)bogus_tcgetattr,
     (void *)bogus_tcsetattr,
+    (void *)bogus_tcflow,
     (void *)bogus_getflflags,
     (void *)bogus_setflflags,
     (void *)bogus_perfmon_attach
