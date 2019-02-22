@@ -174,6 +174,7 @@ static int devfs_write(int fd, const void *ptr, size_t len) {
 
     if (devfs_handle->size) {
         if (devfs_handle->ptr == devfs_handle->size) {
+            spinlock_release(&devfs_handle->lock);
             errno = ENOSPC;
             return -1;
         }
