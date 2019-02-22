@@ -25,11 +25,6 @@ struct uhci_controller_t {
     uint64_t io;
 }__attribute__((aligned(4096)));
 
-struct uchi_transfer_t {
-    uint32_t element, link;
-    struct uhci_transfer_t *next;
-};
-
 #define USBCMD 0x0
 #define USBSTS 0x2
 #define USBINTR 0x4
@@ -97,27 +92,7 @@ static void uhci_init_queue(struct uhci_queue_head_t *queue, struct uhci_td_t *t
     queue->element_pointer = (uint32_t)(uintptr_t) (td - MEM_PHYS_OFFSET);
 }
 
-static void uhci_insert_queue(struct uhci_queue_head_t *first_queue) {
-    struct uhci_queue_head_t *queue = first_queue;
-    struct uhci_transfer_t *head = kalloc(sizeof(struct uhci_transfer_t));
-    struct uhci_transfer_t *transfer = head;
-
-    while (queue) {
-        transfer->link = (queue->link_pointer & ~0xf);
-        transfer->element = (queue->element_pointer & 0xf);
-
-        /* only continue if next is also a qh */
-        if (queue->link_pointer & 2 && !(queue->link_pointer & 1)) {
-            queue = queue->link_pointer & ~0xf;
-            transfer->next = kalloc(sizeof(struct uhci_transfer_t));
-            transfer = transfer->next;
-        } else {
-            queue = 0;
-        }
-    }
-
-    if (!queue)
-
+static void uhci_insert_queue(struct uhci_queue_head_t *queue) {
     uhci_controller.frame_list[0] = (uint32_t)(uintptr_t) (queue - MEM_PHYS_OFFSET) | (1 << 1);
 }
 
