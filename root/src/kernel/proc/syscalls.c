@@ -24,15 +24,20 @@ static inline int privilege_check(size_t base, size_t len) {
 }
 
 void enter_syscall(int syscall) {
-    while (locked_read(int, &task_table[CURRENT_TASK]->event_abrt))
-        yield();
-
-    locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 1);
-    task_table[CURRENT_TASK]->last_syscall = syscall;
-
     spinlock_acquire(&scheduler_lock);
+
+    while (locked_read(int, &task_table[CURRENT_TASK]->event_abrt)) {
+        spinlock_release(&scheduler_lock);
+        yield();
+        spinlock_acquire(&scheduler_lock);
+    }
+
     pid_t current_task = cpu_locals[current_cpu].current_task;
     pid_t current_process = cpu_locals[current_cpu].current_process;
+
+    locked_write(int, &task_table[current_task]->in_syscall, 1);
+    task_table[current_task]->last_syscall = syscall;
+
     struct thread_t *thread = task_table[current_task];
     struct process_t *process = process_table[current_process];
 
@@ -66,8 +71,6 @@ void leave_syscall(void) {
     }
     spinlock_release(&process->usage_lock);
 
-    spinlock_release(&scheduler_lock);
-
     spinlock_acquire(&process->perfmon_lock);
     if (process->active_perfmon)
         atomic_add_uint64_relaxed(&process->active_perfmon->syscall_time,
@@ -75,6 +78,8 @@ void leave_syscall(void) {
     spinlock_release(&process->perfmon_lock);
 
     locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
+
+    spinlock_release(&scheduler_lock);
 }
 
 /* Prototype syscall: int syscall_name(struct regs_t *regs) */

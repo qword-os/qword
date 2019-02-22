@@ -1,6 +1,7 @@
 PREFIX =
 
-DEBUG = vga
+DEBUG = qemu
+DBGSYM = no
 
 CC = x86_64-qword-gcc
 AS = nasm
@@ -29,6 +30,10 @@ else ifeq ($(DEBUG), both)
 CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_QEMU_
 else
 $(error variable DEBUG invalid)
+endif
+
+ifeq ($(DBGSYM), yes)
+CHARDFLAGS := $(CHARDFLAGS) -g
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
