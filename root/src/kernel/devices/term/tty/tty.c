@@ -115,7 +115,7 @@ static int tty_tcflow(int tty, int action) {
     spinlock_acquire(&ttys[tty].write_lock);
 
     switch (action) {
-        case TCOOF:
+        case TCOOFF:
             ttys[tty].tcooff = 1;
             break;
         case TCOON:
