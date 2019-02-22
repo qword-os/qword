@@ -26,6 +26,7 @@
 #include <sys/vga_font.h>
 #include <lib/rand.h>
 #include <sys/urm.h>
+#include <devices/backend/usb/usb.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -41,6 +42,7 @@ void kmain_thread(void *arg) {
 
     /* Initialise device drivers */
     init_dev();
+    init_usb();
 
     /* Initialise filesystem drivers */
     init_fs();
@@ -92,6 +94,9 @@ void kmain_thread(void *arg) {
     if (mount(root, "/", rootfs, 0, 0)) {
         panic("Unable to mount root", 0, 0);
     }
+
+    if (mount("/dev/usbd0", "/usbmnt", "iso9660", 0, 0))
+        kprint(KPRN_ERR, "unable to mount usb drive!");
 
     /* Execute init process */
     kprint(KPRN_INFO, "kmain: Starting init");

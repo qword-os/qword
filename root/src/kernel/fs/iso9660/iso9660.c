@@ -217,7 +217,9 @@ static lock_t iso9660_lock = new_lock;
 static uint8_t rd_byte(int handle, uint64_t location) {
     uint8_t buf[1];
     lseek(handle, location, SEEK_SET);
-    read(handle, buf, 1);
+    int ret = read(handle, buf, 1);
+    if (ret == -1)
+        kprint(KPRN_DBG, "error");
     return buf[0];
 }
 

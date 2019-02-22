@@ -53,4 +53,4 @@ run-img:
 	-device nvme,drive=disk1,serial=deadbeef
 
 run-img-kvm:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
+	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -drive if=none,id=stick,file=qword.iso,format=raw -usb -device usb-storage,bus=usb-bus.0,drive=stick -smp sockets=1,cores=4,threads=1 -enable-kvm

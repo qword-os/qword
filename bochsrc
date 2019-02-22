@@ -6,7 +6,11 @@ megs: 512
 
 clock: sync=realtime, time0=local
 
+debug: action=ignore, usb_uhci=report
+info: action=report
+
 ata0-master: type=disk, path="qword.img", mode=flat
+usb_uhci: enabled=1, port1=disk:qword.iso
 
 boot: c
 
