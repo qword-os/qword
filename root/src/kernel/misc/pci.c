@@ -86,7 +86,9 @@ void pci_set_device_flag(struct pci_device_t *device, uint32_t offset, uint32_t 
 
 int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass, uint8_t prog_if) {
     for (size_t i = 0; i < device_count; i++) {
-        if ((pci_devices[i].device_class == class) && (pci_devices[i].subclass == subclass) && (pci_devices[i].prog_if == prog_if)) {
+        if ((pci_devices[i].device_class == class)
+            && (pci_devices[i].subclass == subclass)
+            && (pci_devices[i].prog_if == prog_if)) {
             *device = pci_devices[i];
             return 0;
         }

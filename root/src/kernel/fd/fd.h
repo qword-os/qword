@@ -79,11 +79,11 @@ struct stat {
 #define DT_WHT 14
 
 struct dirent {
-	ino_t d_ino;
-	off_t d_off;
-	unsigned short d_reclen;
-	unsigned char d_type;
-	char d_name[1024];
+    ino_t d_ino;
+    off_t d_off;
+    unsigned short d_reclen;
+    unsigned char d_type;
+    char d_name[1024];
 };
 
 struct fd_handler_t {
@@ -96,6 +96,7 @@ struct fd_handler_t {
     int (*readdir)(int, struct dirent *);
     int (*tcgetattr)(int, struct termios *);
     int (*tcsetattr)(int, int, struct termios *);
+    int (*tcflow)(int, int, struct termios *);
     int (*getflflags)(int);
     int (*setflflags)(int, int);
     int (*perfmon_attach)(int);
@@ -117,6 +118,7 @@ int dup(int);
 int readdir(int, struct dirent *);
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
+int tcflow(int, int, struct termios *);
 int getflflags(int);
 int setflflags(int, int);
 int perfmon_attach(int);
@@ -170,6 +172,11 @@ __attribute__((unused)) static int bogus_tcgetattr() {
 }
 
 __attribute__((unused)) static int bogus_tcsetattr() {
+    errno = ENOTTY;
+    return -1;
+}
+
+__attribute((unused)) static int bogus_tcflow() {
     errno = ENOTTY;
     return -1;
 }
