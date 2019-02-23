@@ -101,7 +101,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                                 if (pt[l] & 1) {
                                     /* FIXME find a way to expand the pool instead of dying */
                                     if (pool_ptr == pool_size)
-                                        panic("Fork memory pool exhausted", 0, 0);
+                                        panic("Fork memory pool exhausted", 0, 0, NULL);
                                     size_t new_page = (size_t)&pool[pool_ptr++];
                                     kmemcpy64((char *)(new_page + MEM_PHYS_OFFSET),
                                             (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
@@ -365,7 +365,7 @@ fail:
 void init_vmm(void) {
     kernel_pagemap.pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
     if ((size_t)kernel_pagemap.pml4 == MEM_PHYS_OFFSET)
-        panic("init_vmm failure", 0, 0);
+        panic("init_vmm failure", 0, 0, NULL);
 
     spinlock_release(&kernel_pagemap.lock);
 

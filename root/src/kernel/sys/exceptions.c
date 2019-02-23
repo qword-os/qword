@@ -67,51 +67,27 @@ void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
 
     if (regs->cs == 0x23) {
         // userspace
-        asm volatile ("sti");
         switch (exception) {
             case 0:
             case 16:
             case 19:
+                asm volatile ("sti");
                 kill(cpu_locals[current_cpu].current_process, SIGFPE);
                 break;
             case 6:
+                asm volatile ("sti");
                 kill(cpu_locals[current_cpu].current_process, SIGILL);
                 break;
             case 13:
             case 14:
+                asm volatile ("sti");
                 kill(cpu_locals[current_cpu].current_process, SIGSEGV);
                 break;
             default:
-                asm volatile ("cli");
                 break;
         }
     }
 
     // this is a kernel exception/unhandled exception, ouch!
-
-    kprint(KPRN_PANIC, "Exception \"%s\" (int %x)", exception_names[exception], exception);
-    kprint(KPRN_PANIC, "Error code: %X", error_code);
-    kprint(KPRN_PANIC, "CPU #%d status at fault:", current_cpu);
-    kprint(KPRN_PANIC, "RAX:    %X", regs->rax);
-    kprint(KPRN_PANIC, "RBX:    %X", regs->rbx);
-    kprint(KPRN_PANIC, "RCX:    %X", regs->rcx);
-    kprint(KPRN_PANIC, "RDX:    %X", regs->rdx);
-    kprint(KPRN_PANIC, "RSI:    %X", regs->rsi);
-    kprint(KPRN_PANIC, "RDI:    %X", regs->rdi);
-    kprint(KPRN_PANIC, "RBP:    %X", regs->rbp);
-    kprint(KPRN_PANIC, "RSP:    %X", regs->rsp);
-    kprint(KPRN_PANIC, "R8:     %X", regs->r8);
-    kprint(KPRN_PANIC, "R9:     %X", regs->r9);
-    kprint(KPRN_PANIC, "R10:    %X", regs->r10);
-    kprint(KPRN_PANIC, "R11:    %X", regs->r11);
-    kprint(KPRN_PANIC, "R12:    %X", regs->r12);
-    kprint(KPRN_PANIC, "R13:    %X", regs->r13);
-    kprint(KPRN_PANIC, "R14:    %X", regs->r14);
-    kprint(KPRN_PANIC, "R15:    %X", regs->r15);
-    kprint(KPRN_PANIC, "RFLAGS: %X", regs->rflags);
-    kprint(KPRN_PANIC, "RIP:    %X", regs->rip);
-    kprint(KPRN_PANIC, "CS:     %X", regs->cs);
-    kprint(KPRN_PANIC, "SS:     %X", regs->ss);
-    kprint(KPRN_PANIC, "CR2:    %X", read_cr2());
-    panic("CPU exception", 0, 0);
+    panic(exception_names[exception], exception, error_code, regs);
 }

@@ -77,9 +77,11 @@ void leave_syscall(void) {
                 uptime_raw - thread->syscall_entry_time);
     spinlock_release(&process->perfmon_lock);
 
-    locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
+    int *in_syscall_ptr = &task_table[CURRENT_TASK]->in_syscall;
 
     spinlock_release(&scheduler_lock);
+
+    locked_write(int, in_syscall_ptr, 0);
 }
 
 /* Prototype syscall: int syscall_name(struct regs_t *regs) */
@@ -451,8 +453,7 @@ int syscall_exit(struct regs_t *regs) {
 
     locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
 
-    for (;;)
-        yield();
+    for (;;) asm volatile ("hlt");
 }
 
 int syscall_execve(struct regs_t *regs) {

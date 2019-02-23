@@ -153,7 +153,7 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
     struct process_t *process = process_table[exit_request->pid];
 
     if (!process->ppid)
-        panic("Going nowhere without my init!", 0, 0);
+        panic("Going nowhere without my init!", 0, 0, NULL);
 
     /* Kill all associated threads */
     for (size_t i = 0; i < MAX_THREADS; i++)

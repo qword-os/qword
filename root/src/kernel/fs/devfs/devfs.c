@@ -30,7 +30,7 @@ dev_t device_add(struct device_t *device) {
         if (!p[i]) {
             kprint(KPRN_ERR, "devfs: Device %s does not register all needed calls.", device->name);
             kprint(KPRN_ERR, "devfs: (call %U unregistered, struct at %X)", i, &device->calls);
-            panic("Incomplete device", 0, 0);
+            panic("Incomplete device", 0, 0, NULL);
         }
 
     return dynarray_add(struct device_t, devices, device);

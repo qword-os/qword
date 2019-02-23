@@ -212,9 +212,9 @@ int_handler:
     common_handler dummy_int_handler
 
 ipi_abortexec:
+    mov rdi, qword [rsp]
     mov rsp, qword [gs:0008]
     extern abort_thread_exec
-    xor rdi, rdi
     call abort_thread_exec
   .wait:
     hlt
@@ -228,7 +228,8 @@ ipi_resched:
 
     mov rdi, rsp
 
-    call task_resched
+    extern task_resched_ap
+    call task_resched_ap
 
     popam
     iretq
@@ -384,6 +385,7 @@ irq1_handler:
 
 ; IPIs
 ipi_abort:
+    lock inc qword [gs:0040]
     cli
   .hlt:
     hlt

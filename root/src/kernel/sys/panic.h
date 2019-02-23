@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <proc/task.h>
+#include <sys/cpu.h>
 
 #define stringify(x) #x
 #define expand_stringify(x) stringify(x)
@@ -12,9 +13,9 @@
     do { \
         if(!(c)) \
             panic("panic_unless(" #c ") triggered in " \
-                    __FILE__ ":" expand_stringify(__LINE__), 0, 0); \
+                    __FILE__ ":" expand_stringify(__LINE__), 0, 0, NULL); \
     } while(0)
 
-void panic(const char *, uint64_t, uint64_t);
+void panic(const char *, uint64_t, uint64_t, struct regs_t *);
 
 #endif

@@ -23,25 +23,25 @@ void pit_handler(void) {
 
 void pic0_generic_handler(void) {
     port_out_b(0x20, 0x20);
-    panic("pic_8259: Spurious interrupt occured.", 0, 0);
+    panic("pic_8259: Spurious interrupt occured.", 0, 0, NULL);
 }
 
 void pic1_generic_handler(void) {
     port_out_b(0xa0, 0x20);
     port_out_b(0x20, 0x20);
-    panic("pic_8259: Spurious interrupt occured.", 0, 0);
+    panic("pic_8259: Spurious interrupt occured.", 0, 0, NULL);
 }
 
 void apic_nmi_handler(void) {
     lapic_eoi();
-    panic("apic: Non-maskable interrupt occured. Possible hardware issue...", 0, 0);
+    panic("apic: Non-maskable interrupt occured. Possible hardware issue...", 0, 0, NULL);
 }
 
 void apic_spurious_handler(void) {
     lapic_eoi();
-    panic("apic: Spurious interrupt occurred.", 0, 0);
+    panic("apic: Spurious interrupt occurred.", 0, 0, NULL);
 }
 
 void dummy_int_handler(void) {
-    panic("kernel: Unhandled interrupt occurred.", 0, 0);
+    panic("kernel: Unhandled interrupt occurred.", 0, 0, NULL);
 }

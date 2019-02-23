@@ -16,7 +16,7 @@
 #include <misc/pit.h>
 #include <sys/urm.h>
 
-#define SMP_TIMESLICE_MS 5
+#define SCHED_TIMESLICE_MS 5
 
 static int scheduler_ready = 0;
 
@@ -44,18 +44,18 @@ void init_sched(void) {
 
     /* Make room for task table */
     if ((task_table = kalloc(MAX_TASKS * sizeof(struct thread_t *))) == 0) {
-        panic("sched: Unable to allocate task table.", 0, 0);
+        panic("sched: Unable to allocate task table.", 0, 0, NULL);
     }
     if ((process_table = kalloc(MAX_PROCESSES * sizeof(struct process_t *))) == 0) {
-        panic("sched: Unable to allocate process table.", 0, 0);
+        panic("sched: Unable to allocate process table.", 0, 0, NULL);
     }
     /* Now make space for PID 0 */
     kprint(KPRN_INFO, "sched: Creating PID 0");
     if ((process_table[0] = kalloc(sizeof(struct process_t))) == 0) {
-        panic("sched: Unable to allocate space for kernel task", 0, 0);
+        panic("sched: Unable to allocate space for kernel task", 0, 0, NULL);
     }
     if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(struct thread_t *))) == 0) {
-        panic("sched: Unable to allocate space for kernel threads.", 0, 0);
+        panic("sched: Unable to allocate space for kernel threads.", 0, 0, NULL);
     }
     process_table[0]->pagemap = &kernel_pagemap;
     process_table[0]->pid = 0;
@@ -330,7 +330,7 @@ static int pit_ticks = 0;
 
 void task_resched_bsp(struct regs_t *regs) {
     if (scheduler_ready) {
-        if (++pit_ticks == SMP_TIMESLICE_MS) {
+        if (++pit_ticks == SCHED_TIMESLICE_MS) {
             pit_ticks = 0;
         } else {
             return;
@@ -342,6 +342,11 @@ void task_resched_bsp(struct regs_t *regs) {
         /* Call task_scheduler on the BSP */
         task_resched(regs);
     }
+}
+
+void task_resched_ap(struct regs_t *regs) {
+    locked_write(int, &cpu_locals[current_cpu].ipi_resched_received, 1);
+    task_resched(regs);
 }
 
 #define BASE_BRK_LOCATION ((size_t)0x0000780000000000)
@@ -436,21 +441,26 @@ found_new_pid:
     return new_pid;
 }
 
-void abort_thread_exec(int scheduler_is_locked) {
+void abort_thread_exec(size_t scheduler_not_locked) {
     load_cr3((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET);
 
-    if (!scheduler_is_locked) {
-        spinlock_acquire(&scheduler_lock);
+    int _current_cpu = current_cpu;
+
+    cpu_locals[_current_cpu].current_task = -1;
+    cpu_locals[_current_cpu].current_thread = -1;
+    cpu_locals[_current_cpu].current_process = -1;
+
+    if (scheduler_not_locked) {
+        locked_write(int, &cpu_locals[_current_cpu].ipi_abortexec_received, 1);
         lapic_eoi();
     }
 
-    cpu_locals[current_cpu].current_task = -1;
-    cpu_locals[current_cpu].current_thread = -1;
-    cpu_locals[current_cpu].current_process = -1;
-
     kprint(0, "aborting thread execution on CPU #%d", current_cpu);
 
-    force_resched();
+    if (!scheduler_not_locked)
+        force_resched();
+    else
+        yield();
 }
 
 #define STACK_LOCATION_TOP ((size_t)0x0000800000000000)
@@ -467,7 +477,7 @@ int task_tpause(pid_t pid, tid_t tid) {
     }
 
     struct thread_t *thread = process_table[pid]->threads[tid];
-    int active_on_cpu = process_table[pid]->threads[tid]->active_on_cpu;
+    int active_on_cpu = thread->active_on_cpu;
 
     locked_write(int, &thread->event_abrt, 1);
 
@@ -480,8 +490,11 @@ int task_tpause(pid_t pid, tid_t tid) {
 
     panic_unless(active_on_cpu != current_cpu);
 
-    if (active_on_cpu != -1 && active_on_cpu != current_cpu)
+    if (active_on_cpu != -1 && active_on_cpu != current_cpu) {
+        locked_write(int, &cpu_locals[active_on_cpu].ipi_resched_received, 0);
         lapic_send_ipi(active_on_cpu, IPI_RESCHED);
+        while (!locked_read(int, &cpu_locals[active_on_cpu].ipi_resched_received));
+    }
 
     spinlock_release(&scheduler_lock);
 
@@ -528,9 +541,12 @@ int task_tkill(pid_t pid, tid_t tid) {
         spinlock_acquire(&scheduler_lock);
     }
 
-    if (active_on_cpu != -1 && active_on_cpu != current_cpu)
+    if (active_on_cpu != -1 && active_on_cpu != current_cpu) {
         /* Send abort execution IPI */
+        locked_write(int, &cpu_locals[active_on_cpu].ipi_abortexec_received, 0);
         lapic_send_ipi(active_on_cpu, IPI_ABORTEXEC);
+        while (!locked_read(int, &cpu_locals[active_on_cpu].ipi_abortexec_received));
+    }
 
     task_table[process_table[pid]->threads[tid]->task_id] = (void *)(-1);
 
@@ -547,7 +563,7 @@ int task_tkill(pid_t pid, tid_t tid) {
             "mov rsp, qword ptr gs:[8];"
             "call kfree;"
             "cli;"
-            "mov rdi, 1;"
+            "mov rdi, 0;"
             "call abort_thread_exec;"
             :
             : "D" (kstack)

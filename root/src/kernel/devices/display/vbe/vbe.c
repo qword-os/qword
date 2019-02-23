@@ -123,7 +123,7 @@ modeset:
     }
 
     /* modeset failed, panic */
-    panic("VESA VBE modesetting failed.", 0, 0);
+    panic("VESA VBE modesetting failed.", 0, 0, NULL);
 
 success:
     vbe_available = 1;
