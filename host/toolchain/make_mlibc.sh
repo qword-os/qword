@@ -20,7 +20,7 @@ rm -rf build
 mkdir -p build
 cd build
 sed "s|@@sysroot@@|$TARGET_ROOT|g" < ../../../cross_file.txt > ./cross_file.txt
-meson .. --prefix=/usr --libdir=lib --includedir=usr/include --buildtype=debugoptimized --cross-file cross_file.txt
+meson .. --prefix=/ --libdir=lib --includedir=usr/include --buildtype=debugoptimized --cross-file cross_file.txt
 pushd ../subprojects
 for i in $(ls -d */); do
 	cd $i
