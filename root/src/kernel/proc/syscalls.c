@@ -107,14 +107,7 @@ int syscall_sigaction(struct regs_t *regs) {
 }
 
 int syscall_return_from_signal(void) {
-    spinlock_acquire(&scheduler_lock);
-    pid_t pid = cpu_locals[current_cpu].current_process;
-    spinlock_release(&scheduler_lock);
-
-    /* Unpause all threads */
-    for (size_t i = 0; i < MAX_THREADS; i++)
-        task_tresume(pid, i);
-
+    kprint(KPRN_INFO, "kernel: return from signal");
     task_tkill(CURRENT_PROCESS, CURRENT_THREAD);
 }
 

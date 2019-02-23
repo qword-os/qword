@@ -143,11 +143,6 @@ int kill(pid_t pid, int signal) {
         }
     }
 
-    /* Pause all threads */
-    for (size_t i = 0; i < MAX_THREADS; i++)
-        if (pid != current_pid && i != current_tid)
-            task_tpause(pid, i);
-
     uint64_t arg = (uint64_t)handler & 0x0000ffffffffffff;
     arg += (uint64_t)signal * 0x1000000000000;
 
@@ -167,8 +162,6 @@ int kill(pid_t pid, int signal) {
                                  (void*)SIGNAL_TRAMPOLINE_VADDR,
                                  (void*)arg));
 
-    if (pid == current_pid)
-        task_tpause(pid, current_tid);
     return 0;
 }
 
