@@ -49,7 +49,7 @@ static int cache_block(struct scsi_dev_t *device, uint32_t lba) {
     read_cmd.lba = bswap(uint32_t, lba);
     read_cmd.length = 1;
 
-    int ret = device->send_cmd(device->intern_fd, (char *) &read_cmd, sizeof(
+    int ret = device->send_cmd(device->intern_fd, (char *)&read_cmd, sizeof(
                 struct scsi_read_10_t), cache->cache, device->block_size, 0);
     if (ret) return -1;
     cache->status = CACHE_PRESENT;
@@ -88,8 +88,8 @@ int scsi_register(int intern_fd,
     struct scsi_read_capacity_10_t cap_cmd = {0};
     cap_cmd.op_code = 0x25;
     uint64_t data = 0;
-    int ret = send_cmd(intern_fd, (char *) &cap_cmd, sizeof(struct
-                scsi_read_capacity_10_t), (char *) &data, sizeof(uint64_t), 0);
+    int ret = send_cmd(intern_fd, (char *)&cap_cmd, sizeof(struct
+                scsi_read_capacity_10_t), (char *)&data, sizeof(uint64_t), 0);
     uint32_t lba_num = bswap(uint32_t, data & 0xFFFFFFFF);
     uint32_t block_size = bswap(uint32_t, data >> 32);
     device.block_size = block_size;

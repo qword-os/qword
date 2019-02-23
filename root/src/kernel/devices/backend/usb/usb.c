@@ -45,7 +45,7 @@ int usb_make_request(struct usb_dev_t *device, char *buffer, size_t size,
         uint8_t type, uint8_t request_no, uint16_t value, uint16_t index,
         uint8_t endpoint, uint8_t out) {
     char *temp_buffer = kalloc(sizeof(struct usb_request_t) + size);
-    struct usb_request_t *request = (struct usb_request_t *) temp_buffer;
+    struct usb_request_t *request = (struct usb_request_t *)temp_buffer;
     request->request_type= type;
     request->request = request_no;
     request->value = value;
@@ -77,7 +77,7 @@ int usb_add_device(struct usb_dev_t device) {
 
     /* get config */
     struct usb_config_t config;
-    ret = usb_make_request(&device, (char *) &config, sizeof(struct
+    ret = usb_make_request(&device, (char *)&config, sizeof(struct
                 usb_config_t), 0b10000000, 6, (2 << 8), 0, 0, 0);
     if (ret) return -1;
 
@@ -92,7 +92,7 @@ int usb_add_device(struct usb_dev_t device) {
             0b10000000, 6, (2 << 8), 0, 0, 0);
     if (ret) return -1;
 
-    struct usb_interface_t *interface = (struct usb_interface_t *) (
+    struct usb_interface_t *interface = (struct usb_interface_t *)(
             config_buf + config.length);
 
     /* set interface */
@@ -107,7 +107,7 @@ int usb_add_device(struct usb_dev_t device) {
             return -1;
         }
 
-        struct usb_endpoint_t *endpoint = (struct usb_endpoint_t *) (
+        struct usb_endpoint_t *endpoint = (struct usb_endpoint_t *)(
                 config_buf + config.length + interface->length + (i *
                     sizeof(struct usb_endpoint_t)));
         device.endpoints[i] = *endpoint;

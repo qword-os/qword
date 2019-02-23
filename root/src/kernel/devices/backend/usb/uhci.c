@@ -63,12 +63,12 @@ static void uhci_clear_w(uint64_t port, uint16_t value) {
 }
 
 static int uhci_wait_for_queue(struct uhci_queue_head_t *queue) {
-    struct uhci_td_t *td = (struct uhci_td_t *)(uintptr_t) ((queue->
+    struct uhci_td_t *td = (struct uhci_td_t *)(uintptr_t)((queue->
         element_pointer & ~0xf) + MEM_PHYS_OFFSET);
     while (1) {
         if (queue->element_pointer & 1 || !(queue->element_pointer & ~0xf))
             return 0;
-        td = (struct uhci_td_t *)(uintptr_t) ((queue->
+        td = (struct uhci_td_t *)(uintptr_t)((queue->
             element_pointer & ~0xf) + MEM_PHYS_OFFSET);
         if (queue->element_pointer & 1 || !(queue->element_pointer & ~0xf))
             return 0;
@@ -86,7 +86,7 @@ static void uhci_init_td(struct uhci_td_t *td, uint8_t packet_id,
         size_t length, char *data) {
     length = (length - 1) & 0x7ff;
     if (data)
-        td->buffer_pointer = (uint32_t)(uintptr_t) (data - MEM_PHYS_OFFSET);
+        td->buffer_pointer = (uint32_t)(uintptr_t)(data - MEM_PHYS_OFFSET);
     td->token = (packet_id) | (device_addr << 8) | (endpoint << 15) | (toggle << 19) |
         (length << 21);
     td->status |= (low_speed << 26) | TD_STATUS_ACTIVE;
@@ -95,7 +95,7 @@ static void uhci_init_td(struct uhci_td_t *td, uint8_t packet_id,
 static void uhci_init_queue(struct uhci_queue_head_t *queue, struct uhci_td_t *td) {
     queue->td_head = td;
     queue->qh_next = NULL;
-    queue->element_pointer = (uint32_t)(uintptr_t) (td - MEM_PHYS_OFFSET);
+    queue->element_pointer = (uint32_t)(uintptr_t)(td - MEM_PHYS_OFFSET);
 }
 
 static void uhci_insert_queue(struct uhci_queue_head_t *queue) {
@@ -146,7 +146,7 @@ static int uhci_send_control(struct usb_dev_t *device, char *data,
         uhci_init_td(td, packet_id, device->address, endpoint,
                 device->low_speed, toggle, packet_size, data);
         td->link_pointer = 1;
-        prev->link_pointer = (uint32_t)(uintptr_t) (td - MEM_PHYS_OFFSET) |
+        prev->link_pointer = (uint32_t)(uintptr_t)(td - MEM_PHYS_OFFSET) |
             (1 << 2);
         toggle ^= 1;
         prev = td;
@@ -161,7 +161,7 @@ static int uhci_send_control(struct usb_dev_t *device, char *data,
     uhci_init_td(td, packet_id, device->address, endpoint, device->low_speed,
             1, 0, 0);
     td->link_pointer = 1;
-    prev->link_pointer = (uint32_t)(uintptr_t) (td - MEM_PHYS_OFFSET) |
+    prev->link_pointer = (uint32_t)(uintptr_t)(td - MEM_PHYS_OFFSET) |
         (1 << 2);
 
     struct uhci_queue_head_t *queue = kalloc(sizeof(struct uhci_queue_head_t));
@@ -203,7 +203,7 @@ static int uhci_send_bulk(struct usb_dev_t *device, char *data,
                 device->low_speed, toggle, packet_size, data);
         td->link_pointer = 1;
         if (prev) {
-            prev->link_pointer = (uint32_t)(uintptr_t) (td - MEM_PHYS_OFFSET) |
+            prev->link_pointer = (uint32_t)(uintptr_t)(td - MEM_PHYS_OFFSET) |
                 (1 << 2);
         }
         toggle ^= 1;

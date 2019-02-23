@@ -53,7 +53,7 @@ static int mass_storage_send_cmd(int drive, char *cmd, size_t cmd_length,
         return -1;
     }
 
-    int ret = device->device.controller->send_bulk(&device->device, (char *) &cbw,
+    int ret = device->device.controller->send_bulk(&device->device, (char *)&cbw,
             sizeof(struct cbw_t), device->out, 1);
     if (ret) {
         errno = EIO;
@@ -70,7 +70,7 @@ static int mass_storage_send_cmd(int drive, char *cmd, size_t cmd_length,
 
     struct csw_t csw = {0};
     ret = device->device.controller->send_bulk(&device->device,
-            (char *) &csw, sizeof(struct csw_t), device->in, 0);
+            (char *)&csw, sizeof(struct csw_t), device->in, 0);
     if (ret || csw.status) {
         errno = EIO;
         return -1;
