@@ -16,7 +16,7 @@ QWORD_ROOT=$(realpath ../..)
 
 if [ ! "$OSTYPE" = "qword" ]; then
     QWORD_BASE=$(realpath ../../..)
-    export PATH=$QWORD_BASE/host/toolchain/sysroot/bin:$PATH
+    export PATH=$QWORD_BASE/host/toolchain/cross-root/bin:$PATH
 fi
 
 set -x
@@ -26,7 +26,7 @@ git clone $PKG_URL
 
 cd $PKG_ARCHIVE_DIR
 mkdir build && cd build
-sed "s|@@sysroot@@|$PKG_PREFIX|g" < ../../cross_file.txt > ./cross_file.txt
-meson .. --prefix=$PKG_PREFIX --libdir=lib --buildtype=debugoptimized --cross-file cross_file.txt
+sed "s|@@sysroot@@|$QWORD_ROOT|g" < ../../cross_file.txt > ./cross_file.txt
+meson .. --prefix=$PKG_PREFIX --libdir=lib --includedir=usr/include --buildtype=debugoptimized --cross-file cross_file.txt
 ninja
 DESTDIR=$QWORD_ROOT ninja install

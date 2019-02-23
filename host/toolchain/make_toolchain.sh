@@ -3,7 +3,8 @@
 set -e
 set -x
 
-PREFIX="$(pwd)/sysroot"
+CROSS_ROOT="$(pwd)/cross-root"
+TARGET_ROOT="$(realpath ../..)/root"
 TARGET=x86_64-qword
 GCCVERSION=8.2.0
 BINUTILSVERSION=2.31.1
@@ -13,17 +14,17 @@ if [ -z "$MAKEFLAGS" ]; then
 fi
 export MAKEFLAGS
 
-rm -rf "$PREFIX"
-mkdir -p "$PREFIX"
-export PATH="$PREFIX/bin:$PATH"
+rm -rf "$CROSS_ROOT"
+mkdir -p "$CROSS_ROOT"
+export PATH="$CROSS_ROOT/bin:$PATH"
 
 if [ -x "$(command -v gmake)" ]; then
-    mkdir -p "$PREFIX/bin"
-    cat <<EOF >"$PREFIX/bin/make"
+    mkdir -p "$CROSS_ROOT/bin"
+    cat <<EOF >"$CROSS_ROOT/bin/make"
 #!/usr/bin/env sh
 gmake "\$@"
 EOF
-    chmod +x "$PREFIX/bin/make"
+    chmod +x "$CROSS_ROOT/bin/make"
 fi
 
 mkdir -p build-toolchain
@@ -35,10 +36,10 @@ git pull
 rm -rf build
 mkdir -p build
 cd build
-sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
-meson .. --prefix=/usr --libdir=lib --buildtype=debugoptimized --cross-file cross_file.txt -Dheaders_only=true
+sed "s|@@sysroot@@|$TARGET_ROOT|g" < ../../../cross_file.txt > ./cross_file.txt
+meson .. --prefix=/ --libdir=lib --includedir=usr/include --buildtype=debugoptimized --cross-file cross_file.txt -Dheaders_only=true
 ninja
-DESTDIR="$PREFIX" ninja install
+DESTDIR="$TARGET_ROOT" ninja install
 popd
 
 rm -rf gcc-$GCCVERSION binutils-$BINUTILSVERSION build-gcc build-binutils
@@ -56,18 +57,17 @@ patch -p1 < ../../binutils-$BINUTILSVERSION.patch
 cd ..
 mkdir build-binutils
 cd build-binutils
-../binutils-$BINUTILSVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --disable-werror
+../binutils-$BINUTILSVERSION/configure --target=$TARGET --prefix="$CROSS_ROOT" --with-sysroot="$TARGET_ROOT" --disable-werror
 make
 make install
 
-mkdir -p "$PREFIX/usr/include"
 cd ../gcc-$GCCVERSION
 contrib/download_prerequisites
 patch -p1 < ../../gcc-$GCCVERSION.patch
 cd ..
 mkdir build-gcc
 cd build-gcc
-../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot="$PREFIX" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
+../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$CROSS_ROOT" --with-sysroot="$TARGET_ROOT" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
 make all-gcc
 make install-gcc
 cd ../..

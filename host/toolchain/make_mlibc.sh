@@ -3,11 +3,12 @@
 set -e
 set -x
 
-PREFIX="$(pwd)/sysroot"
+CROSS_ROOT="$(pwd)/cross-root"
+TARGET_ROOT="$(realpath ../..)/root"
 TARGET=x86_64-qword
 
-mkdir -p "$PREFIX"
-export PATH="$PREFIX/bin:$PATH"
+mkdir -p "$TARGET_ROOT"
+export PATH="$CROSS_ROOT/bin:$PATH"
 
 mkdir -p build-toolchain
 cd build-toolchain
@@ -18,8 +19,8 @@ git pull
 rm -rf build
 mkdir -p build
 cd build
-sed "s|@@sysroot@@|$PREFIX|g" < ../../../cross_file.txt > ./cross_file.txt
-meson .. --prefix=/usr --libdir=lib --buildtype=debugoptimized --cross-file cross_file.txt
+sed "s|@@sysroot@@|$TARGET_ROOT|g" < ../../../cross_file.txt > ./cross_file.txt
+meson .. --prefix=/usr --libdir=lib --includedir=usr/include --buildtype=debugoptimized --cross-file cross_file.txt
 pushd ../subprojects
 for i in $(ls -d */); do
 	cd $i
@@ -28,10 +29,6 @@ for i in $(ls -d */); do
 done
 popd
 ninja
-DESTDIR="$PREFIX" ninja install
-
-# install libraries into root
-mkdir -p ../../../../../root/lib
-cp -vr "$PREFIX/usr/lib/"* ../../../../../root/lib/
+DESTDIR="$TARGET_ROOT" ninja install
 
 exit 0

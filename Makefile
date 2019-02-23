@@ -1,4 +1,4 @@
-PATH := $(shell pwd)/host/toolchain/sysroot/bin:$(PATH)
+PATH := $(shell pwd)/host/toolchain/cross-root/bin:$(PATH)
 
 MAKE = make
 

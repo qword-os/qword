@@ -18,7 +18,7 @@ QWORD_ROOT=$(realpath ../..)
 
 if [ ! "$OSTYPE" = "qword" ]; then
     QWORD_BASE=$(realpath ../../..)
-    export PATH=$QWORD_BASE/host/toolchain/sysroot/bin:$PATH
+    export PATH=$QWORD_BASE/host/toolchain/cross-root/bin:$PATH
 fi
 
 set -x
@@ -34,7 +34,7 @@ contrib/download_prerequisites
 patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
 
 mkdir build && cd build
-../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=$QWORD_ROOT --enable-languages=c,c++ --disable-multilib --enable-initfini-array
+../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=/ --with-build-sysroot=$QWORD_ROOT --enable-languages=c,c++ --disable-multilib --enable-initfini-array
 make all-gcc "$@"
 make DESTDIR=$QWORD_ROOT install-gcc
 make all-target-libgcc "$@"

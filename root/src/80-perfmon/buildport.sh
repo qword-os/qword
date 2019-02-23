@@ -10,7 +10,7 @@ QWORD_ROOT=$(realpath ../..)
 
 if [ ! "$OSTYPE" = "qword" ]; then
     QWORD_BASE=$(realpath ../../..)
-    export PATH=$QWORD_BASE/host/toolchain/sysroot/bin:$PATH
+    export PATH=$QWORD_BASE/host/toolchain/cross-root/bin:$PATH
 fi
 
 set -x
