@@ -54,10 +54,11 @@ struct execve_request_t {
     char **argv;
     char **envp;
     event_t *err_event;
+    int *call_errno;
 };
 
 void execve_send_request(pid_t pid, tid_t tid, const char *filename, const char **argv, const char **envp,
-                    event_t **err_event) {
+                    event_t **err_event, int **call_errno) {
     struct execve_request_t *execve_request = kalloc(sizeof(struct execve_request_t));
 
     execve_request->pid = pid;
@@ -95,6 +96,9 @@ void execve_send_request(pid_t pid, tid_t tid, const char *filename, const char 
     execve_request->err_event = kalloc(sizeof(event_t));
     *err_event = execve_request->err_event;
 
+    execve_request->call_errno = kalloc(sizeof(int));
+    *call_errno = execve_request->call_errno;
+
     userspace_send_request(USER_REQUEST_EXECVE, execve_request);
 }
 
@@ -105,6 +109,8 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
         (const char **)execve_request->argv,
         (const char **)execve_request->envp
     );
+
+    *execve_request->call_errno = errno;
 
     /* free request mem */
     kfree(execve_request->filename);
@@ -126,6 +132,7 @@ static void execve_receive_request(struct execve_request_t *execve_request) {
     if (ret)
         event_trigger(execve_request->err_event);
     else {
+        kfree(execve_request->call_errno);
         kfree(execve_request->err_event);
         locked_write(int, &task_table[execve_request->tid]->in_syscall, 0);
     }

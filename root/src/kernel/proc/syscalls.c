@@ -452,32 +452,47 @@ int syscall_exit(struct regs_t *regs) {
 int syscall_execve(struct regs_t *regs) {
     /* FIXME check if filename and argv/envp are in userspace */
 
+    spinlock_acquire(&scheduler_lock);
+    int _current_cpu = current_cpu;
+    pid_t current_process = cpu_locals[_current_cpu].current_process;
+    tid_t current_thread = cpu_locals[_current_cpu].current_thread;
+    tid_t current_task = cpu_locals[_current_cpu].current_task;
+    struct process_t *process = process_table[current_process];
+    struct thread_t *thread = task_table[current_task];
+    spinlock_release(&scheduler_lock);
+
     char *path = (char *)regs->rdi;
 
-    char abs_path[2048];
-    spinlock_acquire(&process_table[CURRENT_PROCESS]->cwd_lock);
-    vfs_get_absolute_path(abs_path, path, process_table[CURRENT_PROCESS]->cwd);
-    spinlock_release(&process_table[CURRENT_PROCESS]->cwd_lock);
+    char abs_path[1024];
+    spinlock_acquire(&process->cwd_lock);
+    vfs_get_absolute_path(abs_path, path, process->cwd);
+    spinlock_release(&process->cwd_lock);
 
     event_t *execve_error;
+    int *call_errno;
 
     execve_send_request(
-        CURRENT_PROCESS,
-        CURRENT_TASK,
+        current_process,
+        current_thread,
         abs_path,
         (void *)regs->rsi,
         (void *)regs->rdx,
-        &execve_error);
+        &execve_error,
+        &call_errno);
 
-    if (event_await(execve_error) == -1) {
-        locked_write(int, &task_table[CURRENT_TASK]->in_syscall, 0);
+    while (event_await(execve_error) == -1) {
+        locked_write(int, &thread->in_syscall, 0);
+        errno = EIO;
         yield();
     }
 
+    /* error occurred */
     kprint(0, "execve failed");
 
-    /* error occurred */
-    kfree((void *)execve_error);
+    errno = *call_errno;
+
+    kfree(call_errno);
+    kfree(execve_error);
 
     return -1;
 }
