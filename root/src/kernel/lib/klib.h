@@ -15,6 +15,9 @@
 
 #define EMPTY ((void *)(size_t)(-1))
 
+#define stringify(x) #x
+#define expand_stringify(x) stringify(x)
+
 __attribute__((always_inline)) inline int is_printable(char c) {
     return (c >= 0x20 && c <= 0x7e);
 }
