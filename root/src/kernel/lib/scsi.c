@@ -1,4 +1,4 @@
-#include <devices/frontend/scsi.h>
+#include <lib/scsi.h>
 #include <fs/devfs/devfs.h>
 #include <lib/dynarray.h>
 #include <lib/bit.h>

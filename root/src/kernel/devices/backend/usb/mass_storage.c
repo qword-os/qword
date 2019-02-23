@@ -1,5 +1,5 @@
 #include <devices/backend/usb/mass_storage.h>
-#include <devices/frontend/scsi.h>
+#include <lib/scsi.h>
 #include <lib/dynarray.h>
 #include <lib/klib.h>
 #include <lib/bit.h>
