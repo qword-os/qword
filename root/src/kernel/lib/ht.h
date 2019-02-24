@@ -4,38 +4,18 @@
 #include <stddef.h>
 #include <lib/alloc.h>
 #include <lib/lock.h>
+#include <lib/rand.h>
 
 #define ENTRIES_PER_HASHING_LEVEL 4096
-#define MAX_HASHING_LEVELS 16
 
-static uint64_t hashes_per_level[MAX_HASHING_LEVELS] = {
-    5381,
-    8907,
-    231,
-    712,
-    9636,
-    4903,
-    667,
-    5176,
-    4266,
-    2287,
-    1960,
-    5724,
-    3568,
-    7969,
-    2530,
-    3526
-};
-
-static inline uint64_t ht_hash_str(const char *str, int level) {
+static inline uint64_t ht_hash_str(const char *str, uint64_t seed) {
     /* djb2
      * http://www.cse.yorku.ca/~oz/hash.html
      */
-    uint64_t hash = hashes_per_level[level];
     int c;
     while ((c = *str++))
-        hash = ((hash << 5) + hash) + c;
-    return (hash % ENTRIES_PER_HASHING_LEVEL);
+        seed = ((seed << 5) + seed) + c;
+    return ((seed % (ENTRIES_PER_HASHING_LEVEL - 1)) + 1);
 }
 
 #define ht_new(type, name) \
@@ -50,7 +30,7 @@ static inline uint64_t ht_hash_str(const char *str, int level) {
 })
 
 static void **__ht_dump(void **ht, void **buf, size_t *size) {
-    for (size_t i = 0; i < ENTRIES_PER_HASHING_LEVEL; i++) {
+    for (size_t i = 1; i < ENTRIES_PER_HASHING_LEVEL; i++) {
         if (!ht[i]) {
             continue;
         } else if ((size_t)ht[i] & 1) {
@@ -85,15 +65,14 @@ out: \
     ret; \
 })
 
-#define ht_get(type, hashtable, name) ({ \
+#define ht_get(type, hashtable, nname) ({ \
     __label__ out; \
     type *ret; \
         \
     spinlock_acquire(&hashtable##_lock); \
-    int current_level; \
     type **ht = hashtable; \
-    for (current_level = 0; ; current_level++) { \
-        uint64_t hash = ht_hash_str(name, current_level); \
+    for (;;) { \
+        uint64_t hash = ht_hash_str(nname, (uint64_t)ht[0]); \
         if (!ht[hash]) { \
             ret = NULL; \
             goto out; \
@@ -101,6 +80,10 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
+            if (kstrcmp(nname, ((type **)ht)[hash]->name)) { \
+                ret = NULL; \
+                goto out; \
+            } \
             ret = ht[hash]; \
             goto out; \
         } \
@@ -119,10 +102,12 @@ out: \
     int ret = 0; \
         \
     spinlock_acquire(&hashtable##_lock); \
-    int current_level; \
     type **ht = hashtable; \
-    for (current_level = 0; ; current_level++) { \
-        uint64_t hash = ht_hash_str(element->name, current_level); \
+    if (!ht[0]) \
+        while (!(ht[0] = (void *)rand())); \
+        \
+    for (;;) { \
+        uint64_t hash = ht_hash_str(element->name, (uint64_t)ht[0]); \
         if (!ht[hash]) { \
             ht[hash] = element; \
             goto out; \
@@ -130,10 +115,7 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
-            if ( \
-                   (!kstrcmp(element->name, ht[hash]->name)) \
-                || (current_level == MAX_HASHING_LEVELS - 1) \
-            ) { \
+            if (!kstrcmp(element->name, ht[hash]->name)) { \
                 ret = -1; \
                 goto out; \
             } \
@@ -145,7 +127,8 @@ out: \
             type *old_elem = ht[hash]; \
             ht[hash] = (void *)((size_t)new_ht + 1); \
             ht = new_ht; \
-            uint64_t old_elem_hash = ht_hash_str(old_elem->name, current_level + 1); \
+            while (!(ht[0] = (void *)rand())); \
+            uint64_t old_elem_hash = ht_hash_str(old_elem->name, (uint64_t)ht[0]); \
             ht[old_elem_hash] = old_elem; \
             continue; \
         } \
