@@ -23,7 +23,9 @@ dynarray_new(struct pipe_t, pipes);
 static int pipe_getflflags(int fd) {
     struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
 
+    spinlock_acquire(&pipe->lock);
     int ret = pipe->flflags;
+    spinlock_release(&pipe->lock);
 
     dynarray_unref(pipes, fd);
     return ret;
@@ -32,7 +34,9 @@ static int pipe_getflflags(int fd) {
 static int pipe_setflflags(int fd, int flflags) {
     struct pipe_t *pipe = dynarray_getelem(struct pipe_t, pipes, fd);
 
+    spinlock_acquire(&pipe->lock);
     pipe->flflags = flflags;
+    spinlock_release(&pipe->lock);
 
     dynarray_unref(pipes, fd);
     return 0;
@@ -51,7 +55,7 @@ static int pipe_close(int fd) {
     }
     if (pipe->size)
         kfree(pipe->buffer);
-    kfree(pipe);
+
     dynarray_unref(pipes, fd);
     dynarray_remove(pipes, fd);
     return 0;
@@ -93,7 +97,7 @@ static int pipe_read(int fd, void *buf, size_t count) {
     if (new_pipe_size_in_steps < pipe_size_in_steps)
         pipe->buffer = krealloc(pipe->buffer, new_pipe_size_in_steps);
 
-    pipe->size -= count;
+    pipe->size = new_pipe_size;
 
     spinlock_release(&pipe->lock);
     dynarray_unref(pipes, fd);
@@ -114,7 +118,7 @@ static int pipe_write(int fd, const void *buf, size_t count) {
 
     kmemcpy(pipe->buffer + pipe->size, buf, count);
 
-    pipe->size += count;
+    pipe->size = new_pipe_size;
 
     event_trigger(&pipe->event);
 
