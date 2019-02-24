@@ -158,9 +158,13 @@ static void set_cursor_pos(int tty, int x, int y) {
 }
 
 static void sgr(int tty) {
+    if (!ttys[tty].esc_values_i)
+        goto def;
+
     for (int i = 0; i < ttys[tty].esc_values_i; i++) {
 
         if (!ttys[tty].esc_values[i]) {
+def:
             ttys[tty].text_fg_col = ttys[tty].default_fg_col;
             ttys[tty].text_bg_col = ttys[tty].default_bg_col;
             continue;
@@ -224,6 +228,18 @@ static void control_sequence_parse(int tty, char c) {
             if (ttys[tty].esc_values[0] > ttys[tty].cursor_x)
                 ttys[tty].esc_values[0] = ttys[tty].cursor_x;
             set_cursor_pos(tty, ttys[tty].cursor_x - ttys[tty].esc_values[0], ttys[tty].cursor_y);
+            break;
+        case 'E':
+            if (ttys[tty].cursor_y + ttys[tty].esc_values[0] >= rows)
+                set_cursor_pos(tty, 0, rows - 1);
+            else
+                set_cursor_pos(tty, 0, ttys[tty].cursor_y + ttys[tty].esc_values[0]);
+            break;
+        case 'F':
+            if (ttys[tty].cursor_y - ttys[tty].esc_values[0] < 0)
+                set_cursor_pos(tty, 0, 0);
+            else
+                set_cursor_pos(tty, 0, ttys[tty].cursor_y - ttys[tty].esc_values[0]);
             break;
         case 'H':
         case 'f':
