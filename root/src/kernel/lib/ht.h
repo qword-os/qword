@@ -61,6 +61,7 @@ static void **__ht_dump(void **ht, void **buf, size_t *size) {
         goto out; \
     } \
     hashtable##_lock = new_lock; \
+    while (!(hashtable[0] = (void *)rand64())); \
 out: \
     ret; \
 })
@@ -103,8 +104,6 @@ out: \
         \
     spinlock_acquire(&hashtable##_lock); \
     type **ht = hashtable; \
-    if (!ht[0]) \
-        while (!(ht[0] = (void *)rand64())); \
         \
     for (;;) { \
         uint64_t hash = ht_hash_str(element->name, (uint64_t)ht[0]); \
