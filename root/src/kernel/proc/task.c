@@ -104,8 +104,6 @@ int task_send_child_event(pid_t pid, struct child_event_t *child_event) {
 int kill(pid_t pid, int signal) {
     spinlock_acquire(&scheduler_lock);
     struct process_t *process = process_table[pid];
-    pid_t current_tid = cpu_locals[current_cpu].current_thread;
-    pid_t current_pid = cpu_locals[current_cpu].current_process;
     spinlock_release(&scheduler_lock);
 
     kprint(0, "kernel: delivering %s to PID %d", signames[signal], pid);
