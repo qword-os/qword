@@ -1,14 +1,12 @@
 #ifndef __RAND_H__
 #define __RAND_H__
 
-#include <limits.h>
 #include <stdint.h>
 
-#define RAND_MAX (INT_MAX)
-
 void init_rand(void);
-int rand(void);
-void srand(uint64_t);
+uint32_t rand32(void);
+uint64_t rand64(void);
+void srand(uint32_t);
 
 #define rdrand_supported ({ \
     int ret; \

@@ -104,7 +104,7 @@ out: \
     spinlock_acquire(&hashtable##_lock); \
     type **ht = hashtable; \
     if (!ht[0]) \
-        while (!(ht[0] = (void *)rand())); \
+        while (!(ht[0] = (void *)rand64())); \
         \
     for (;;) { \
         uint64_t hash = ht_hash_str(element->name, (uint64_t)ht[0]); \
@@ -127,7 +127,7 @@ out: \
             type *old_elem = ht[hash]; \
             ht[hash] = (void *)((size_t)new_ht + 1); \
             ht = new_ht; \
-            while (!(ht[0] = (void *)rand())); \
+            while (!(ht[0] = (void *)rand64())); \
             uint64_t old_elem_hash = ht_hash_str(old_elem->name, (uint64_t)ht[0]); \
             ht[old_elem_hash] = old_elem; \
             continue; \

@@ -2,35 +2,73 @@
 #include <lib/klib.h>
 #include <lib/lock.h>
 
-static uint64_t seed;
-
 void init_rand(void) {
+    uint32_t seed = ((uint32_t)0xc597060c * rdtsc(uint32_t))
+                  * ((uint32_t)0xce86d624)
+                  ^ ((uint32_t)0xee0da130 * rdtsc(uint32_t));
+
     if (!rdrand_supported) {
-        kprint(KPRN_WARN, "kernel: rdrand instruction not supported");
-        seed = rdtsc(uint64_t);
-        srand(0x948f2a057ef959b7ULL);
+        kprint(KPRN_INFO, "rand: rdrand instruction not supported");
+        srand(seed);
     } else {
-        seed = rdrand(uint64_t);
-        srand(rdrand(uint64_t));
+        kprint(KPRN_INFO, "rand: rdrand instruction supported");
+        seed *= (seed ^ rdrand(uint32_t));
+        srand(seed);
     }
 }
 
-// *Really* minimal PCG32 code / (c) 2014 M.E. O'Neill / pcg-random.org
-// Licensed under Apache License 2.0 (NO WARRANTY, etc. see website)
-// source: http://www.pcg-random.org/download.html
+#define n ((int)624)
+#define m ((int)397)
+#define matrix_a ((uint32_t)0x9908b0df)
+#define msb ((uint32_t)0x80000000)
+#define lsbs ((uint32_t)0x7fffffff)
 
-static uint64_t inc = 0;
+static uint32_t status[n];
+static int ctr;
 
-int rand(void) {
-    uint64_t oldstate = locked_read(uint64_t, &seed);
-    // Advance internal state
-    locked_write(uint64_t, &seed, oldstate * 6364136223846793005ULL + (inc|1));
-    // Calculate output function (XSH RR), uses old state for max ILP
-    uint32_t xorshifted = ((oldstate >> 18u) ^ oldstate) >> 27u;
-    uint32_t rot = oldstate >> 59u;
-    return (int)((xorshifted >> rot) | (xorshifted << ((-rot) & 31)));
+static lock_t rand_lock = new_lock;
+
+void srand(uint32_t s) {
+    spinlock_acquire(&rand_lock);
+    status[0] = s;
+    for (ctr = 1; ctr < n; ctr++)
+        status[ctr] = (1812433253 * (status[ctr - 1] ^ (status[ctr - 1] >> 30)) + ctr);
+    spinlock_release(&rand_lock);
 }
 
-void srand(uint64_t c) {
-    locked_write(uint64_t, &inc, c);
+uint32_t rand32(void) {
+    spinlock_acquire(&rand_lock);
+
+    const uint32_t mag01[2] = {0, matrix_a};
+
+    if (ctr >= n) {
+        for (int kk = 0; kk < n - m; kk++) {
+            uint32_t y = (status[kk] & msb) | (status[kk + 1] & lsbs);
+            status[kk] = status[kk + m] ^ (y >> 1) ^ mag01[y & 1];
+        }
+
+        for (int kk = n - m; kk < n - 1; kk++) {
+            uint32_t y = (status[kk] & msb) | (status[kk + 1] & lsbs);
+            status[kk] = status[kk + (m - n)] ^ (y >> 1) ^ mag01[y & 1];
+        }
+
+        uint32_t y = (status[n - 1] & msb) | (status[0] & lsbs);
+        status[n - 1] = status[m - 1] ^ (y >> 1) ^ mag01[y & 1];
+
+        ctr = 0;
+    }
+
+    uint32_t res = status[ctr++];
+
+    res ^= (res >> 11);
+    res ^= (res << 7) & 0x9d2c5680;
+    res ^= (res << 15) & 0xefc60000;
+    res ^= (res >> 18);
+
+    spinlock_release(&rand_lock);
+    return res;
+}
+
+uint64_t rand64(void) {
+    return (((uint64_t)rand32()) << 32) | (uint64_t)rand32();
 }

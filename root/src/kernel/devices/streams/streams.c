@@ -19,7 +19,7 @@ static int urandom_read(int unused1, void *buf, uint64_t unused2, size_t count) 
     uint8_t *buf1 = buf;
 
     for (size_t i = 0; i < count; i++)
-        buf1[i] = (uint8_t)(rand() % 0x100);
+        buf1[i] = (uint8_t)(rand32() % 0x100);
 
     return count;
 }
