@@ -60,18 +60,22 @@ void init_idt(void) {
         (uint64_t)idt
     };
 
-    asm volatile("lidt %0" : : "m" (idt_ptr));
+    asm volatile (
+        "lidt %0"
+        :
+        : "m" (idt_ptr)
+    );
 }
 
 int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t ist, uint8_t type) {
     uint64_t p = (uint64_t)handler;
 
-    idt[vec].offset_lo = (p & 0xffff);
+    idt[vec].offset_lo = (uint16_t)p;
     idt[vec].selector = 0x08;
     idt[vec].ist = ist;
     idt[vec].type_attr = type;
-    idt[vec].offset_mid = ((p & 0xffff0000) >> 16);
-    idt[vec].offset_hi = ((p & 0xffffffff00000000) >> 32);
+    idt[vec].offset_mid = (uint16_t)(p >> 16);
+    idt[vec].offset_hi = (uint32_t)(p >> 32);
     idt[vec].zero = 0;
 
     return 0;
