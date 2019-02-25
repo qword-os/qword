@@ -88,6 +88,21 @@ void leave_syscall(void) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_futex_wait(struct regs_t *regs) {
+    int *ptr = (int *)regs->rdi;
+    int expected = (int)regs->rsi;
+
+    kprint(0, "futex_wait(%X, %d);", ptr, expected);
+    return 0;
+}
+
+int syscall_futex_wake(struct regs_t *regs) {
+    int *ptr = (int *)regs->rdi;
+
+    kprint(0, "futex_wake(%X);", ptr);
+    return 0;
+}
+
 int syscall_sigaction(struct regs_t *regs) {
     int signum = (int)regs->rdi;
     struct sigaction *act = (void *)regs->rsi;

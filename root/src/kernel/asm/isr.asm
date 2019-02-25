@@ -308,6 +308,10 @@ syscall_table:
     dq syscall_tcflow ;30
     extern syscall_isatty
     dq syscall_isatty ;31
+    extern syscall_futex_wait
+    dq syscall_futex_wait ;32
+    extern syscall_futex_wake
+    dq syscall_futex_wake ;33
   .end:
 
 section .text
