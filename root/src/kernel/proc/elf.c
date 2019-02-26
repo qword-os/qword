@@ -94,7 +94,7 @@ int elf_load(int fd, struct pagemap_t *pagemap, size_t base, struct auxval_t *au
         for (size_t j = 0; j < page_count; j++) {
             size_t virt = base + phdr[i].p_vaddr + (j * PAGE_SIZE);
             size_t phys = (size_t)addr + (j * PAGE_SIZE);
-            map_page(pagemap, phys, virt, pf);
+            map_page(pagemap, phys, virt, pf, VMM_ATTR_REG);
         }
 
         ret = lseek(fd, phdr[i].p_offset, SEEK_SET);

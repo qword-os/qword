@@ -57,7 +57,7 @@ void init_sched(void) {
     if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(struct thread_t *))) == 0) {
         panic("sched: Unable to allocate space for kernel threads.", 0, 0, NULL);
     }
-    process_table[0]->pagemap = &kernel_pagemap;
+    process_table[0]->pagemap = kernel_pagemap;
     process_table[0]->pid = 0;
 
     kprint(KPRN_INFO, "sched: Init done.");
@@ -241,7 +241,7 @@ __attribute__((noinline)) static void idle(void) {
         "mov rsp, qword ptr gs:[8];"
         "jmp _idle;"
         :
-        : "a" ((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET)
+        : "a" ((size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET)
     );
     /* Dead call so GCC doesn't garbage collect _idle */
     _idle();
@@ -433,7 +433,7 @@ found_new_pid:
 }
 
 void abort_thread_exec(size_t scheduler_not_locked) {
-    load_cr3((size_t)kernel_pagemap.pml4 - MEM_PHYS_OFFSET);
+    load_cr3((size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET);
 
     int _current_cpu = current_cpu;
 
@@ -714,7 +714,8 @@ found_new_task_id:;
             map_page(process_table[pid]->pagemap,
                      (size_t)(stack_pm + (i * PAGE_SIZE)),
                      (size_t)(stack_bottom + (i * PAGE_SIZE)),
-                     pid ? 0x07 : 0x03);
+                     pid ? 0x07 : 0x03,
+                     VMM_ATTR_REG);
         }
         /* Add a guard page */
         unmap_page(process_table[pid]->pagemap, stack_guardpage);

@@ -135,10 +135,11 @@ void kmain(void) {
     /* Memory-related stuff */
     init_e820();
     init_pmm();
+    init_alloc();
+    init_rand();
     init_vmm();
 
     /* Early inits */
-    init_rand();
     early_init_vbe();
 
     /* Time stuff */

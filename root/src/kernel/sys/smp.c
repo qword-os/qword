@@ -66,7 +66,7 @@ static void ap_kernel_entry(void) {
 
 static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
     /* Set up stack guard page */
-    unmap_page(&kernel_pagemap, (size_t)&cpu_stacks[cpu_number].guard_page[0]);
+    unmap_page(kernel_pagemap, (size_t)&cpu_stacks[cpu_number].guard_page[0]);
 
     /* Prepare CPU local */
     cpu_locals[cpu_number].cpu_number = cpu_number;
@@ -94,7 +94,7 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     struct tss_t *tss = &cpu_tss[cpu_number];
     uint8_t *stack = &cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
 
-    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap.pml4,
+    void *trampoline = smp_prepare_trampoline(ap_kernel_entry, (void *)kernel_pagemap->pml4,
                                               stack, cpu_local, tss);
 
     /* Send the INIT IPI */

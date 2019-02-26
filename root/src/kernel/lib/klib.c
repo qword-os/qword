@@ -11,7 +11,7 @@
 
 static const char *base_digits = "0123456789abcdef";
 
-char *prefixed_itoa(const char *prefix, int n, int base) {
+char *prefixed_itoa(const char *prefix, int64_t n, int base) {
     int prefix_len = kstrlen(prefix);
     char *final_buf = kalloc(prefix_len + 1);
     kstrcpy(final_buf, prefix);
@@ -65,6 +65,15 @@ char *kstrcpy(char *dest, const char *src) {
         dest[i] = src[i];
 
     dest[i] = 0;
+
+    return dest;
+}
+
+char *kstrncpy(char *dest, const char *src, size_t cnt) {
+    size_t i = 0;
+
+    for (i = 0; i < cnt; i++)
+        dest[i] = src[i];
 
     return dest;
 }

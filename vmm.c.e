@@ -5,10 +5,10 @@
 #include <lib/alloc.h>
 #include <sys/e820.h>
 #include <lib/lock.h>
+#include <lib/ht.h>
 #include <sys/panic.h>
 
-static struct pagemap_t __kp;
-struct pagemap_t *kernel_pagemap = &__kp;
+struct pagemap_t *kernel_pagemap;
 
 static inline size_t entries_to_virt_addr(size_t pml4_entry,
                                    size_t pdpt_entry,
@@ -33,40 +33,38 @@ struct pagemap_t *new_address_space(void) {
         kfree(new_pagemap);
         return NULL;
     }
+    if (ht_init(new_pagemap->page_attributes)) {
+        pmm_free(new_pagemap->pml4, 1);
+        kfree(new_pagemap);
+        return NULL;
+    }
     new_pagemap->pml4 = (void *)((size_t)new_pagemap->pml4 + MEM_PHYS_OFFSET);
     new_pagemap->lock = new_lock;
     return new_pagemap;
 }
 
 void free_address_space(struct pagemap_t *pagemap) {
-    pt_entry_t *pdpt;
-    pt_entry_t *pd;
-    pt_entry_t *pt;
-
     spinlock_acquire(&pagemap->lock);
 
-    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
-        if (pagemap->pml4[i] & 1) {
-            pdpt = (pt_entry_t *)((pagemap->pml4[i] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
-                if (pdpt[j] & 1) {
-                    pd = (pt_entry_t *)((pdpt[j] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
-                        if (pd[k] & 1) {
-                            pt = (pt_entry_t *)((pd[k] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
-                                if (pt[l] & 1)
-                                    pmm_free((void *)(pt[l] & 0xfffffffffffff000), 1);
-                            }
-                            pmm_free((void *)(pd[k] & 0xfffffffffffff000), 1);
-                        }
-                    }
-                    pmm_free((void *)(pdpt[j] & 0xfffffffffffff000), 1);
-                }
-            }
-            pmm_free((void *)(pagemap->pml4[i] & 0xfffffffffffff000), 1);
+    size_t total_mapped_pages;
+    struct page_attributes_t **pas =
+        ht_dump(struct page_attributes_t, pagemap->page_attributes, &total_mapped_pages);
+
+    for (size_t i = 0; i < total_mapped_pages; i++) {
+        switch (pas[i]->attr) {
+            case VMM_ATTR_REG:
+                pmm_free((void *)pas[i]->phys_addr, 1);
+                unmap_page(pagemap,
+                           pas[i]->virt_addr);
+                break;
+            case VMM_ATTR_SHARED:
+                unmap_page(pagemap,
+                           pas[i]->virt_addr);
+                break;
         }
     }
+
+    kfree(pas);
 
     pmm_free((void *)pagemap->pml4 - MEM_PHYS_OFFSET, 1);
     kfree(pagemap);
@@ -76,10 +74,6 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
     /* Allocate the new pagemap */
     struct pagemap_t *new_pagemap = new_address_space();
 
-    pt_entry_t *pdpt;
-    pt_entry_t *pd;
-    pt_entry_t *pt;
-
     struct {
         uint8_t data[PAGE_SIZE];
     } *pool;
@@ -88,52 +82,71 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
     pool = pmm_alloc(pool_size);
     size_t pool_ptr = 0;
 
-    /* Map and copy all used pages */
-    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
-        if (old_pagemap->pml4[i] & 1) {
-            pdpt = (pt_entry_t *)((old_pagemap->pml4[i] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
-                if (pdpt[j] & 1) {
-                    pd = (pt_entry_t *)((pdpt[j] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
-                        if (pd[k] & 1) {
-                            pt = (pt_entry_t *)((pd[k] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
-                                if (pt[l] & 1) {
-                                    /* FIXME find a way to expand the pool instead of dying */
-                                    if (pool_ptr == pool_size)
-                                        panic("Fork memory pool exhausted", 0, 0, NULL);
-                                    size_t new_page = (size_t)&pool[pool_ptr++];
-                                    kmemcpy64((char *)(new_page + MEM_PHYS_OFFSET),
-                                            (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
-                                            PAGE_SIZE);
-                                    map_page(new_pagemap,
-                                             new_page,
-                                             entries_to_virt_addr(i, j, k, l),
-                                             (pt[l] & 0xfff),0);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+    spinlock_acquire(&old_pagemap->lock);
+    size_t total_mapped_pages;
+    struct page_attributes_t **pas =
+        ht_dump(struct page_attributes_t, old_pagemap->page_attributes, &total_mapped_pages);
+
+    for (size_t i = 0; i < total_mapped_pages; i++) {
+        switch (pas[i]->attr) {
+            case VMM_ATTR_REG:
+                /* FIXME find a way to expand the pool instead of dying */
+                if (pool_ptr == pool_size)
+                    panic("Fork memory pool exhausted", 0, 0, NULL);
+                size_t new_page = (size_t)&pool[pool_ptr++];
+                kmemcpy64((char *)(new_page + MEM_PHYS_OFFSET),
+                          (char *)(pas[i]->phys_addr + MEM_PHYS_OFFSET),
+                          PAGE_SIZE);
+                map_page(new_pagemap,
+                         new_page,
+                         pas[i]->virt_addr,
+                         pas[i]->flags,
+                         pas[i]->attr);
+                break;
+            case VMM_ATTR_SHARED:
+                map_page(new_pagemap,
+                         pas[i]->phys_addr,
+                         pas[i]->virt_addr,
+                         pas[i]->flags,
+                         pas[i]->attr);
+                break;
         }
     }
 
-    pmm_free(pool + pool_ptr, pool_size - pool_ptr);
+    kfree(pas);
+    spinlock_release(&old_pagemap->lock);
 
-    /* Map kernel into higher half */
-    for (size_t i = PAGE_TABLE_ENTRIES / 2; i < PAGE_TABLE_ENTRIES; i++) {
-        new_pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
-    }
+    pmm_free(pool + pool_ptr, pool_size - pool_ptr);
 
     return new_pagemap;
 }
 
 /* map physaddr -> virtaddr using pml4 pointer */
 /* Returns 0 on success, -1 on failure */
-int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size_t flags, int a) {
+int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size_t flags, int attr) {
     spinlock_acquire(&pagemap->lock);
+
+    struct page_attributes_t *pa = kalloc(sizeof(struct page_attributes_t));
+    if (!pa) {
+        spinlock_release(&pagemap->lock);
+        return -1;
+    }
+
+    char *h = prefixed_itoa("", (int64_t)virt_addr, 16);
+kprint(0, h);
+    kstrcpy(pa->name, h);
+    kfree(h);
+    pa->attr = attr;
+    pa->refcount = 1;
+    pa->phys_addr = phys_addr;
+    pa->virt_addr = virt_addr;
+    pa->flags = flags;
+
+    if (ht_add(struct page_attributes_t, pagemap->page_attributes, pa)) {
+        kfree(pa);
+        spinlock_release(&pagemap->lock);
+        return -1;
+    }
 
     /* Calculate the indices in the various tables using the virtual address */
     size_t pml4_entry = (virt_addr & ((size_t)0x1ff << 39)) >> 39;
@@ -364,23 +377,20 @@ fail:
 /* Then use the e820 to map all the available memory (saves on allocation time and it's easier) */
 /* The physical memory is mapped at the beginning of the higher half (entry 256 of the pml4) onwards */
 void init_vmm(void) {
-    kernel_pagemap->pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
-    if ((size_t)kernel_pagemap->pml4 == MEM_PHYS_OFFSET)
-        panic("init_vmm failure", 0, 0, NULL);
-
-    spinlock_release(&kernel_pagemap->lock);
-
     kprint(KPRN_INFO, "vmm: Mapping memory as specified by the e820...");
+
+    kernel_pagemap = new_address_space();
 
     /* Identity map the first 32 MiB */
     /* Map 32 MiB for the phys mem area, and 32 MiB for the kernel in the higher half */
     for (size_t i = 0; i < (0x2000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
-        map_page(kernel_pagemap, addr, addr, 0x03, 0);
-        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
-        map_page(kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03, 0);
+        map_page(kernel_pagemap, addr, addr, 0x03, VMM_ATTR_SHARED);
+        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, VMM_ATTR_SHARED);
+        map_page(kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03, VMM_ATTR_SHARED);
     }
 
+kprint(0, "1");
     /* Reload new pagemap */
     asm volatile (
         "mov cr3, rax;"
@@ -388,13 +398,15 @@ void init_vmm(void) {
         : "a" ((size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET)
     );
 
+kprint(0, "2");
     /* Forcefully map the first 4 GiB for I/O into the higher half */
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
 
-        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
+        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, VMM_ATTR_SHARED);
     }
 
+kprint(0, "3");
     /* Map the rest according to e820 into the higher half */
     for (size_t i = 0; e820_map[i].type; i++) {
         size_t aligned_base = e820_map[i].base - (e820_map[i].base % PAGE_SIZE);
@@ -409,7 +421,7 @@ void init_vmm(void) {
             if (addr < 0x100000000)
                 continue;
 
-            map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
+            map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, VMM_ATTR_SHARED);
         }
     }
 

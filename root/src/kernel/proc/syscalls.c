@@ -656,7 +656,8 @@ void *syscall_alloc_at(struct regs_t *regs) {
         return (void *)0;
     }
     for (size_t i = 0; i < regs->rsi; i++) {
-        if (map_page(process->pagemap, (size_t)ptr + i * PAGE_SIZE, base_address + i * PAGE_SIZE, 0x07)) {
+        if (map_page(process->pagemap, (size_t)ptr + i * PAGE_SIZE,
+            base_address + i * PAGE_SIZE, 0x07, VMM_ATTR_REG)) {
             pmm_free(ptr, regs->rsi);
             errno = ENOMEM;
             return (void *)0;

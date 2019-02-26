@@ -116,7 +116,7 @@ modeset:
             /* Make the framebuffer write-combining */
             size_t fb_pages = ((vbe_pitch * vbe_height) + PAGE_SIZE - 1) / PAGE_SIZE;
             for (size_t i = 0; i < fb_pages; i++) {
-                remap_page(&kernel_pagemap, (size_t)vbe_framebuffer + i * PAGE_SIZE, 0x03 | (1 << 7) | (1 << 3));
+                remap_page(kernel_pagemap, (size_t)vbe_framebuffer + i * PAGE_SIZE, 0x03 | (1 << 7) | (1 << 3));
             }
             goto success;
         }

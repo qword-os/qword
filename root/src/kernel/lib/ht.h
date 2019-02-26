@@ -29,7 +29,7 @@ static inline uint64_t ht_hash_str(const char *str, uint64_t seed) {
     ret; \
 })
 
-static void **__ht_dump(void **ht, void **buf, size_t *size) {
+__attribute__((unused)) static void **__ht_dump(void **ht, void **buf, size_t *size) {
     for (size_t i = 1; i < ENTRIES_PER_HASHING_LEVEL; i++) {
         if (!ht[i]) {
             continue;

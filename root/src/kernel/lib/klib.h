@@ -46,10 +46,11 @@ int exec(pid_t, const char *, const char **, const char **);
 pid_t kexec(const char *, const char **, const char **,
             const char *, const char *, const char *);
 
-char *prefixed_itoa(const char *, int, int);
+char *prefixed_itoa(const char *, int64_t, int);
 int ktolower(int);
 char *kstrchrnul(const char *, int);
 char *kstrcpy(char *, const char *);
+char *kstrncpy(char *, const char *, size_t);
 size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);
 int kstrncmp(const char *, const char *, size_t);
