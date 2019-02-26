@@ -135,7 +135,7 @@ void kmain(void) {
     /* Memory-related stuff */
     init_e820();
     init_pmm();
-    init_alloc();
+    //init_alloc();
     init_rand();
     init_vmm();
 

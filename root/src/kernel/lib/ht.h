@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <lib/alloc.h>
+#include <mm/mm.h>
 #include <lib/lock.h>
 #include <lib/rand.h>
 
@@ -55,11 +56,12 @@ __attribute__((unused)) static void **__ht_dump(void **ht, void **buf, size_t *s
 #define ht_init(hashtable) ({ \
     __label__ out; \
     int ret = 0; \
-    hashtable = kalloc(ENTRIES_PER_HASHING_LEVEL * sizeof(void *)); \
+    hashtable = pmm_allocz((ENTRIES_PER_HASHING_LEVEL * sizeof(void *)) / PAGE_SIZE); \
     if (!hashtable) { \
         ret = -1; \
         goto out; \
     } \
+    hashtable = (void *)hashtable + MEM_PHYS_OFFSET; \
     hashtable##_lock = new_lock; \
     while (!(hashtable[0] = (void *)rand64())); \
 out: \
@@ -118,11 +120,12 @@ out: \
                 ret = -1; \
                 goto out; \
             } \
-            type **new_ht = kalloc(ENTRIES_PER_HASHING_LEVEL * sizeof(void *)); \
+            type **new_ht = pmm_allocz((ENTRIES_PER_HASHING_LEVEL * sizeof(void *)) / PAGE_SIZE); \
             if (!new_ht) { \
                 ret = -1; \
                 goto out; \
             } \
+            new_ht = (void *)new_ht + MEM_PHYS_OFFSET; \
             type *old_elem = ht[hash]; \
             ht[hash] = (void *)((size_t)new_ht + 1); \
             ht = new_ht; \
