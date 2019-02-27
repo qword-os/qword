@@ -17,7 +17,7 @@
 typedef uint64_t pt_entry_t;
 
 struct page_attributes_t {
-    char name[18];
+    uint64_t value;
     int attr;
     int refcount;
     size_t phys_addr;
@@ -29,6 +29,7 @@ struct pagemap_t {
     ht_new(struct page_attributes_t, page_attributes);
     pt_entry_t *pml4;
     lock_t lock;
+    int dead;
 };
 
 extern struct pagemap_t *kernel_pagemap;
