@@ -32,7 +32,7 @@ tar -xf $PKG_TARBALL
 cd $PKG_ARCHIVE_DIR
 patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
 
-mkdir build && cd build
-../configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=$QWORD_ROOT --disable-werror
+cd .. && mkdir build-binutils && cd build-binutils
+../$PKG_ARCHIVE_DIR/configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=/ --disable-werror
 make "$@"
 make DESTDIR=$QWORD_ROOT install
