@@ -131,7 +131,11 @@ out: \
 })
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define ht_remove(type, hashtable, nname) ({ \
+=======
+#define hti_get(type, hashtable, vvalue) ({ \
+>>>>>>> Sorta stable
 =======
 #define hti_get(type, hashtable, vvalue) ({ \
 >>>>>>> Sorta stable
@@ -142,7 +146,11 @@ out: \
     type **ht = hashtable; \
     for (;;) { \
 <<<<<<< HEAD
+<<<<<<< HEAD
         uint64_t hash = ht_hash_str(nname, (uint64_t)ht[0]); \
+=======
+        uint64_t hash = ht_hash_u64((uint64_t)(vvalue), (uint64_t)ht[0]); \
+>>>>>>> Sorta stable
 =======
         uint64_t hash = ht_hash_u64((uint64_t)(vvalue), (uint64_t)ht[0]); \
 >>>>>>> Sorta stable
@@ -154,7 +162,11 @@ out: \
             continue; \
         } else { \
 <<<<<<< HEAD
+<<<<<<< HEAD
             if (strcmp(nname, ((type **)ht)[hash]->name)) { \
+=======
+            if (vvalue != [hash]->value) { \
+>>>>>>> Sorta stable
 =======
             if (vvalue != [hash]->value) { \
 >>>>>>> Sorta stable
@@ -163,7 +175,10 @@ out: \
             } \
             ret = ht[hash]; \
 <<<<<<< HEAD
+<<<<<<< HEAD
             ht[hash] = 0; \
+=======
+>>>>>>> Sorta stable
 =======
 >>>>>>> Sorta stable
             goto out; \
