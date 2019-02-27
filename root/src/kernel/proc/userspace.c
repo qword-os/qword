@@ -68,11 +68,6 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
         entry = ld_auxval.at_entry;
     }
 
-    /* Map the higher half into the process */
-    for (size_t i = 256; i < 512; i++) {
-        new_pagemap->pml4[i] = process_table[0]->pagemap->pml4[i];
-    }
-
     /* Destroy all previous threads */
     for (size_t i = 0; i < MAX_THREADS; i++)
         task_tkill(pid, i);
