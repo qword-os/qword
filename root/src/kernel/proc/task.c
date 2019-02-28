@@ -407,8 +407,8 @@ found_new_pid:
 
     new_process->perfmon_lock = new_lock;
 
-    kmemset(&new_process->own_usage, 0, sizeof(struct rusage_t));
-    kmemset(&new_process->child_usage, 0, sizeof(struct rusage_t));
+    memset(&new_process->own_usage, 0, sizeof(struct rusage_t));
+    memset(&new_process->child_usage, 0, sizeof(struct rusage_t));
     new_process->usage_lock = new_lock;
 
     /* Create a new pagemap for the process */
@@ -737,7 +737,7 @@ found_new_task_id:;
         new_thread->ctx.regs.rip = (size_t)data->entry;
     }
 
-    kmemcpy(new_thread->ctx.fxstate, default_fxstate, 512);
+    memcpy(new_thread->ctx.fxstate, default_fxstate, 512);
 
     new_thread->tid = new_tid;
     new_thread->task_id = new_task_id;

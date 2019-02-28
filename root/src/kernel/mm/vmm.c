@@ -104,7 +104,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                                     if (pool_ptr == pool_size)
                                         panic("Fork memory pool exhausted", 0, 0, NULL);
                                     size_t new_page = (size_t)&pool[pool_ptr++];
-                                    kmemcpy64((char *)(new_page + MEM_PHYS_OFFSET),
+                                    memcpy64((char *)(new_page + MEM_PHYS_OFFSET),
                                             (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
                                             PAGE_SIZE);
                                     map_page(new_pagemap,

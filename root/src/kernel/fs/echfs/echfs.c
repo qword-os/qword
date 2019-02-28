@@ -401,7 +401,7 @@ static int echfs_read(int handle, void *buf, size_t count) {
         if (chunk > mnt->bytesperblock - offset)
             chunk = mnt->bytesperblock - offset;
 
-        kmemcpy(buf + progress, &cached_file->cached_blocks[slot].cache[offset], chunk);
+        memcpy(buf + progress, &cached_file->cached_blocks[slot].cache[offset], chunk);
         progress += chunk;
     }
 
@@ -455,7 +455,7 @@ static int echfs_write(int handle, const void *buf, size_t count) {
         if (chunk > mnt->bytesperblock - offset)
             chunk = mnt->bytesperblock - offset;
 
-        kmemcpy(&cached_file->cached_blocks[slot].cache[offset], buf + progress, chunk);
+        memcpy(&cached_file->cached_blocks[slot].cache[offset], buf + progress, chunk);
         cached_file->cached_blocks[slot].status = CACHE_DIRTY;
         cached_file->changed_cache = 1;
         progress += chunk;

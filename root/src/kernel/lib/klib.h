@@ -56,12 +56,12 @@ int kstrcmp(const char *, const char *);
 int kstrncmp(const char *, const char *, size_t);
 void kprint(int type, const char *fmt, ...);
 
-void *kmemset(void *, int, size_t);
-void *kmemset64(void *, uint64_t, size_t);
-void *kmemcpy(void *, const void *, size_t);
-void *kmemcpy64(void *, const void *, size_t);
-int kmemcmp(const void *, const void *, size_t);
-void *kmemmove(void *, const void *, size_t);
+void *memset(void *, int, size_t);
+void *memset64(void *, uint64_t, size_t);
+void *memcpy(void *, const void *, size_t);
+void *memcpy64(void *, const void *, size_t);
+int memcmp(const void *, const void *, size_t);
+void *memmove(void *, const void *, size_t);
 
 void readline(int, const char *, char *, size_t);
 

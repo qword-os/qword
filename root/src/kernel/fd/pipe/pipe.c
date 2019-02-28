@@ -90,9 +90,9 @@ static int pipe_read(int fd, void *buf, size_t count) {
     size_t new_pipe_size = pipe->size - count;
     size_t new_pipe_size_in_steps = (new_pipe_size + PIPE_BUFFER_STEP - 1) / PIPE_BUFFER_STEP;
 
-    kmemcpy(buf, pipe->buffer, count);
+    memcpy(buf, pipe->buffer, count);
 
-    kmemmove(pipe->buffer, pipe->buffer + count, count);
+    memmove(pipe->buffer, pipe->buffer + count, count);
 
     if (new_pipe_size_in_steps < pipe_size_in_steps)
         pipe->buffer = krealloc(pipe->buffer, new_pipe_size_in_steps);
@@ -116,7 +116,7 @@ static int pipe_write(int fd, const void *buf, size_t count) {
     if (new_pipe_size_in_steps > pipe_size_in_steps)
         pipe->buffer = krealloc(pipe->buffer, new_pipe_size_in_steps);
 
-    kmemcpy(pipe->buffer + pipe->size, buf, count);
+    memcpy(pipe->buffer + pipe->size, buf, count);
 
     pipe->size = new_pipe_size;
 

@@ -106,7 +106,7 @@ void *kalloc(size_t size) {
     }
 
     // zero the memory
-    kmemset(area, 0, size);
+    memset(area, 0, size);
 
     spinlock_release(&alloc_lock);
     return area;
@@ -137,9 +137,9 @@ void *krealloc(void *addr, size_t new_size) {
     new_size = new_size & 0xf ? (new_size + 0x10) & ~((size_t)(0xf)) : new_size;
 
     if (old_size > new_size)
-        kmemcpy(new_ptr, addr, new_size);
+        memcpy(new_ptr, addr, new_size);
     else
-        kmemcpy(new_ptr, addr, old_size);
+        memcpy(new_ptr, addr, old_size);
 
     kfree(addr);
 

@@ -348,7 +348,7 @@ out:
     return;
 }
 
-void *kmemcpy(void *dest, const void *src, size_t count) {
+void *memcpy(void *dest, const void *src, size_t count) {
     size_t i = 0;
 
     uint8_t *dest2 = dest;
@@ -361,7 +361,7 @@ void *kmemcpy(void *dest, const void *src, size_t count) {
     return dest;
 }
 
-void *kmemcpy64(void *dest, const void *src, size_t count) {
+void *memcpy64(void *dest, const void *src, size_t count) {
     size_t i = 0;
 
     uint64_t *dest2 = dest;
@@ -375,7 +375,7 @@ void *kmemcpy64(void *dest, const void *src, size_t count) {
     return dest;
 }
 
-void *kmemset(void *s, int c, size_t count) {
+void *memset(void *s, int c, size_t count) {
     uint8_t *p = s, *end = p + count;
     for (; p != end; p++) {
         *p = (uint8_t)c;
@@ -384,7 +384,7 @@ void *kmemset(void *s, int c, size_t count) {
     return s;
 }
 
-void *kmemset64(void *ptr, uint64_t c, size_t count) {
+void *memset64(void *ptr, uint64_t c, size_t count) {
     uint64_t *p = ptr;
 
     for (size_t i = 0; i < count; i++) {
@@ -394,7 +394,7 @@ void *kmemset64(void *ptr, uint64_t c, size_t count) {
     return ptr;
 }
 
-void *kmemmove(void *dest, const void *src, size_t count) {
+void *memmove(void *dest, const void *src, size_t count) {
     size_t i = 0;
 
     uint8_t *dest2 = dest;
@@ -413,7 +413,7 @@ void *kmemmove(void *dest, const void *src, size_t count) {
     return dest;
 }
 
-int kmemcmp(const void *s1, const void *s2, size_t n) {
+int memcmp(const void *s1, const void *s2, size_t n) {
     const uint8_t *a = s1;
     const uint8_t *b = s2;
 

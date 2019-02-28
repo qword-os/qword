@@ -217,7 +217,7 @@ static int init_ahci_device(struct ahci_device_t *device,
     /* construct a command table and populate it */
     volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(
             ((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET));
-    kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
+    memset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
             sizeof(volatile struct hba_cmd_tbl_t) / 8);
 
     cmdtbl->prdt_entry[0].dba = (uint32_t)(size_t)identify;
@@ -225,7 +225,7 @@ static int init_ahci_device(struct ahci_device_t *device,
     cmdtbl->prdt_entry[0].i = 1;
 
     struct fis_regh2d_t *cmdfis = (struct fis_regh2d_t *)(((size_t)cmdtbl->cfis));
-    kmemset64((void *)(((size_t)(void *)cmdtbl->cfis)), 0, sizeof(struct fis_regh2d_t) / 8);
+    memset64((void *)(((size_t)(void *)cmdtbl->cfis)), 0, sizeof(struct fis_regh2d_t) / 8);
 
     cmdfis->command = cmd;
     cmdfis->c = 1;
@@ -292,7 +292,7 @@ static int ahci_rw(volatile struct hba_port_t *port,
 
     volatile struct hba_cmd_hdr_t *cmd_hdr = (volatile struct hba_cmd_hdr_t *)(
             (size_t)port->clb + MEM_PHYS_OFFSET);
-    kmemset64((void *)((size_t)port->clb + MEM_PHYS_OFFSET), 0,
+    memset64((void *)((size_t)port->clb + MEM_PHYS_OFFSET), 0,
             sizeof(volatile struct hba_cmd_hdr_t) / 8);
 
     cmd_hdr += slot;
@@ -306,7 +306,7 @@ static int ahci_rw(volatile struct hba_port_t *port,
     volatile struct hba_cmd_tbl_t *cmdtbl = (volatile struct hba_cmd_tbl_t *)(
             (size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET);
     /* ensure all entries in the command table are initialised to 0 */
-    kmemset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
+    memset64((void *)((size_t)cmd_hdr->ctba + MEM_PHYS_OFFSET), 0,
             sizeof(volatile struct hba_cmd_tbl_t) / sizeof(uint64_t));
 
     /* `buf` is guaranteed to be physically contiguous, so we only need one PRDT */
@@ -315,7 +315,7 @@ static int ahci_rw(volatile struct hba_port_t *port,
     cmdtbl->prdt_entry[0].i = 1;
 
     struct fis_regh2d_t *cmdfis = (struct fis_regh2d_t *)((size_t)cmdtbl->cfis);
-    kmemset64(cmdfis, 0, sizeof(struct fis_regh2d_t) / sizeof(uint64_t));
+    memset64(cmdfis, 0, sizeof(struct fis_regh2d_t) / sizeof(uint64_t));
 
     /* Setup the command FIS according to whether the command is read or
      * write */
@@ -455,7 +455,7 @@ static int ahci_read(int drive, void *buf, uint64_t loc, size_t count) {
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        kmemcpy(buf + progress, &ahci_devices[drive].cache[slot].cache[offset], chunk);
+        memcpy(buf + progress, &ahci_devices[drive].cache[slot].cache[offset], chunk);
         progress += chunk;
     }
 
@@ -484,7 +484,7 @@ static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count) {
         if (chunk > BYTES_PER_BLOCK - offset)
             chunk = BYTES_PER_BLOCK - offset;
 
-        kmemcpy(&ahci_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
+        memcpy(&ahci_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
         ahci_devices[drive].cache[slot].status = CACHE_DIRTY;
         progress += chunk;
     }

@@ -71,13 +71,13 @@ static int perfmon_read(int fd, void *buf, size_t count) {
     }
 
     struct perfstats ps;
-    kmemset(&ps, 0, sizeof(struct perfstats));
+    memset(&ps, 0, sizeof(struct perfstats));
     ps.cpu_time = perfmon->cpu_time;
     ps.syscall_time = perfmon->syscall_time;
     ps.mman_time = perfmon->mman_time;
     ps.io_time = perfmon->io_time;
 
-    kmemcpy(buf, &ps, sizeof(struct perfstats));
+    memcpy(buf, &ps, sizeof(struct perfstats));
     return sizeof(struct perfstats);
 }
 

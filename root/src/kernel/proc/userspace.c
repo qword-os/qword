@@ -79,7 +79,7 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
 
     // Map the sig ret trampoline into process
     void *trampoline_ptr = pmm_allocz(1);
-    kmemcpy(trampoline_ptr + MEM_PHYS_OFFSET,
+    memcpy(trampoline_ptr + MEM_PHYS_OFFSET,
             signal_trampoline,
             (size_t)signal_trampoline_size);
     map_page(new_pagemap,

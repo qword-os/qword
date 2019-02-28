@@ -290,7 +290,7 @@ static struct rr_px load_rr_px(const char *sysarea, int length) {
     if (pos - 1 == length)
         return res;
 
-    kmemcpy(&res, sysarea + pos, sizeof(struct rr_px));
+    memcpy(&res, sysarea + pos, sizeof(struct rr_px));
     return res;
 }
 
@@ -306,7 +306,7 @@ static struct rr_pn load_rr_pn(const char *sysarea, int length) {
     if (pos - 1 == length)
         return res;
 
-    kmemcpy(&res, sysarea + pos, sizeof(struct rr_pn));
+    memcpy(&res, sysarea + pos, sizeof(struct rr_pn));
     return res;
 }
 
@@ -322,7 +322,7 @@ static char *load_rr_tf(const char *sysarea, int length) {
         return NULL;
 
     char *res = kalloc(sysarea[pos + 2]);
-    kmemcpy(res, sysarea + pos, sysarea[pos + 2]);
+    memcpy(res, sysarea + pos, sysarea[pos + 2]);
     return res;
 }
 
@@ -366,7 +366,7 @@ static struct directory_result_t load_dir(struct mount_t *mount,
             continue;
         }
 
-        kmemcpy(result.entries + cache_loc, cache->cache + (pos % mount->block_size),
+        memcpy(result.entries + cache_loc, cache->cache + (pos % mount->block_size),
                 length);
         pos += length;
         cache_loc += length;
@@ -419,7 +419,7 @@ static char *load_name(struct directory_entry_t *entry, int *name_length) {
         /* rock ridge naming scheme */
         name_len = rrnamelen;
         buf = kalloc(name_len);
-        kmemcpy(buf, sysarea + 5, name_len);
+        memcpy(buf, sysarea + 5, name_len);
         buf[name_len] = '\0';
     } else {
         name_len = entry->name_length;
@@ -439,8 +439,8 @@ static struct path_result_t resolve_path(struct mount_t *mount,
 
     struct directory_entry_t *entry = NULL;
     struct directory_result_t current_dir = {0};
-    kmemcpy(&result.target, &mount->root_entry, sizeof(struct directory_entry_t));
-    kmemcpy(&result.parent, &mount->root_entry, sizeof(struct directory_entry_t));
+    memcpy(&result.target, &mount->root_entry, sizeof(struct directory_entry_t));
+    memcpy(&result.parent, &mount->root_entry, sizeof(struct directory_entry_t));
     if (*path =='/' && path[1] == '\0') return result;
     if (*path == '/') path++;
     do {
@@ -473,7 +473,7 @@ static struct path_result_t resolve_path(struct mount_t *mount,
                 result.rr_area = kalloc(result.rr_length);
                 unsigned char* sysarea = ((unsigned char*)entry) + sizeof(
                         struct directory_entry_t) + entry->name_length;
-                kmemcpy(result.rr_area, sysarea, result.rr_length);
+                memcpy(result.rr_area, sysarea, result.rr_length);
             }
 
             int name_length = 0;
@@ -500,7 +500,7 @@ out:
         }
 
         result.parent = result.target;
-        kmemcpy(&result.target, entry, sizeof(struct directory_entry_t));
+        memcpy(&result.target, entry, sizeof(struct directory_entry_t));
     } while(*path);
 
     return result;
@@ -578,7 +578,7 @@ static int iso9660_read(int handle, void *buf, size_t count) {
         if (chunk > mount->block_size - offset)
             chunk = mount->block_size - offset;
 
-        kmemcpy(buf + progress, mount->cache[cache].cache + offset, chunk);
+        memcpy(buf + progress, mount->cache[cache].cache + offset, chunk);
         progress += chunk;
     }
     handle_s->offset += count;
@@ -771,7 +771,7 @@ static int iso9660_mount(const char *source) {
     mount->block_size = primary_descriptor.logical_block_size.little;
     mount->path_table_size = primary_descriptor.path_table_size.little;
     mount->path_table_loc = primary_descriptor.l_path_table_location;
-    kmemcpy(&mount->root_entry, &primary_descriptor.length, 34);
+    memcpy(&mount->root_entry, &primary_descriptor.length, 34);
     mount->cache_i = 0;
     mount->cache = NULL;
 
@@ -846,7 +846,7 @@ static int iso9660_readdir(int handle, struct dirent *dir) {
     dir->d_reclen = sizeof(struct dirent);
     int name_length = 0;
     char *name = load_name(target, &name_length);
-    kmemcpy(dir->d_name, name, name_length);
+    memcpy(dir->d_name, name, name_length);
     dir->d_name[name_length] = '\0';
     if (dir->d_name[0] == '\0') {
         dir->d_name[0] = '.';

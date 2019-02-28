@@ -542,8 +542,8 @@ int syscall_fork(struct regs_t *regs) {
     free_address_space(new_process->pagemap);
 
     new_process->pagemap = new_pagemap;
-    kmemset(&new_process->own_usage, 0, sizeof(struct rusage_t));
-    kmemset(&new_process->child_usage, 0, sizeof(struct rusage_t));
+    memset(&new_process->own_usage, 0, sizeof(struct rusage_t));
+    memset(&new_process->child_usage, 0, sizeof(struct rusage_t));
 
     spinlock_acquire(&old_process->perfmon_lock);
     if (old_process->active_perfmon) {

@@ -61,9 +61,9 @@ void *krealloc(void *ptr, size_t new) {
     if (metadata->size > new)
         /* Copy all the data from the old pointer to the new pointer,
          * within the range specified by `size`. */
-        kmemcpy(new_ptr, (char *)ptr, new);
+        memcpy(new_ptr, (char *)ptr, new);
     else
-        kmemcpy(new_ptr, (char *)ptr, metadata->size);
+        memcpy(new_ptr, (char *)ptr, metadata->size);
 
     kfree(ptr);
 

@@ -159,7 +159,7 @@ static int ide_read(int drive, void *buf, uint64_t loc, size_t count) {
         if (chunk > BYTES_PER_SECT - offset)
             chunk = BYTES_PER_SECT - offset;
 
-        kmemcpy(buf + progress, &ide_devices[drive].cache[slot].cache[offset], chunk);
+        memcpy(buf + progress, &ide_devices[drive].cache[slot].cache[offset], chunk);
         progress += chunk;
     }
 
@@ -188,7 +188,7 @@ static int ide_write(int drive, const void *buf, uint64_t loc, size_t count) {
         if (chunk > BYTES_PER_SECT - offset)
             chunk = BYTES_PER_SECT - offset;
 
-        kmemcpy(&ide_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
+        memcpy(&ide_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
         ide_devices[drive].cache[slot].status = CACHE_DIRTY;
         progress += chunk;
     }
@@ -361,7 +361,7 @@ success:
         cmd_register |= (1 << 2);
         pci_write_device(pci, 0x4, cmd_register);
     }
-    kmemcpy(&dev->sector_count, &dev->identify[100], sizeof(uint64_t));
+    memcpy(&dev->sector_count, &dev->identify[100], sizeof(uint64_t));
     kprint(KPRN_INFO, "ide: Sector count: %u", dev->sector_count);
 
     kprint(KPRN_INFO, "ide: Device successfully identified!");
@@ -401,7 +401,7 @@ static int ide_read28(int disk, uint32_t sector, uint8_t *buffer) {
         return -1;
     }
 
-    kmemcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
+    memcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
     return 0;
 }
 
@@ -439,7 +439,7 @@ static int ide_read48(int disk, uint64_t sector, uint8_t *buffer) {
         return -1;
     }
 
-    kmemcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
+    memcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
     return 0;
 }
 
@@ -455,7 +455,7 @@ static int ide_write28(int disk, uint32_t sector, uint8_t *buffer) {
         port_out_b(ide_devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
 
     /* copy buffer to dma area */
-    kmemcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
+    memcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
 
     port_out_b(ide_devices[disk].sector_count_port, 1);
     port_out_b(ide_devices[disk].lba_low_port, sector & 0x000000FF);
@@ -493,7 +493,7 @@ static int ide_write48(int disk, uint64_t sector, uint8_t *buffer) {
         port_out_b(ide_devices[disk].device_port, 0x50);
 
     /* copy buffer to dma area */
-    kmemcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
+    memcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
 
     /* Sector count high byte */
     port_out_b(ide_devices[disk].sector_count_port, 0);
