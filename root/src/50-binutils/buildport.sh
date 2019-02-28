@@ -11,6 +11,7 @@ PKG_PREFIX=/usr
 
 if [ "$1" = "clean" ]; then
     rm -rf $PKG_ARCHIVE_DIR
+    rm -rf build-binutils
     exit 0
 fi
 
