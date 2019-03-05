@@ -1,0 +1,1 @@
+objdump -dS -Mintel root/src/kernel/kernel.elf
