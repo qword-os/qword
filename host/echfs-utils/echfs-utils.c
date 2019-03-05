@@ -106,8 +106,7 @@ static inline void wr_qword(uint64_t loc, uint64_t x) {
     return;
 }
 
-static inline entry_t rd_entry(uint64_t entry) {
-    entry_t res;
+static inline void rd_entry(entry_t *res, uint64_t entry) {
     uint64_t loc = (dirstart * bytesperblock) + (entry * sizeof(entry_t));
 
     if (loc >= (dirstart + dirsize) * bytesperblock) {
@@ -116,12 +115,10 @@ static inline entry_t rd_entry(uint64_t entry) {
     }
 
     fseek(image, (long)loc, SEEK_SET);
-    fread(&res, sizeof(entry_t), 1, image);
-
-    return res;
+    fread(res, sizeof(entry_t), 1, image);
 }
 
-static inline void wr_entry(uint64_t entry, entry_t entry_src) {
+static inline void wr_entry(uint64_t entry, entry_t *entry_src) {
     uint64_t loc = (dirstart * bytesperblock) + (entry * sizeof(entry_t));
 
     if (loc >= (dirstart + dirsize) * BYTES_PER_BLOCK) {
@@ -130,9 +127,7 @@ static inline void wr_entry(uint64_t entry, entry_t entry_src) {
     }
 
     fseek(image, (long)loc, SEEK_SET);
-    fwrite(&entry_src, sizeof(entry_t), 1, image);
-
-    return;
+    fwrite(entry_src, sizeof(entry_t), 1, image);
 }
 
 static uint64_t import_chain(FILE *source) {
@@ -223,8 +218,11 @@ static void export_chain(FILE *dest, entry_t src) {
 
 static uint64_t search(const char *name, uint64_t parent, uint8_t type) {
     // returns unique entry #, SEARCH_FAILURE upon failure/not found
+    uint64_t loc = (dirstart * bytesperblock);
+    fseek(image, (long)loc, SEEK_SET);
     for (uint64_t i = 0; ; i++) {
-        entry_t entry = rd_entry(i);
+        entry_t entry;
+        fread(&entry, sizeof(entry_t), 1, image);
         if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
         if (i >= (dirsize * ENTRIES_PER_BLOCK)) return SEARCH_FAILURE;  // check if past directory table
         if ((entry.parent_id == parent) && (entry.type == type) && (!strcmp(entry.name, name)))
@@ -282,13 +280,13 @@ next:
             result.failure = 1; // fail if search fails
             return result;
         }
-        parent = rd_entry(search_res);
+        rd_entry(&parent, search_res);
     } else {
         uint64_t search_res = search(name, parent.payload, type);
         if (search_res == SEARCH_FAILURE)
             result.not_found = 1;
         else {
-            result.target = rd_entry(search_res);
+            rd_entry(&result.target, search_res);
             result.target_entry = search_res;
         }
         result.parent = parent;
@@ -303,8 +301,12 @@ static inline uint64_t get_free_id(void) {
     uint64_t id = 1;
     uint64_t i;
 
+    uint64_t loc = (dirstart * bytesperblock);
+    fseek(image, (long)loc, SEEK_SET);
+
     for (i = 0; ; i++) {
-        entry_t entry = rd_entry(i);
+        entry_t entry;
+        fread(&entry, sizeof(entry_t), 1, image);
         if (!entry.parent_id)
             break;
         if ((entry.type == 1) && (entry.payload == id))
@@ -332,8 +334,11 @@ static void mkdir_cmd(int argc, char **argv) {
     }
 
     // find empty entry
+    uint64_t loc = (dirstart * bytesperblock);
+    fseek(image, (long)loc, SEEK_SET);
     for (i = 0; ; i++) {
-        entry_t entry_i = rd_entry(i);
+        entry_t entry_i;
+        fread(&entry_i, sizeof(entry_t), 1, image);
         if ((entry_i.parent_id == 0) || (entry_i.parent_id == DELETED_ENTRY))
             break;
     }
@@ -347,7 +352,7 @@ static void mkdir_cmd(int argc, char **argv) {
     if (verbose) fprintf(stdout, "writing to entry #%" PRIu64 "\n", i);
     entry.time = (uint64_t)time(NULL);
 
-    wr_entry(i, entry);
+    wr_entry(i, &entry);
 
     if (verbose) fprintf(stdout, "created directory `%s`\n", argv[3]);
 
@@ -418,12 +423,15 @@ subdir:
     entry.time = (uint64_t)time(NULL);
 
     // find empty entry
+    uint64_t loc = (dirstart * bytesperblock);
+    fseek(image, (long)loc, SEEK_SET);
     for (i = 0; ; i++) {
-        entry_t entry_i = rd_entry(i);
+        entry_t entry_i;
+        fread(&entry_i, sizeof(entry_t), 1, image);
         if ((entry_i.parent_id == 0) || (entry_i.parent_id == DELETED_ENTRY))
             break;
     }
-    wr_entry(i, entry);
+    wr_entry(i, &entry);
 
     fclose(source);
     if (verbose) fprintf(stdout, "imported file `%s` as `%s`\n", argv[3], argv[4]);
@@ -477,11 +485,13 @@ static void ls_cmd(int argc, char **argv) {
 
     if (verbose) fprintf(stdout, "  ---- ls ----\n");
 
-    for (uint64_t i = 0; rd_entry(i).parent_id; i++) {
-        if (rd_entry(i).parent_id != id) continue;
-        if (rd_entry(i).type == DIRECTORY_TYPE) fputc('[', stdout);
-        fputs(rd_entry(i).name, stdout);
-        if (rd_entry(i).type == DIRECTORY_TYPE) fputc(']', stdout);
+    entry_t entryy;
+    rd_entry(&entryy, id);
+    for (uint64_t i = 0; entryy.parent_id; i++) {
+        if (entryy.parent_id != id) continue;
+        if (entryy.type == DIRECTORY_TYPE) fputc('[', stdout);
+        fputs(entryy.name, stdout);
+        if (entryy.type == DIRECTORY_TYPE) fputc(']', stdout);
         fputc('\n', stdout);
     }
 
