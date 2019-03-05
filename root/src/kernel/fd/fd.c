@@ -126,6 +126,14 @@ int write(int fd, const void *buf, size_t len) {
     return ret;
 }
 
+int unlink(int fd) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.unlink(intern_fd);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
 int lseek(int fd, off_t offset, int type) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
     int intern_fd = fd_ptr->intern_fd;

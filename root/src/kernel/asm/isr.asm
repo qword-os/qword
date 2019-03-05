@@ -312,6 +312,8 @@ syscall_table:
     dq syscall_futex_wait ;32
     extern syscall_futex_wake
     dq syscall_futex_wake ;33
+    extern syscall_unlink
+    dq syscall_unlink ;34
   .end:
 
 section .text

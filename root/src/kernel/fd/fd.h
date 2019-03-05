@@ -101,6 +101,7 @@ struct fd_handler_t {
     int (*getflflags)(int);
     int (*setflflags)(int, int);
     int (*perfmon_attach)(int);
+    int (*unlink)(int);
 };
 
 struct file_descriptor_t {
@@ -114,6 +115,7 @@ int close(int);
 int fstat(int, struct stat *);
 int read(int, void *, size_t);
 int write(int, const void *, size_t);
+int unlink(int);
 int lseek(int, off_t, int);
 int dup(int);
 int readdir(int, struct dirent *);
@@ -202,6 +204,11 @@ __attribute__((unused)) static int bogus_isatty() {
     return 0;
 }
 
+__attribute__((unused)) static int bogus_unlink() {
+    errno = EINVAL;
+    return -1;
+}
+
 __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_close,
     (void *)bogus_fstat,
@@ -216,7 +223,8 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_tcflow,
     (void *)bogus_getflflags,
     (void *)bogus_setflflags,
-    (void *)bogus_perfmon_attach
+    (void *)bogus_perfmon_attach,
+    (void *)bogus_unlink
 };
 
 #endif

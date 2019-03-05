@@ -23,6 +23,7 @@ struct fs_t {
     int (*tcsetattr)(int, int, struct termios *);
     int (*tcflow)(int, int);
     int (*isatty)(int);
+    int (*unlink)(int);
 };
 
 __attribute__((unused)) static int bogus_mount() {
@@ -61,7 +62,8 @@ __attribute__((unused)) static struct fs_t default_fs_handler = {
     (void *)bogus_tcgetattr,
     (void *)bogus_tcsetattr,
     (void *)bogus_tcflow,
-    (void *)bogus_isatty
+    (void *)bogus_isatty,
+    (void *)bogus_unlink
 };
 
 /* VFS calls */

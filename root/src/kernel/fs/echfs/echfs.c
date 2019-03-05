@@ -55,6 +55,8 @@ struct cached_block_t {
 
 struct cached_file_t {
     char name[2048];
+    size_t refcount;
+    int unlinked;
     struct mount_t *mnt;
     struct path_result_t path_res;
     struct cached_block_t *cached_blocks;
@@ -169,11 +171,11 @@ static void synchronise_cached_file(struct cached_file_t *cached_file) {
 
     spinlock_acquire(&mnt->lock);
 
-    if (cached_file->changed_entry) {
+    if (!cached_file->unlinked && cached_file->changed_entry) {
         wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
         cached_file->changed_entry = 0;
     }
-    if (cached_file->path_res.type != FILE_TYPE) {
+    if (cached_file->path_res.type != FILE_TYPE || cached_file->path_res.not_found) {
         spinlock_release(&mnt->lock);
         return;
     }
@@ -206,8 +208,10 @@ static void echfs_sync(void) {
         spinlock_acquire(&mnt->cached_files_lock);
         size_t total_cached_files;
         struct cached_file_t **cached_files = ht_dump(struct cached_file_t, mnt->cached_files, &total_cached_files);
-        if (!cached_files)
+        if (!cached_files) {
+            spinlock_release(&mnt->cached_files_lock);
             return;
+        }
 
         for (size_t i = 0; i < total_cached_files; i++)
             synchronise_cached_file(cached_files[i]);
@@ -474,6 +478,52 @@ static int echfs_write(int handle, const void *buf, size_t count) {
     return (int)count;
 }
 
+static int actually_delete_file(struct cached_file_t *cached_file) {
+    erase_file(cached_file);
+
+    kfree(cached_file->alloc_map);
+    kfree(cached_file->cached_blocks);
+    kfree(cached_file);
+
+    return 0;
+}
+
+static int echfs_unlink(int handle) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
+        errno = EBADF;
+        return -1;
+    }
+
+    if (echfs_handle->type == DIRECTORY_TYPE) {
+        dynarray_unref(handles, handle);
+        errno = EISDIR;
+        return -1;
+    }
+
+    struct mount_t *mnt = echfs_handle->mnt;
+    spinlock_acquire(&mnt->lock);
+
+    struct cached_file_t *cached_file = echfs_handle->cached_file;
+
+    cached_file->unlinked = 1;
+
+    struct entry_t deleted_entry = {0};
+    deleted_entry.parent_id = DELETED_ENTRY;
+    wr_entry(mnt, cached_file->path_res.target_entry, &deleted_entry);
+
+    ht_remove(struct cached_file_t, mnt->cached_files, cached_file->name);
+
+    int ret = 0;
+    if (!--cached_file->refcount)
+        ret = actually_delete_file(cached_file);
+
+    spinlock_release(&mnt->lock);
+    return ret;
+}
+
 static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, uint8_t *type) {
     struct entry_t entry;
     // returns unique entry #, SEARCH_FAILURE upon failure/not found
@@ -603,17 +653,34 @@ static int echfs_close(int handle) {
         return -1;
     }
 
+    int ret = 0;
+
+    struct mount_t *mnt = echfs_handle->mnt;
+    spinlock_acquire(&mnt->lock);
+
+    struct cached_file_t *cached_file = echfs_handle->cached_file;
+
+    if (!--cached_file->refcount && cached_file->unlinked)
+        ret = actually_delete_file(echfs_handle->cached_file);
+
+    if (ret)
+        goto out;
+
     if (!(--echfs_handle->refcount))
         dynarray_remove(handles, handle);
 
+out:
     dynarray_unref(handles, handle);
-    return 0;
+    spinlock_release(&mnt->lock);
+    return ret;
 }
 
 static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
     struct cached_file_t *ret = ht_get(struct cached_file_t, mnt->cached_files, path);
-    if (ret)
+    if (ret) {
+        ret->refcount++;
         return ret;
+    }
 
     struct path_result_t path_result;
     path_resolver(&path_result, mnt, path);
@@ -651,6 +718,9 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
 
         cached_file->total_blocks = i - 1;
     }
+
+    cached_file->unlinked = 0;
+    cached_file->refcount = 1;
 
     ht_add(struct cached_file_t, mnt->cached_files, cached_file);
     return cached_file;
@@ -816,6 +886,7 @@ static int echfs_dup(int handle) {
     }
 
     echfs_handle->refcount++;
+    echfs_handle->cached_file->refcount++;
 
     dynarray_unref(handles, handle);
     return 0;
@@ -985,6 +1056,7 @@ void init_fs_echfs(void) {
     echfs.dup = echfs_dup;
     echfs.readdir = echfs_readdir;
     echfs.sync = echfs_sync;
+    echfs.unlink = echfs_unlink;
 
     vfs_install_fs(&echfs);
 }
