@@ -115,6 +115,7 @@ out: \
                 ret = NULL; \
                 goto out; \
             } \
+            ret = ht[hash]; \
             ht[hash] = 0; \
             goto out; \
         } \
