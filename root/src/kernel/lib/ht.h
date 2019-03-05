@@ -96,6 +96,34 @@ out: \
     ret; \
 })
 
+#define ht_remove(type, hashtable, nname) ({ \
+    __label__ out; \
+    type *ret; \
+        \
+    spinlock_acquire(&hashtable##_lock); \
+    type **ht = hashtable; \
+    for (;;) { \
+        uint64_t hash = ht_hash_str(nname, (uint64_t)ht[0]); \
+        if (!ht[hash]) { \
+            ret = NULL; \
+            goto out; \
+        } else if ((size_t)ht[hash] & 1) { \
+            ht = (void *)((size_t)ht[hash] - 1); \
+            continue; \
+        } else { \
+            if (kstrcmp(nname, ((type **)ht)[hash]->name)) { \
+                ret = NULL; \
+                goto out; \
+            } \
+            ht[hash] = 0; \
+            goto out; \
+        } \
+    } \
+out: \
+    spinlock_release(&hashtable##_lock); \
+    ret; \
+})
+
 // Adds an element to a hash table with these prerequisites:
 // the element shall be a pointer to a structure containing a "name"
 // element which is of type "char *". This "name" element shall be used
