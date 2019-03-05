@@ -314,6 +314,8 @@ syscall_table:
     dq syscall_futex_wake ;33
     extern syscall_unlink
     dq syscall_unlink ;34
+    extern syscall_mkdir
+    dq syscall_mkdir ;35
   .end:
 
 section .text

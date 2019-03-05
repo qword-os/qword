@@ -777,6 +777,22 @@ int syscall_unlink(struct regs_t *regs) {
     return 0;
 }
 
+int syscall_mkdir(struct regs_t *regs) {
+    // rdi: path
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    char abs_path[2048];
+    spinlock_acquire(&process->cwd_lock);
+    vfs_get_absolute_path(abs_path, (const char *)regs->rdi, process->cwd);
+    spinlock_release(&process->cwd_lock);
+
+    return mkdir(abs_path);
+}
+
 int syscall_open(struct regs_t *regs) {
     // rdi: path
     // rsi: mode

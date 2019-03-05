@@ -293,6 +293,19 @@ static int vfs_unlink(int fd) {
     return ret;
 }
 
+int mkdir(const char *path) {
+    char *loc_path;
+
+    struct mnt_t *mountpoint = vfs_get_mountpoint(path, &loc_path);
+    if (!mountpoint)
+        return -1;
+
+    int magic = mountpoint->magic;
+    struct fs_t *fs = mountpoint->fs;
+
+    return fs->mkdir(loc_path, magic);
+}
+
 int open(const char *path, int mode) {
     struct vfs_handle_t vfs_handle = {0};
 

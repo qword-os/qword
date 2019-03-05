@@ -726,6 +726,65 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
     return cached_file;
 }
 
+static int echfs_mkdir(const char *path, int m) {
+    struct mount_t *mnt = dynarray_getelem(struct mount_t, mounts, m);
+    if (!mnt)
+        return -1;
+
+    spinlock_acquire(&mnt->lock);
+
+    struct cached_file_t *cached_file = cache_file(mnt, path);
+    if (!cached_file) {
+        spinlock_release(&mnt->lock);
+        dynarray_unref(mounts, m);
+        errno = ENOENT;
+        return -1;
+    }
+
+    struct path_result_t *path_result = &cached_file->path_res;
+
+    if (path_result->failure) {
+        spinlock_release(&mnt->lock);
+        dynarray_unref(mounts, m);
+        errno = ENOTDIR;
+        return -1;
+    }
+
+    if (!path_result->not_found) {
+        spinlock_release(&mnt->lock);
+        dynarray_unref(mounts, m);
+        errno = EEXIST;
+        return -1;
+    }
+
+    uint64_t new_entry = find_free_entry(mnt);
+    uint64_t new_dir_id = get_free_id(mnt);
+
+    // create new entry
+    struct entry_t entry;
+
+    entry.parent_id = path_result->parent.payload;
+    entry.type = DIRECTORY_TYPE;
+    kstrcpy(entry.name, path_result->name);
+    entry.perms = 0; // TODO
+    entry.owner = 0; // TODO
+    entry.group = 0; // TODO
+    entry.time = 0; // TODO
+    entry.payload = new_dir_id;
+    entry.size = 0;
+
+    wr_entry(mnt, new_entry, &entry);
+
+    path_result->target = entry;
+    path_result->target_entry = new_entry;
+    path_result->not_found = 0;
+    path_result->type = DIRECTORY_TYPE;
+
+    spinlock_release(&mnt->lock);
+    dynarray_unref(mounts, m);
+    return 0;
+}
+
 static int echfs_open(const char *path, int flags, int m) {
     struct mount_t *mnt = dynarray_getelem(struct mount_t, mounts, m);
     if (!mnt)
@@ -1057,6 +1116,7 @@ void init_fs_echfs(void) {
     echfs.readdir = echfs_readdir;
     echfs.sync = echfs_sync;
     echfs.unlink = echfs_unlink;
+    echfs.mkdir = echfs_mkdir;
 
     vfs_install_fs(&echfs);
 }

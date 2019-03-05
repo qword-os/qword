@@ -24,6 +24,7 @@ struct fs_t {
     int (*tcflow)(int, int);
     int (*isatty)(int);
     int (*unlink)(int);
+    int (*mkdir)(const char *, int);
 };
 
 __attribute__((unused)) static int bogus_mount() {
@@ -46,6 +47,11 @@ __attribute__((unused)) static int bogus_sync() {
     return -1;
 }
 
+__attribute__((unused)) static int bogus_mkdir() {
+    errno = EIO;
+    return -1;
+}
+
 __attribute__((unused)) static struct fs_t default_fs_handler = {
     "bogusfs",
     (void *)bogus_mount,
@@ -63,13 +69,15 @@ __attribute__((unused)) static struct fs_t default_fs_handler = {
     (void *)bogus_tcsetattr,
     (void *)bogus_tcflow,
     (void *)bogus_isatty,
-    (void *)bogus_unlink
+    (void *)bogus_unlink,
+    (void *)bogus_mkdir
 };
 
 /* VFS calls */
 int mount(const char *, const char *, const char *, unsigned long, const void *);
 int umount(const char *);
 int open(const char *, int);
+int mkdir(const char *);
 
 int vfs_sync(void);
 void vfs_sync_worker(void *);
