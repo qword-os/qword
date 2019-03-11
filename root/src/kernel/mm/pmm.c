@@ -131,8 +131,10 @@ void *pmm_alloc(size_t pg_count) {
     size_t pg_cnt = pg_count;
 
     for (size_t i = 0; i < bitmap_entries; i++) {
-        if (cur_ptr == BITMAP_BASE + bitmap_entries)
+        if (cur_ptr == BITMAP_BASE + bitmap_entries) {
             cur_ptr = BITMAP_BASE;
+            cur_ptr = pg_count;
+        }
         if (!read_bitmap(cur_ptr++)) {
             if (!--pg_cnt)
                 goto found;
