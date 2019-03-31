@@ -1,4 +1,4 @@
-# qword - A KISS Unix-like operating system, written in C and Assembly for x86_64.
+# fword - A KISS Unix-like operating system, written in C and Assembly for x86_64.
 
 [![goto counter](https://img.shields.io/github/search/qword-os/qword/goto.svg)](https://github.com/qword-os/qword/search?q=goto)
 
