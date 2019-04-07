@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <proc/task.h>
+#include <stdarg.h>
 
 #define KPRN_MAX_TYPE 3
 
@@ -55,6 +56,7 @@ size_t kstrlen(const char *);
 int kstrcmp(const char *, const char *);
 int kstrncmp(const char *, const char *, size_t);
 void kprint(int type, const char *fmt, ...);
+void kvprint(int type, const char *fmt, va_list args);
 
 void *memset(void *, int, size_t);
 void *memset64(void *, uint64_t, size_t);

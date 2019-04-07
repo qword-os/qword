@@ -1,11 +1,12 @@
 MAKE = make
 
-PREFIX = 
+PREFIX =
 
 .PHONY: core core-clean
 
 core:
 	@# Build and install qword kernel
+	./build_lai.sh
 	$(MAKE) -C kernel
 	$(MAKE) PREFIX=$(PREFIX) install -C kernel
 
