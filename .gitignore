@@ -5,6 +5,7 @@
 !/root/boot
 !/root/hello.c
 /root/etc/localtime
+/root/src/kernel/acpi/lai
 
 /**/*.tar.bz2
 /**/*.tar.gz
