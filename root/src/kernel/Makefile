@@ -70,3 +70,4 @@ install:
 
 clean:
 	rm -f $(OBJ) $(BINS) kernel.bin
+	rm -rf ./acpi/lai/
