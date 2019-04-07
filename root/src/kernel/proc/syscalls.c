@@ -498,7 +498,6 @@ int syscall_execve(struct regs_t *regs) {
     while (event_await(execve_error) == -1) {
         locked_write(int, &thread->in_syscall, 0);
         errno = EIO;
-        yield();
     }
 
     /* error occurred */
