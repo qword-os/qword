@@ -64,3 +64,4 @@ make clean && make DEBUG=qemu img && sync
 You've now built qword, a flat `qword.img` disk image has been generated.
 To run the OS in QEMU, use `make run-img`.
 To run it with KVM enabled, use `make run-img-kvm`.
+
