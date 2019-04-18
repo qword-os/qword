@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -e
+
+QWORD_ROOT="/"
+
+if [ ! "$OSTYPE" = "qword" ]; then
+    QWORD_ROOT=$(realpath ..)
+    QWORD_BASE=$(realpath ../..)
+    export PATH=$QWORD_BASE/host/toolchain/cross-root/bin:$PATH
+fi
+
+print_help() {
+    echo "qword's package manager"
+    echo '--help | -h | help\tThis help message'
+    echo 'install           \tInstalls package'
+    echo 'clean             \tClean the installed sources'
+}
+
+install_package() {
+    . $QWORD_ROOT/src/$i/def.pkg
+    # PKG_NAME, PKG_VERSION, PKG_URL, PKG_TARBALL, PKG_ARCHIVE_DIR
+    # PKG_PREFIX, PKG_DEPS
+
+    cd $QWORD_ROOT/src/$i
+
+    pushd .
+
+    ( pkg_fetch )
+    ( pkg_build )
+    ( pkg_install )
+
+    popd
+
+    touch installed
+}
+
+install_packages() {
+    for i in "$@"; do
+        if [ -f $QWORD_ROOT/src/$i/installed ]; then
+            echo "Package $i already installed."
+            return
+        fi
+
+        . $QWORD_ROOT/src/$i/def.pkg
+        # PKG_NAME, PKG_VERSION, PKG_URL, PKG_TARBALL, PKG_ARCHIVE_DIR
+        # PKG_PREFIX, PKG_DEPS
+        echo "Installing $PKG_NAME ($PKG_VERSION)..."
+        echo "Prefix:  \"$PKG_PREFIX\""
+        echo "Deps:    $PKG_DEPS"
+
+        ( install_packages $PKG_DEPS )
+
+        install_package $i
+    done
+}
+
+remove_packages() {
+    for i in "$@"; do
+        . $QWORD_ROOT/src/$i/def.pkg
+        # PKG_NAME, PKG_VERSION, PKG_URL, PKG_TARBALL, PKG_ARCHIVE_DIR
+        # PKG_PREFIX, PKG_DEPS
+        echo "Removing $PKG_NAME ($PKG_VERSION)..."
+
+        cd $QWORD_ROOT/src/$i
+
+        pkg_remove
+    done
+}
+
+clean_packages() {
+    for i in "$@"; do
+        . $QWORD_ROOT/src/$i/def.pkg
+        # PKG_NAME, PKG_VERSION, PKG_URL, PKG_TARBALL, PKG_ARCHIVE_DIR
+        # PKG_PREFIX, PKG_DEPS
+        echo "Cleaning $PKG_NAME ($PKG_VERSION)..."
+
+        cd $QWORD_ROOT/src/$i
+
+        pkg_clean
+    done
+}
+
+case $1 in
+    --help | -h | help)
+        print_help;;
+    install)
+        install_packages "${@:2}";;
+    clean)
+        clean_packages "${@:2}";;
+    *)
+        echo "'$1' is an invalid command!" 1>&2;;
+esac
+
+exit 0

@@ -53,8 +53,7 @@ cd ../toolchain
 cd ../..
 # Build the ports distribution
 cd root/src
-./makeworld.sh -j4
-./makeworld.sh clean
+MAKEFLAGS=-j4 ./makeworld.sh
 # Now to build qword itself
 cd ../..
 # You might need to use gmake instead of make here on FreeBSD

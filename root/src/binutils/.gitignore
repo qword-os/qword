@@ -1,4 +1,4 @@
 *
 !.gitignore
-!buildport.sh
+!def.pkg
 !*.patch
