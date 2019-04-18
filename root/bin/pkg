@@ -39,7 +39,7 @@ install_packages() {
     for i in "$@"; do
         if [ -f $QWORD_ROOT/src/$i/installed ]; then
             echo "Package $i already installed."
-            return
+            continue
         fi
 
         . $QWORD_ROOT/src/$i/def.pkg
@@ -51,7 +51,7 @@ install_packages() {
 
         ( install_packages $PKG_DEPS )
 
-        install_package $i
+        ( install_package $i )
     done
 }
 
@@ -64,7 +64,7 @@ remove_packages() {
 
         cd $QWORD_ROOT/src/$i
 
-        pkg_remove
+        ( pkg_remove )
     done
 }
 
@@ -77,7 +77,7 @@ clean_packages() {
 
         cd $QWORD_ROOT/src/$i
 
-        pkg_clean
+        ( pkg_clean )
     done
 }
 

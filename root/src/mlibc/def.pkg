@@ -17,9 +17,10 @@ pkg_build() {
 }
 
 pkg_install() {
+    cd build
     DESTDIR=$QWORD_ROOT ninja install
 }
 
 pkg_clean() {
-    rm -rf $PKG_ARCHIVE_DIR
+    rm -rf $PKG_ARCHIVE_DIR build
 }
