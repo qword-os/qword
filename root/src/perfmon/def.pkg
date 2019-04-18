@@ -1,0 +1,20 @@
+PKG_NAME=perfmon
+PKG_VERSION=NaN
+PKG_PREFIX=/
+PKG_DEPS="mlibc"
+
+pkg_fetch() {
+    return
+}
+
+pkg_build() {
+    make
+}
+
+pkg_install() {
+    make DESTDIR=$QWORD_ROOT install
+}
+
+pkg_clean() {
+    return
+}

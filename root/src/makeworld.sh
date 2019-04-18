@@ -2,5 +2,8 @@
 
 set -e
 
-BUILDPORTS=$(find ./ -type f -name 'buildport.sh' | sed 's/\/buildport.sh//g' | sort)
-for i in $BUILDPORTS ; do pushd $i && ./buildport.sh "$@" && popd ; done
+BUILDPORTS=$(find ./ -type f -name 'def.pkg' | sed 's/\/def.pkg//g')
+
+cd ../bin
+./pkg install $BUILDPORTS
+./pkg clean $BUILDPORTS

@@ -1,6 +1,6 @@
 *
 !.gitignore
-!buildport.sh
+!def.pkg
 !*.patch
 !Makefile
 !*.c

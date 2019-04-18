@@ -1,5 +1,5 @@
 *
 !.gitignore
-!buildport.sh
+!def.pkg
 !*.patch
 !cross_file.txt

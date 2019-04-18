@@ -1,4 +1,7 @@
 /root/*
+!/root/bin
+/root/bin/*
+!/root/bin/pkg
 !/root/src
 !/root/root
 !/root/etc
