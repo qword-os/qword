@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 set -e
 
@@ -12,9 +12,9 @@ fi
 
 print_help() {
     echo "qword's package manager"
-    echo '--help | -h | help\tThis help message'
-    echo 'install           \tInstalls package'
-    echo 'clean             \tClean the installed sources'
+    echo '--help | -h | help    This help message'
+    echo 'install               Installs package'
+    echo 'clean                 Clean the installed sources'
 }
 
 install_package() {
@@ -80,6 +80,11 @@ clean_packages() {
         ( pkg_clean )
     done
 }
+
+if [ -z $1 ]; then
+    print_help
+    exit 0
+fi
 
 case $1 in
     --help | -h | help)
