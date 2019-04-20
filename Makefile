@@ -9,6 +9,7 @@ PREFIX = $(shell pwd)/root
 all:
 	$(MAKE) core PREFIX=$(PREFIX) -C root/src
 	cp -v /etc/localtime ./root/etc/
+	cp -v ./root/bin/env ./root/usr/bin/
 
 iso: all
 	grub-mkrescue -o qword.iso root
