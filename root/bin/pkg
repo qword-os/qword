@@ -94,7 +94,7 @@ case $1 in
     clean)
         clean_packages "${@:2}";;
     *)
-        echo "'$1' is an invalid command!" 1>&2;;
+        printf "\e[33m'$1' is an invalid command!\e[0m\n" 1>&2;;
 esac
 
 exit 0
