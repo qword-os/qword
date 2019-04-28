@@ -140,11 +140,24 @@ void init_smp(void) {
 
     /* start up the APs and jump them into the kernel */
     for (size_t i = 1; i < madt_local_apic_i; i++) {
+        /*
+         * In practice some "dead" cores have a lapic == 0, that as we know is
+         * the one of AP #0. This cores are meant to be ignored, at least for
+         * SMP, if not the system will freeze on the INIT IPI sending.
+         * Tested on an AMD Ryzen 5 2400G (8) @ 3
+         */
+        if (!madt_local_apics[i]->apic_id) {
+            kprint(KPRN_INFO, "smp: Theoretical AP #%u ignored", i);
+            continue;
+        }
+
         kprint(KPRN_INFO, "smp: Starting up AP #%u", i);
+
         if (start_ap(madt_local_apics[i]->apic_id, smp_cpu_count)) {
             kprint(KPRN_ERR, "smp: Failed to start AP #%u", i);
             continue;
         }
+
         smp_cpu_count++;
         /* wait a bit */
         ksleep(10);
