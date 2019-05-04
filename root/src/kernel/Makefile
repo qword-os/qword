@@ -33,7 +33,7 @@ $(error variable DEBUG invalid)
 endif
 
 ifeq ($(DBGSYM), yes)
-CHARDFLAGS := $(CHARDFLAGS) -g
+CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
