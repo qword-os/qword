@@ -704,15 +704,13 @@ pid_t syscall_getppid(void) {
     return ret;
 }
 
-int syscall_pipe(struct regs_t *regs) {
-    int *pipefd = (int *)regs->rdi;
-
+static int internal_syscall_pipe(int *pipefd, int flflags) {
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
-    if (privilege_check(regs->rdi, sizeof(int) * 2))
+    if (privilege_check(pipefd, sizeof(int) * 2))
         return -1;
 
     spinlock_acquire(&process->file_handles_lock);
@@ -726,6 +724,7 @@ int syscall_pipe(struct regs_t *regs) {
             close(sys_pipefd[0]);
             close(sys_pipefd[1]);
             spinlock_release(&process->file_handles_lock);
+            errno = EMFILE;
             return -1;
         }
     process->file_handles[local_fd_read] = sys_pipefd[0];
@@ -735,7 +734,9 @@ int syscall_pipe(struct regs_t *regs) {
         if (local_fd_write + 1 == MAX_FILE_HANDLES) {
             close(sys_pipefd[0]);
             close(sys_pipefd[1]);
+            process->file_handles[local_fd_read] = -1;
             spinlock_release(&process->file_handles_lock);
+            errno = EMFILE;
             return -1;
         }
     process->file_handles[local_fd_write] = sys_pipefd[1];
@@ -744,7 +745,26 @@ int syscall_pipe(struct regs_t *regs) {
     pipefd[1] = local_fd_write;
 
     spinlock_release(&process->file_handles_lock);
+
+    if (flflags) {
+        setflflags(sys_pipefd[0], flflags);
+        setflflags(sys_pipefd[1], flflags);
+    }
+
     return 0;
+}
+
+int syscall_pipe(struct regs_t *regs) {
+    int *pipefd = (int *)regs->rdi;
+
+    return internal_syscall_pipe(pipefd, 0);
+}
+
+int syscall_pipe2(struct regs_t *regs) {
+    int *pipefd = (int *)regs->rdi;
+    int flflags = (int)regs->rsi;
+
+    return internal_syscall_pipe(pipefd, flflags);
 }
 
 int syscall_unlink(struct regs_t *regs) {
