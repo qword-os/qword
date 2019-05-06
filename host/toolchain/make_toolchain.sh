@@ -6,7 +6,7 @@ set -x
 CROSS_ROOT="$(pwd)/cross-root"
 TARGET_ROOT="$(realpath ../..)/root"
 TARGET=x86_64-qword
-GCCVERSION=8.2.0
+GCCVERSION=9.1.0
 BINUTILSVERSION=2.32
 
 if [ -z "$MAKEFLAGS" ]; then
@@ -63,11 +63,12 @@ make install
 
 cd ../gcc-$GCCVERSION
 contrib/download_prerequisites
-patch -p1 < ../../gcc-$GCCVERSION.patch
+patch -p1 < ../../gcc.patch
+cd libstdc++-v3 && autoconf && cd ..
 cd ..
 mkdir build-gcc
 cd build-gcc
-../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$CROSS_ROOT" --with-sysroot="$TARGET_ROOT" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
+../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$CROSS_ROOT" --with-sysroot="$TARGET_ROOT" --enable-languages=c,c++ --disable-gcov --disable-multilib --enable-initfini-array
 make all-gcc
 make install-gcc
 cd ../..
