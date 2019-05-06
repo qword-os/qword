@@ -158,16 +158,19 @@ static void kputchar(char *kprint_buf, size_t *kprint_buf_i, char c) {
 }
 
 static void kprint_buf_flush(char *kprint_buf, size_t *kprint_buf_i) {
-    #ifdef _KERNEL_QEMU_
+    #ifdef _DBGOUT_QEMU_
         qemu_debug_puts(kprint_buf);
     #endif
-    #ifdef _KERNEL_VGA_
+    #ifdef _DBGOUT_TTY_
         tty_write(0, kprint_buf, 0, *kprint_buf_i);
     #endif
+    (void)kprint_buf;
+    (void)kprint_buf_i;
     return;
 }
 
 static void kprint_buf_flush_panic(char *kprint_buf, size_t *kprint_buf_i) {
+    (void)kprint_buf_i;
     qemu_debug_puts_urgent(kprint_buf);
     return;
 }

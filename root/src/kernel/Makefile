@@ -1,6 +1,6 @@
 PREFIX =
 
-DEBUG = qemu
+DBGOUT = no
 DBGSYM = no
 
 CC = x86_64-qword-gcc
@@ -22,14 +22,12 @@ CHARDFLAGS := \
     -fno-stack-protector \
     -I./
 
-ifeq ($(DEBUG), vga)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_
-else ifeq ($(DEBUG), qemu)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_QEMU_
-else ifeq ($(DEBUG), both)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_QEMU_
-else
-$(error variable DEBUG invalid)
+ifeq ($(DBGOUT), tty)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
+else ifeq ($(DBGOUT), qemu)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_QEMU_
+else ifeq ($(DBGOUT), both)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_ -D_DBGOUT_QEMU_
 endif
 
 ifeq ($(DBGSYM), yes)

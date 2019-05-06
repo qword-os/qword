@@ -42,7 +42,11 @@ MAKEFLAGS=-j4 ./makeworld.sh
 # Now to build qword itself
 cd ../..
 # You might need to use gmake instead of make here on FreeBSD
-make clean && make DEBUG=qemu img && sync
+make clean && make img               # For a standard release build
+make clean && make DBGOUT=qemu img   # For QEMU console debug output
+make clean && make DBGOUT=tty img    # For kernel tty debug output
+make clean && make DBGOUT=both img   # For both of the above
+make clean && make DBGSYM=yes img    # For compilation with debug symbols and other debug facilities (can be used in combination with the other options)
 ```
 
 You've now built qword, a flat `qword.img` disk image has been generated.
