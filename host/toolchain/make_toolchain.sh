@@ -7,7 +7,7 @@ CROSS_ROOT="$(pwd)/cross-root"
 TARGET_ROOT="$(realpath ../..)/root"
 TARGET=x86_64-qword
 GCCVERSION=8.2.0
-BINUTILSVERSION=2.31.1
+BINUTILSVERSION=2.32
 
 if [ -z "$MAKEFLAGS" ]; then
 	MAKEFLAGS="$1"
@@ -53,7 +53,7 @@ tar -vxf gcc-$GCCVERSION.tar.gz
 tar -vxf binutils-$BINUTILSVERSION.tar.gz
 
 cd binutils-$BINUTILSVERSION
-patch -p1 < ../../binutils-$BINUTILSVERSION.patch
+patch -p1 < ../../binutils.patch
 cd ..
 mkdir build-binutils
 cd build-binutils
