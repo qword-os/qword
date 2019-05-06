@@ -16,17 +16,7 @@ We have a [Discord server](https://discord.gg/RnCtsqD) with all the developers f
 
 ## Build requirements
 In order to build qword, make sure to have the following installed:
-  `wget`, `git`, `bash`, `make`, `meson`, `ninja`, `gcc/g++` and `binutils` (recent versions), `nasm`, `xz`, `autoconf`, and QEMU (to test it).
-
-On Debian and Ubuntu, these packages can be installed with:
-```bash
-sudo apt-get install git build-essential meson nasm qemu-system-x86
-```
-
-On FreeBSD, these packages can be acquired using `pkg` with:
-```bash
-sudo pkg install git wget bash gcc gmake meson nasm qemu
-```
+  `wget`, `git`, `bash`, `make` (`gmake` on *BSD), `meson`, `ninja`, `gcc/g++` and `binutils` (recent versions), `nasm`, `xz`, `autoconf`, and QEMU (to test it).
 
 ## Building
 ```bash
