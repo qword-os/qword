@@ -31,10 +31,11 @@ static int parse_shebang(int fd, pid_t pid, const char *argv[], const char *envp
             case '\t':
                 continue;
             default:
+                j = 0;
                 goto found_arg;
         }
 
-        for (j = 0; ; j++) {
+        for (;;) {
             read(fd, &c, 1);
             if (c == ' ' || c == '\t' || c == '\n') {
                 i++;
@@ -45,7 +46,7 @@ static int parse_shebang(int fd, pid_t pid, const char *argv[], const char *envp
             }
 found_arg:
             shebang[i] = krealloc(shebang[i], j + 1);
-            shebang[i][j] = c;
+            shebang[i][j++] = c;
         }
     }
 
