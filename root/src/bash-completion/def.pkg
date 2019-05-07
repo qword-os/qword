@@ -1,27 +1,25 @@
 PKG_NAME=bash-completion
-PKG_VERSION=2.x
-PKG_URL=https://github.com/scop/$PKG_NAME/archive/$PKG_VERSION.zip
-PKG_TARBALL=$PKG_VERSION.zip
-PKG_PREFIX=$QWORD_ROOT/usr
-PKG_DEPS="bash"
-
+PKG_VERSION=2.9
+PKG_URL=https://github.com/scop/bash-completion/releases/download/$PKG_VERSION/bash-completion-$PKG_VERSION.tar.xz
+PKG_TARBALL=bash-completion-$PKG_VERSION.tar.xz
 PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
+PKG_PREFIX=/usr
+PKG_DEPS="bash"
 
 pkg_fetch() {
     [ -f $PKG_TARBALL ] || wget $PKG_URL
-    [ -d $PKG_ARCHIVE_DIR ] || unzip $PKG_TARBALL
+    [ -d $PKG_ARCHIVE_DIR ] || tar -xf $PKG_TARBALL
 }
 
 pkg_build() {
     cd $PKG_ARCHIVE_DIR
-    autoreconf -i
     ./configure --host=x86_64-qword --prefix=$PKG_PREFIX
     make
 }
 
 pkg_install() {
     cd $PKG_ARCHIVE_DIR
-    make install
+    make DESTDIR=$QWORD_ROOT install
 }
 
 pkg_clean() {
