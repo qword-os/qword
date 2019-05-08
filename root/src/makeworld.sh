@@ -2,7 +2,7 @@
 
 set -e
 
-BUILDPORTS=$(find ./ -type f -name 'def.pkg' | sed 's/\/def.pkg//g')
+BUILDPORTS=$(echo './'*/def.pkg | sed 's/\/def.pkg//g')
 
 cd ../bin
 ./pkg install $BUILDPORTS

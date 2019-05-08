@@ -49,8 +49,8 @@ fi
 if [ ! -f gcc-$GCCVERSION.tar.gz ]; then
 	wget https://ftp.gnu.org/gnu/gcc/gcc-$GCCVERSION/gcc-$GCCVERSION.tar.gz
 fi
-tar -vxf gcc-$GCCVERSION.tar.gz
-tar -vxf binutils-$BINUTILSVERSION.tar.gz
+tar -xf gcc-$GCCVERSION.tar.gz
+tar -xf binutils-$BINUTILSVERSION.tar.gz
 
 cd binutils-$BINUTILSVERSION
 patch -p1 < ../../binutils.patch
