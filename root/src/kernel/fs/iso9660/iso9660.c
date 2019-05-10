@@ -425,7 +425,7 @@ static char *load_name(struct directory_entry_t *entry, int *name_length) {
         name_len = entry->name_length;
         buf = kalloc(name_len);
         for(size_t j = 0; j < name_len; j++)
-            buf[j] = ktolower(entry->name[j]);
+            buf[j] = tolower(entry->name[j]);
     }
     if (name_length)
         *name_length = name_len;
@@ -445,7 +445,7 @@ static struct path_result_t resolve_path(struct mount_t *mount,
     if (*path == '/') path++;
     do {
         const char *seg = path;
-        path = kstrchrnul(path, '/');
+        path = strchrnul(path, '/');
         size_t seg_length = path - seg;
 
         if (seg_length == 1 && *seg == '.')
@@ -481,7 +481,7 @@ static struct path_result_t resolve_path(struct mount_t *mount,
 
             if (seg_length != name_length)
                 goto out;
-            if (kstrncmp(seg, lower_name, seg_length) != 0)
+            if (strncmp(seg, lower_name, seg_length) != 0)
                 goto out;
             if (!result.rr_length && entry->name[name_length]
                     != ';')
@@ -517,7 +517,7 @@ static int iso9660_open(const char *path, int flags, int mount) {
     }
 
     struct handle_t handle = {0};
-    kstrcpy(handle.path, path);
+    strcpy(handle.path, path);
     handle.path_res = result;
     handle.flags = flags;
     handle.mount = mount;
@@ -765,7 +765,7 @@ static int iso9660_mount(const char *source) {
 
     mounts = krealloc(mounts, (mount_i + 1) * sizeof(struct mount_t));
     struct mount_t *mount = &mounts[mount_i];
-    kstrcpy(mount->name, source);
+    strcpy(mount->name, source);
     mount->device = device;
     mount->num_blocks = primary_descriptor.volume_space_size.little;
     mount->block_size = primary_descriptor.logical_block_size.little;
@@ -880,7 +880,7 @@ void init_fs_iso9660(void) {
     struct fs_t iso9660 = {0};
 
     iso9660 = default_fs_handler;
-    kstrcpy(iso9660.name, "iso9660");
+    strcpy(iso9660.name, "iso9660");
     iso9660.mount = (void *)iso9660_mount;
     iso9660.open = iso9660_open;
     iso9660.read = iso9660_read;

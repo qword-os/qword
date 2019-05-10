@@ -131,11 +131,11 @@ int kill(pid_t pid, int signal) {
             }
             default: {
                 const char *msg = "Unhandled signal occurred (";
-                write(process->file_handles[2], msg, kstrlen(msg));
+                write(process->file_handles[2], msg, strlen(msg));
                 msg = signames[signal];
-                write(process->file_handles[2], msg, kstrlen(msg));
+                write(process->file_handles[2], msg, strlen(msg));
                 msg = ")\n";
-                write(process->file_handles[2], msg, kstrlen(msg));
+                write(process->file_handles[2], msg, strlen(msg));
                 return 0;
             }
         }
@@ -397,7 +397,7 @@ found_new_pid:
 
     new_process->file_handles_lock = new_lock;
 
-    kstrcpy(new_process->cwd, "/");
+    strcpy(new_process->cwd, "/");
     new_process->cwd_lock = new_lock;
 
     new_process->cur_brk = BASE_BRK_LOCATION;
@@ -658,15 +658,15 @@ found_new_task_id:;
             size_t nenv = 0;
             for (char **elem = data->envp; *elem; elem++) {
                 kprint(KPRN_INFO, "Push envp %s", *elem);
-                strp -= kstrlen(*elem) + 1;
-                kstrcpy(strp, *elem);
+                strp -= strlen(*elem) + 1;
+                strcpy(strp, *elem);
                 nenv++;
             }
             size_t nargs = 0;
             for (char **elem = data->argv; *elem; elem++) {
                 kprint(KPRN_INFO, "Push argv %s", *elem);
-                strp -= kstrlen(*elem) + 1;
-                kstrcpy(strp, *elem);
+                strp -= strlen(*elem) + 1;
+                strcpy(strp, *elem);
                 nargs++;
             }
 
@@ -692,14 +692,14 @@ found_new_task_id:;
             *(--sp) = 0; /* Marker for end of environ */
             sp -= nenv;
             for (size_t i = 0; i < nenv; i++) {
-                sa -= kstrlen(data->envp[i]) + 1;
+                sa -= strlen(data->envp[i]) + 1;
                 sp[i] = sa;
             }
 
             *(--sp) = 0; /* Marker for end of argv */
             sp -= nargs;
             for (size_t i = 0; i < nargs; i++) {
-                sa -= kstrlen(data->argv[i]) + 1;
+                sa -= strlen(data->argv[i]) + 1;
                 sp[i] = sa;
             }
             *(--sp) = nargs; /* argc */

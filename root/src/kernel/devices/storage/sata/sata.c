@@ -144,7 +144,7 @@ void init_dev_sata(void) {
                     struct device_t device = {0};
                     device.calls = default_device_calls;
                     char *dev_name = prefixed_itoa(sata_basename, i, 10);
-                    kstrcpy(device.name, dev_name);
+                    strcpy(device.name, dev_name);
                     kprint(KPRN_INFO, "ahci: Initialised /dev/%s", dev_name);
                     kfree(dev_name);
                     device.intern_fd = i;

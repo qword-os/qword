@@ -533,7 +533,7 @@ static uint64_t search(struct mount_t *mnt, const char *name, uint64_t parent, u
         if (i >= (mnt->dirsize * mnt->entriesperblock)) return SEARCH_FAILURE;  // check if past directory table
         read(mnt->device, (void *)&entry, sizeof(struct entry_t));
         if (!entry.parent_id) return SEARCH_FAILURE;              // check if past last entry
-        if ((entry.parent_id == parent) && (!kstrcmp(entry.name, name))) {
+        if ((entry.parent_id == parent) && (!strcmp(entry.name, name))) {
             *type = entry.type;
             return i;
         }
@@ -598,12 +598,12 @@ static void path_resolver(struct path_result_t *path_result, struct mount_t *mnt
 
     path_result->parent.payload = ROOT_ID;
 
-    if (!kstrcmp(path, "/")) {
-        kstrcpy(path_result->name, "/");
+    if (!strcmp(path, "/")) {
+        strcpy(path_result->name, "/");
         path_result->target_entry = -1;
         path_result->target.parent_id = -1;
         path_result->target.type = DIRECTORY_TYPE;
-        kstrcpy(path_result->target.name, "/");
+        strcpy(path_result->target.name, "/");
         path_result->target.payload = ROOT_ID;
         return; // exception for root
     }
@@ -637,7 +637,7 @@ next:
             rd_entry(&path_result->target, mnt, search_res);
             path_result->target_entry = search_res;
         }
-        kstrcpy(path_result->name, name);
+        strcpy(path_result->name, name);
         return;
     }
 
@@ -691,7 +691,7 @@ static struct cached_file_t *cache_file(struct mount_t *mnt, const char *path) {
     if (!cached_file)
         return NULL;
 
-    kstrcpy(cached_file->name, path);
+    strcpy(cached_file->name, path);
     cached_file->path_res = path_result;
 
     cached_file->mnt = mnt;
@@ -765,7 +765,7 @@ static int echfs_mkdir(const char *path, int m) {
 
     entry.parent_id = path_result->parent.payload;
     entry.type = DIRECTORY_TYPE;
-    kstrcpy(entry.name, path_result->name);
+    strcpy(entry.name, path_result->name);
     entry.perms = 0; // TODO
     entry.owner = 0; // TODO
     entry.group = 0; // TODO
@@ -819,7 +819,7 @@ static int echfs_open(const char *path, int flags, int m) {
 
         entry.parent_id = path_result->parent.payload;
         entry.type = FILE_TYPE;
-        kstrcpy(entry.name, path_result->name);
+        strcpy(entry.name, path_result->name);
         entry.perms = 0; // TODO
         entry.owner = 0; // TODO
         entry.group = 0; // TODO
@@ -850,7 +850,7 @@ static int echfs_open(const char *path, int flags, int m) {
         }
     }
 
-    kstrcpy(new_handle.path, path);
+    strcpy(new_handle.path, path);
     new_handle.flags = flags;
 
     if (path_result->type == FILE_TYPE) {
@@ -988,7 +988,7 @@ static int echfs_readdir(int handle, struct dirent *dir) {
         if (entry.parent_id == dir_id) {
             // valid entry
             dir->d_ino = echfs_handle->ptr + 1;
-            kstrcpy(dir->d_name, entry.name);
+            strcpy(dir->d_name, entry.name);
             dir->d_reclen = sizeof(struct dirent);
             switch (entry.type) {
                 case DIRECTORY_TYPE:
@@ -1071,7 +1071,7 @@ static int echfs_mount(const char *source) {
     char signature[8];
     lseek(device, 4, SEEK_SET);
     read(device, signature, 8);
-    if (kstrncmp(signature, "_ECH_FS_", 8)) {
+    if (strncmp(signature, "_ECH_FS_", 8)) {
         kprint(KPRN_ERR, "echidnaFS signature invalid, mount failed!");
         close(device);
         errno = EINVAL;
@@ -1081,7 +1081,7 @@ static int echfs_mount(const char *source) {
     struct mount_t mount;
 
     mount.device = device;
-    kstrcpy(mount.name, source);
+    strcpy(mount.name, source);
     mount.blocks = rd_qword(device, 12);
     mount.bytesperblock = rd_qword(device, 28);
     mount.sectorsperblock = mount.bytesperblock / BYTES_PER_SECT;
@@ -1104,7 +1104,7 @@ void init_fs_echfs(void) {
     struct fs_t echfs = {0};
 
     echfs = default_fs_handler;
-    kstrcpy(echfs.name, "echfs");
+    strcpy(echfs.name, "echfs");
     echfs.mount = (void *)echfs_mount;
     echfs.open = echfs_open;
     echfs.close = echfs_close;

@@ -1,11 +1,13 @@
-CC=gcc
+CC=cc
 PREFIX=/usr/local
-CFLAGS=-Ofast -Wall -Wextra -pipe
+CFLAGS=-O3 -Wall -Wextra -pipe
 
 .PHONY: all clean install
 
-all:
+echfs-utils:
 	$(CC) $(CFLAGS) echfs-utils.c -o echfs-utils
+
+all: echfs-utils
 
 clean:
 	rm -f echfs-utils

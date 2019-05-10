@@ -64,8 +64,8 @@ void execve_send_request(pid_t pid, tid_t tid, const char *filename, const char 
     execve_request->pid = pid;
     execve_request->tid = tid;
 
-    execve_request->filename = kalloc(kstrlen(filename) + 1);
-    kstrcpy(execve_request->filename, filename);
+    execve_request->filename = kalloc(strlen(filename) + 1);
+    strcpy(execve_request->filename, filename);
 
     size_t argv_i;
     for (argv_i = 0; argv[argv_i]; argv_i++);
@@ -76,8 +76,8 @@ void execve_send_request(pid_t pid, tid_t tid, const char *filename, const char 
             execve_request->argv[i] = 0;
             break;
         }
-        execve_request->argv[i] = kalloc(kstrlen(argv[i]) + 1);
-        kstrcpy(execve_request->argv[i], argv[i]);
+        execve_request->argv[i] = kalloc(strlen(argv[i]) + 1);
+        strcpy(execve_request->argv[i], argv[i]);
     }
 
     size_t envp_i;
@@ -89,8 +89,8 @@ void execve_send_request(pid_t pid, tid_t tid, const char *filename, const char 
             execve_request->envp[i] = 0;
             break;
         }
-        execve_request->envp[i] = kalloc(kstrlen(envp[i]) + 1);
-        kstrcpy(execve_request->envp[i], envp[i]);
+        execve_request->envp[i] = kalloc(strlen(envp[i]) + 1);
+        strcpy(execve_request->envp[i], envp[i]);
     }
 
     execve_request->err_event = kalloc(sizeof(event_t));

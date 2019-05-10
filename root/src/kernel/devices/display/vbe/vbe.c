@@ -69,20 +69,20 @@ void early_init_vbe(void) {
 
     char *cmdline_val;
     if ((cmdline_val = cmdline_get_value("edid"))) {
-        if (!kstrcmp(cmdline_val, "enabled")) {
+        if (!strcmp(cmdline_val, "enabled")) {
             edid_call();
             goto modeset;
         }
     }
 
     if ((cmdline_val = cmdline_get_value("vbe_res"))) {
-        if (!kstrcmp(cmdline_val, "1024x768")) {
+        if (!strcmp(cmdline_val, "1024x768")) {
             vbe_width = 1024;
             vbe_height = 768;
-        } else if (!kstrcmp(cmdline_val, "800x600")) {
+        } else if (!strcmp(cmdline_val, "800x600")) {
             vbe_width = 800;
             vbe_height = 600;
-        } else if (!kstrcmp(cmdline_val, "640x480")) {
+        } else if (!strcmp(cmdline_val, "640x480")) {
             vbe_width = 640;
             vbe_height = 480;
         } else {
@@ -160,7 +160,7 @@ void init_dev_vesafb(void) {
 
     device.calls = default_device_calls;
 
-    kstrcpy(device.name, "vesafb");
+    strcpy(device.name, "vesafb");
     device.size = vbe_pitch * vbe_height;
     device.calls.read = vesafb_read;
     device.calls.write = vesafb_write;
