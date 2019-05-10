@@ -72,17 +72,17 @@ void init_dev_streams(void) {
 
     device.calls = default_device_calls;
 
-    kstrcpy(device.name, "null");
+    strcpy(device.name, "null");
     device.calls.read = null_read;
     device.calls.write = null_write;
     device_add(&device);
 
-    kstrcpy(device.name, "zero");
+    strcpy(device.name, "zero");
     device.calls.read = zero_read;
     device.calls.write = zero_write;
     device_add(&device);
 
-    kstrcpy(device.name, "urandom");
+    strcpy(device.name, "urandom");
     device.calls.read = urandom_read;
     device.calls.write = urandom_write;
     device_add(&device);

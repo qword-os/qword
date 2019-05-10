@@ -53,8 +53,8 @@ found_arg:
 done:
     // Append original arguments at the end
     for (j = 0; argv[j]; j++) {
-        shebang[i] = kalloc(kstrlen(argv[j]) + 1);
-        kstrcpy(shebang[i], argv[j]);
+        shebang[i] = kalloc(strlen(argv[j]) + 1);
+        strcpy(shebang[i], argv[j]);
         i++;
     }
 
@@ -82,7 +82,7 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
     // Check for a shebang
     char shebang[2];
     read(fd, shebang, 2);
-    if (!kstrncmp(shebang, "#!", 2)) {
+    if (!strncmp(shebang, "#!", 2)) {
         return parse_shebang(fd, pid, argv, envp);
     }
 

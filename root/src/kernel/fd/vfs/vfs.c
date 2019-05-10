@@ -41,11 +41,11 @@ static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
         if (!mnts[i])
             continue;
 
-        size_t len = kstrlen(mnts[i]->name);
+        size_t len = strlen(mnts[i]->name);
 
-        if (!kstrncmp(path, mnts[i]->name, len)) {
+        if (!strncmp(path, mnts[i]->name, len)) {
             if ( (((path[len] == '/') || (path[len] == '\0'))
-                 || (!kstrcmp(mnts[i]->name, "/")))
+                 || (!strcmp(mnts[i]->name, "/")))
                && (len > guess_size)) {
                 guess = i;
                 guess_size = len;
@@ -79,13 +79,13 @@ void vfs_get_absolute_path(char *path_ptr, const char *path, const char *pwd) {
     char *orig_ptr = path_ptr;
 
     if (!*path) {
-        kstrcpy(path_ptr, pwd);
+        strcpy(path_ptr, pwd);
         return;
     }
 
     if (*path != '/') {
-        kstrcpy(path_ptr, pwd);
-        path_ptr += kstrlen(path_ptr);
+        strcpy(path_ptr, pwd);
+        path_ptr += strlen(path_ptr);
     } else {
         *path_ptr = '/';
         path_ptr++;
@@ -100,24 +100,24 @@ void vfs_get_absolute_path(char *path_ptr, const char *path, const char *pwd) {
                 path++;
 first_run:
                 if (*path == '/') continue;
-                if ((!kstrncmp(path, ".\0", 2))
-                ||  (!kstrncmp(path, "./\0", 3))) {
+                if ((!strncmp(path, ".\0", 2))
+                ||  (!strncmp(path, "./\0", 3))) {
                     goto term;
                 }
-                if ((!kstrncmp(path, "..\0", 3))
-                ||  (!kstrncmp(path, "../\0", 4))) {
+                if ((!strncmp(path, "..\0", 3))
+                ||  (!strncmp(path, "../\0", 4))) {
                     while (*path_ptr != '/') path_ptr--;
                     if (path_ptr == orig_ptr) path_ptr++;
                     goto term;
                 }
-                if (!kstrncmp(path, "../", 3)) {
+                if (!strncmp(path, "../", 3)) {
                     while (*path_ptr != '/') path_ptr--;
                     if (path_ptr == orig_ptr) path_ptr++;
                     path += 2;
                     *path_ptr = 0;
                     continue;
                 }
-                if (!kstrncmp(path, "./", 2)) {
+                if (!strncmp(path, "./", 2)) {
                     path += 1;
                     continue;
                 }
@@ -368,7 +368,7 @@ int mount(const char *source, const char *target,
 
     struct mnt_t *mount = kalloc(sizeof(struct mnt_t));
 
-    kstrcpy(mount->name, target);
+    strcpy(mount->name, target);
     mount->fs = fs;
     mount->magic = res;
 

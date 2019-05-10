@@ -199,7 +199,7 @@ void init_tty_extended(uint32_t *__fb,
         refresh(i);
         struct device_t device = {0};
         device.calls = default_device_calls;
-        kstrcpy(device.name, tty_names[i]);
+        strcpy(device.name, tty_names[i]);
         device.intern_fd = i;
         device.size = 0;
         device.calls.read = tty_read;

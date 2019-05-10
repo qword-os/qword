@@ -47,13 +47,13 @@ pid_t kexec(const char *, const char **, const char **,
             const char *, const char *, const char *);
 
 char *prefixed_itoa(const char *, int64_t, int);
-int ktolower(int);
-char *kstrchrnul(const char *, int);
-char *kstrcpy(char *, const char *);
-char *kstrncpy(char *, const char *, size_t);
-size_t kstrlen(const char *);
-int kstrcmp(const char *, const char *);
-int kstrncmp(const char *, const char *, size_t);
+int tolower(int);
+char *strchrnul(const char *, int);
+char *strcpy(char *, const char *);
+char *strncpy(char *, const char *, size_t);
+size_t strlen(const char *);
+int strcmp(const char *, const char *);
+int strncmp(const char *, const char *, size_t);
 void kprint(int type, const char *fmt, ...);
 
 void *memset(void *, int, size_t);
