@@ -37,10 +37,10 @@ endif
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
 CLINKFLAGS := -nostdlib -no-pie
 
-REAL_FILES := $(shell find ./real -type f -name '*.real')
+REAL_FILES := $(shell find ./ -type f -name '*.real')
 BINS := $(REAL_FILES:.real=.bin)
 C_FILES := $(shell find ./ -type f -name '*.c')
-ASM_FILES := $(shell find ./asm -type f -name '*.asm')
+ASM_FILES := $(shell find ./ -type f -name '*.asm')
 OBJ := $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
 H_FILES := $(shell find ./ -type f -name '*.h')
 
