@@ -22,9 +22,10 @@ In order to build qword, make sure to have the following installed:
 ```bash
 # Clone repo wherever you like
 git clone https://github.com/qword-os/qword.git
-cd qword
-# Build and install echfs-utils (used to build the root fs image)
-cd host/echfs-utils
+cd qword/host
+# Let's first build and install the echfs-utils
+git clone https://github.com/qword-os/echfs.git
+cd echfs
 make
 # This will install echfs-utils in /usr/local
 sudo make install
