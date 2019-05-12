@@ -3,6 +3,7 @@
 /root/bin/*
 !/root/bin/pkg
 !/root/src
+!/root/dev
 !/root/root
 !/root/etc
 !/root/boot
