@@ -10,15 +10,3 @@ diff -urN nano-4.2/config.sub nano-4.2-patched/config.sub
  	# Remember, each alternative MUST END IN *, to match a version number.
  		;;
  	-qnx*)
-diff -urN nano-4.2/configure nano-4.2-patched/configure
---- nano-4.2/configure	2019-04-24 11:04:58.000000000 +0200
-+++ nano-4.2-patched/configure	2019-05-12 06:28:25.689303101 +0200
-@@ -34458,6 +34458,8 @@
- 
- 
- 
-+pkg_failed=yes
-+
- if test $pkg_failed = yes; then
-    	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
- $as_echo "no" >&6; }
