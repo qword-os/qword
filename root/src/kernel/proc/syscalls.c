@@ -704,7 +704,10 @@ pid_t syscall_getppid(void) {
     return ret;
 }
 
-static int internal_syscall_pipe(int *pipefd, int flflags) {
+int syscall_pipe(struct regs_t *regs) {
+    int *pipefd = (int *)regs->rdi;
+    int flflags = (int)regs->rsi;
+
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
@@ -749,22 +752,12 @@ static int internal_syscall_pipe(int *pipefd, int flflags) {
     if (flflags) {
         setflflags(sys_pipefd[0], flflags);
         setflflags(sys_pipefd[1], flflags);
+    } else {
+        setflflags(sys_pipefd[0], 0);
+        setflflags(sys_pipefd[1], 0);
     }
 
     return 0;
-}
-
-int syscall_pipe(struct regs_t *regs) {
-    int *pipefd = (int *)regs->rdi;
-
-    return internal_syscall_pipe(pipefd, 0);
-}
-
-int syscall_pipe2(struct regs_t *regs) {
-    int *pipefd = (int *)regs->rdi;
-    int flflags = (int)regs->rsi;
-
-    return internal_syscall_pipe(pipefd, flflags);
 }
 
 int syscall_unlink(struct regs_t *regs) {
