@@ -22,10 +22,10 @@ LOOP_DEVICE = $(shell losetup --find)
 
 hdd: all
 	sudo -v
-	rm -rf qword.img
-	fallocate -l $(IMGSIZE)M qword.img
-	echfs-utils ./qword.img format 32768
-	./copy-root-to-img.sh root qword.img
+	rm -rf qword.part
+	fallocate -l $(IMGSIZE)M qword.part
+	echfs-utils ./qword.img.tmp format 32768
+	./copy-root-to-img.sh root qword.part
 	rm -rf qword.hdd
 	fallocate -l $(IMGSIZE)M qword.hdd
 	fallocate -o $(IMGSIZE)M -l $$(( 67108864 + 1048576 )) qword.hdd
@@ -38,8 +38,9 @@ hdd: all
 	sudo cp -r ./root/boot/* ./mnt/boot/
 	sudo umount ./mnt
 	sudo rm -rf mnt
-	sudo bash -c "cat qword.img > $(LOOP_DEVICE)p2"
+	sudo bash -c "cat qword.part > $(LOOP_DEVICE)p2"
 	sudo losetup -d $(LOOP_DEVICE)
+	rm qword.part
 
 clean:
 	$(MAKE) core-clean -C root/src

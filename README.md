@@ -50,10 +50,6 @@ make clean && make DBGOUT=both img   # For both of the above
 make clean && make DBGSYM=yes img    # For compilation with debug symbols and other debug facilities (can be used in combination with the other options)
 # And now if you wanna test it in qemu simply run
 make run
-# If that doesn't work because you don't have hardwar virtualisation/KVM, run
+# If that doesn't work because you don't have hardware virtualisation/KVM, run
 make run-nokvm
 ```
-
-You've now built qword, a flat `qword.img` disk image has been generated.
-To run the OS in QEMU, use `make run-img`.
-To run it with KVM enabled, use `make run-img-kvm`.
