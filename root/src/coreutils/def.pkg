@@ -16,13 +16,15 @@ pkg_fetch() {
 
 pkg_build() {
     cd $PKG_ARCHIVE_DIR
-    CFLAGS=-DSLOW_BUT_NO_HACKS ./configure --host=x86_64-qword --prefix=$PKG_PREFIX --enable-no-install-program=du,df,stat,sleep,sort,tail
+    CFLAGS="-DSLOW_BUT_NO_HACKS -O2 -pipe" ./configure --host=x86_64-qword \
+        --prefix=$PKG_PREFIX --enable-no-install-program=du,df,stat,sleep,sort,tail
     make
 }
 
 pkg_install() {
     cd $PKG_ARCHIVE_DIR
     make DESTDIR=$QWORD_ROOT install
+    cp -v $QWORD_ROOT/bin/env $QWORD_ROOT/usr/bin/env
 }
 
 pkg_clean() {
