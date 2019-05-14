@@ -24,7 +24,7 @@ hdd: all
 	sudo -v
 	rm -rf qword.part
 	fallocate -l $(IMGSIZE)M qword.part
-	echfs-utils ./qword.img.tmp format 32768
+	echfs-utils ./qword.part format 32768
 	./copy-root-to-img.sh root qword.part
 	rm -rf qword.hdd
 	fallocate -l $(IMGSIZE)M qword.hdd
