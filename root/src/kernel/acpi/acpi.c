@@ -4,6 +4,7 @@
 #include <acpi/acpi.h>
 #include <acpi/madt.h>
 #include <lai/core.h>
+#include <acpispec/tables.h>
 #include <mm/mm.h>
 
 int acpi_available = 0;
@@ -54,13 +55,8 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-/*    void *fadt = acpi_find_sdt("FACP");
-    if (fadt) {
-        void *dsdt = (char *)(size_t)fadt->dsdt + 36 + MEM_PHYS_OFFSET;
-        lai_create_namespace(dsdt);
-    } else {
-        kprint(KPRN_INFO, "acpi: FADT not found. AML namespace features will not be available");
-    }*/
+    // TODO: make acpi_find_sdt() take an index as a parameter, for use with multiple tables that have the same signature.
+    //lai_create_namespace();
 
     return;
 }
