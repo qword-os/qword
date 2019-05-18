@@ -52,8 +52,29 @@ rsdp_found:
         rsdt = (struct rsdt_t *)((size_t)rsdp->rsdt_addr + MEM_PHYS_OFFSET);
     }
 
+    struct sdt_t *ptr;
+
+    if (use_xsdt) {
+        kprint(KPRN_INFO, "acpi: Found %u tables", xsdt->sdt.length);
+        for (size_t i = 0; i < xsdt->sdt.length; i++) {
+            ptr = (struct sdt_t *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
+            kprint(KPRN_INFO, "acpi: Found %s at %X", (const char *)ptr->signature, (size_t)ptr);
+        }
+    } else {
+        kprint(KPRN_INFO, "acpi: Found %u tables", rsdt->sdt.length);
+        for (size_t i = 0; i < rsdt->sdt.length; i++) {
+            ptr = (struct sdt_t *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
+            kprint(KPRN_INFO, "acpi: Found %s at %X", (const char *)ptr->signature, (size_t)ptr);
+        }
+    }
+
     /* Call table inits */
     init_madt();
+    void *dsdt = acpi_find_sdt("DSDT");
+    if (dsdt)
+        lai_create_namespace(dsdt);
+    else
+        kprint(KPRN_INFO, "lai: Could not find DSDT. AML namespace management will not be available");
 
     return;
 }
