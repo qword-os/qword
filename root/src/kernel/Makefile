@@ -20,7 +20,8 @@ CHARDFLAGS := \
     -mcmodel=kernel \
     -ffreestanding \
     -fno-stack-protector \
-    -I./
+    -I./ \
+	-I./acpi/lai/include/
 
 ifeq ($(DBGOUT), tty)
 CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
@@ -40,8 +41,8 @@ CLINKFLAGS := -nostdlib -no-pie
 REAL_FILES := $(shell find ./ -type f -name '*.real')
 BINS := $(REAL_FILES:.real=.bin)
 C_FILES := $(shell find ./ -type f -name '*.c')
-ASM_FILES := $(shell find ./ -type f -name '*.asm')
-OBJ := $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o)
+ASM_FILES := $(shell find ./asm -type f -name '*.asm')
+OBJ := $(C_FILES:.c=.o) $(ASM_FILES:.asm=.o) $(shell find . -type f -name '.a')
 H_FILES := $(shell find ./ -type f -name '*.h')
 
 .PHONY: all install clean
@@ -51,7 +52,7 @@ all: kernel.bin
 kernel.bin: $(BINS) $(OBJ) $(H_FILES)
 	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker.ld -o $@
 	$(CC) $(OBJ) $(CLINKFLAGS) -T ./linker-elf.ld -o kernel.elf
-
+	rm liblai.a
 %.o: %.c
 	$(CC) $(CFLAGS) $(CHARDFLAGS) -c $< -o $@
 
@@ -68,3 +69,4 @@ install:
 
 clean:
 	rm -f $(OBJ) $(BINS) kernel.bin
+	rm -rf ./acpi/lai/

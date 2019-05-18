@@ -3,6 +3,7 @@
 #include <lib/klib.h>
 #include <acpi/acpi.h>
 #include <acpi/madt.h>
+#include <lai/core.h>
 #include <mm/mm.h>
 
 int acpi_available = 0;

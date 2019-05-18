@@ -277,7 +277,13 @@ void kprint(int type, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
+    kvprint(type, fmt, args);
+    va_end(args);
 
+    return;
+}
+
+void kvprint(int type, const char *fmt, va_list args) {
     char kprint_buf[KPRINT_BUF_MAX];
     size_t kprint_buf_i = 0;
 
@@ -296,7 +302,6 @@ void kprint(int type, const char *fmt, ...) {
             fmt++;
         }
         if (!*fmt++) {
-            va_end(args);
             kputchar(kprint_buf, &kprint_buf_i, '\n');
             goto out;
         }
