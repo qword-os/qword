@@ -1,0 +1,32 @@
+PKG_NAME=coreutils
+PKG_VERSION=8.30
+PKG_URL=https://ftp.gnu.org/gnu/coreutils/coreutils-$PKG_VERSION.tar.xz
+PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.xz
+PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
+PKG_PREFIX=/
+PKG_DEPS="mlibc"
+
+pkg_fetch() {
+    [ -f $PKG_TARBALL ] || wget $PKG_URL
+    [ -d $PKG_ARCHIVE_DIR ] || tar -xf $PKG_TARBALL
+
+    cd $PKG_ARCHIVE_DIR
+    patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
+}
+
+pkg_build() {
+    cd $PKG_ARCHIVE_DIR
+    CFLAGS="-DSLOW_BUT_NO_HACKS -O2 -pipe" ./configure --host=x86_64-qword \
+        --prefix=$PKG_PREFIX --enable-no-install-program=du,df,stat,sleep,sort,tail
+    make
+}
+
+pkg_install() {
+    cd $PKG_ARCHIVE_DIR
+    make DESTDIR=$QWORD_ROOT install
+    cp -v $QWORD_ROOT/bin/env $QWORD_ROOT/usr/bin/env
+}
+
+pkg_clean() {
+    rm -rf $PKG_ARCHIVE_DIR
+}

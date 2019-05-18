@@ -1,0 +1,228 @@
+diff -urN a/builtins/psize.c b/builtins/psize.c
+--- a/builtins/psize.c	2008-08-14 21:56:53.000000000 +0200
++++ b/builtins/psize.c	2018-12-08 10:43:09.343955936 +0100
+@@ -21,25 +21,12 @@
+ /*  Write output in 128-byte chunks until we get a sigpipe or write gets an
+     EPIPE.  Then report how many bytes we wrote.  We assume that this is the
+     pipe size. */
+-#include <config.h>
+-
+-#if defined (HAVE_UNISTD_H)
+-#  ifdef _MINIX
+-#    include <sys/types.h>
+-#  endif
+-#  include <unistd.h>
+-#endif
+ 
+ #include <stdio.h>
+-#ifndef _MINIX
+-#include "../bashtypes.h"
+-#endif
++#include <stdlib.h>
+ #include <signal.h>
+ #include <errno.h>
+-
+-#include "../command.h"
+-#include "../general.h"
+-#include "../sig.h"
++#include <unistd.h>
+ 
+ #ifndef errno
+ extern int errno;
+@@ -47,7 +34,7 @@
+ 
+ int nw;
+ 
+-sighandler
++void
+ sigpipe (sig)
+      int sig;
+ {
+diff -urN a/mksyntax.c b/mksyntax.c
+--- a/mksyntax.c	2012-07-30 01:48:38.000000000 +0200
++++ b/mksyntax.c	2018-12-08 10:24:56.407900475 +0100
+@@ -20,16 +20,12 @@
+    along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+-#include "config.h"
+-
+ #include <stdio.h>
++#include <string.h>
+ #include "bashansi.h"
+ #include "chartypes.h"
+ #include <errno.h>
+-
+-#ifdef HAVE_UNISTD_H
+-#  include <unistd.h>
+-#endif
++#include <unistd.h>
+ 
+ #include "syntax.h"
+ 
+@@ -40,9 +36,7 @@
+ extern int errno;
+ #endif
+ 
+-#ifndef HAVE_STRERROR
+ extern char *strerror();
+-#endif
+ 
+ struct wordflag {
+ 	int	flag;
+@@ -375,41 +369,3 @@
+     fclose (fp);
+   exit (0);
+ }
+-
+-
+-#if !defined (HAVE_STRERROR)
+-
+-#include <bashtypes.h>
+-#if defined (HAVE_SYS_PARAM_H)
+-#  include <sys/param.h>
+-#endif
+-
+-#if defined (HAVE_UNISTD_H)
+-#  include <unistd.h>
+-#endif
+-
+-/* Return a string corresponding to the error number E.  From
+-   the ANSI C spec. */
+-#if defined (strerror)
+-#  undef strerror
+-#endif
+-
+-char *
+-strerror (e)
+-     int e;
+-{
+-  static char emsg[40];
+-#if defined (HAVE_SYS_ERRLIST)
+-  extern int sys_nerr;
+-  extern char *sys_errlist[];
+-
+-  if (e > 0 && e < sys_nerr)
+-    return (sys_errlist[e]);
+-  else
+-#endif /* HAVE_SYS_ERRLIST */
+-    {
+-      sprintf (emsg, "Unknown system error %d", e);
+-      return (&emsg[0]);
+-    }
+-}
+-#endif /* HAVE_STRERROR */
+diff -urN a/support/bashversion.c b/support/bashversion.c
+--- a/support/bashversion.c	2008-09-09 15:31:53.000000000 +0200
++++ b/support/bashversion.c	2018-12-08 10:29:18.600024925 +0100
+@@ -18,15 +18,12 @@
+    along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+-#include "config.h"
+-
+ #include "stdc.h"
+ 
+ #include <stdio.h>
++#include <string.h>
+ 
+-#if defined (HAVE_UNISTD_H)
+-#  include <unistd.h>
+-#endif
++#include <unistd.h>
+ 
+ #include "bashansi.h"
+ 
+diff -urN a/support/config.sub b/support/config.sub
+--- a/support/config.sub	2013-12-17 16:49:47.000000000 +0100
++++ b/support/config.sub	2018-12-08 10:07:34.553446479 +0100
+@@ -1356,7 +1356,7 @@
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+-	      | -aos* | -aros* \
++	      | -aos* | -aros* | -qword* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -urN a/support/man2html.c b/support/man2html.c
+--- a/support/man2html.c	2015-07-11 22:11:09.000000000 +0200
++++ b/support/man2html.c	2018-12-08 11:39:39.353608882 +0100
+@@ -63,7 +63,7 @@
+  *    time to look through all the available manpages.)
+  */
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++//#include <config.h>
+ #endif
+ 
+ #define NROFF 0
+@@ -123,7 +123,8 @@
+ #define BD_LITERAL  1
+ #define BD_INDENT   2
+ 
+-#ifndef HAVE_STRERROR
++//#ifndef HAVE_STRERROR
++#if (0)
+ static char *
+ strerror(int e)
+ {
+diff -urN a/support/mksignames.c b/support/mksignames.c
+--- a/support/mksignames.c	2009-10-08 16:36:34.000000000 +0200
++++ b/support/mksignames.c	2018-12-08 10:28:58.992019474 +0100
+@@ -19,8 +19,6 @@
+    along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+-#include <config.h>
+-
+ #include <sys/types.h>
+ #include <signal.h>
+ 
+diff -urN a/support/signames.c b/support/signames.c
+--- a/support/signames.c	2013-10-14 15:31:27.000000000 +0200
++++ b/support/signames.c	2018-12-08 10:29:52.180033056 +0100
+@@ -18,8 +18,6 @@
+    along with Bash.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+-#include <config.h>
+-
+ #include <stdio.h>
+ 
+ #include <sys/types.h>
+diff --git a/lib/termcap/termcap.c b/lib/termcap/termcap.c
+index ba3dab2..2882f0c 100644
+--- a/lib/termcap/termcap.c
++++ b/lib/termcap/termcap.c
+@@ -627,7 +627,7 @@ scan_file (str, fd, bufp)
+   bufp->ateof = 0;
+   *bufp->ptr = '\0';
+
+-  lseek (fd, 0L, 0);
++  lseek (fd, 0L, SEEK_SET);
+
+   while (!bufp->ateof)
+     {
+diff --git a/shell.c b/shell.c
+index 45b77f9..9e9aa0e 100644
+--- a/shell.c
++++ b/shell.c
+@@ -1548,7 +1548,7 @@ open_shell_script (script_name)
+ #endif
+
+   /* Only do this with non-tty file descriptors we can seek on. */
+-  if (fd_is_tty == 0 && (lseek (fd, 0L, 1) != -1))
++  if (fd_is_tty == 0 && (lseek (fd, 0L, SEEK_CUR) != -1))
+     {
+       /* Check to see if the `file' in `bash file' is a binary file
+         according to the same tests done by execute_simple_command (),
+@@ -1579,7 +1579,7 @@ open_shell_script (script_name)
+          exit (EX_BINARY_FILE);
+        }
+       /* Now rewind the file back to the beginning. */
+-      lseek (fd, 0L, 0);
++      lseek (fd, 0L, SEEK_SET);
+     }
+
+   /* Open the script.  But try to move the file descriptor to a randomly

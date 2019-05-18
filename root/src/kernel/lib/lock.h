@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <lib/qemu.h>
 
+#ifdef _DEBUG_
+
 #define DEADLOCK_MAX_ITER 0x4000000
 
 struct last_acquirer_t {
@@ -27,6 +29,22 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     0,
     { "N/A", "N/A", 0 }
 };
+
+#else /* _DEBUG_ */
+
+typedef struct {
+    int lock;
+} lock_t;
+
+__attribute__((unused)) static const lock_t new_lock = {
+    1
+};
+
+__attribute__((unused)) static const lock_t new_lock_acquired = {
+    0
+};
+
+#endif /* _DEBUG_ */
 
 #define locked_read(type, var) ({ \
     type ret = 0; \
@@ -72,6 +90,7 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     ret; \
 })
 
+// TODO: Move this somewhere else
 #define __puts_uint(val) ({ \
     char buf[21] = {0}; \
     int i; \
@@ -89,6 +108,8 @@ __attribute__((unused)) static const lock_t new_lock_acquired = {
     } \
     qemu_debug_puts_urgent(buf + i); \
 })
+
+#ifdef _DEBUG_
 
 __attribute__((unused)) static int deadlock_detect_lock = 0;
 
@@ -148,6 +169,24 @@ out:; \
     } \
     ret; \
 })
+
+#else /* _DEBUG_ */
+
+#define spinlock_acquire(lock) \
+    while (!spinlock_test_and_acquire(lock));
+
+#define spinlock_test_and_acquire(LOCK) ({ \
+    int ret; \
+    asm volatile ( \
+        "lock btr %0, 0;" \
+        : "+m" ((LOCK)->lock), "=@ccc" (ret) \
+        : \
+        : "memory" \
+    ); \
+    ret; \
+})
+
+#endif /* _DEBUG_ */
 
 __attribute__((always_inline)) __attribute__((unused)) static inline void spinlock_release(lock_t *lock) {
     asm volatile (

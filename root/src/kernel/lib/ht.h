@@ -83,7 +83,7 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
-            if (kstrcmp(nname, ((type **)ht)[hash]->name)) { \
+            if (strcmp(nname, ((type **)ht)[hash]->name)) { \
                 ret = NULL; \
                 goto out; \
             } \
@@ -111,7 +111,7 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
-            if (kstrcmp(nname, ((type **)ht)[hash]->name)) { \
+            if (strcmp(nname, ((type **)ht)[hash]->name)) { \
                 ret = NULL; \
                 goto out; \
             } \
@@ -145,7 +145,7 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
-            if (!kstrcmp(element->name, ht[hash]->name)) { \
+            if (!strcmp(element->name, ht[hash]->name)) { \
                 ret = -1; \
                 goto out; \
             } \

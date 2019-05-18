@@ -1,0 +1,53 @@
+PKG_NAME=bash
+PKG_VERSION=4.4
+PKG_URL=https://ftp.gnu.org/gnu/bash/bash-$PKG_VERSION.tar.gz
+PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.gz
+PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
+PKG_PREFIX=/
+PKG_DEPS="mlibc"
+
+# bash-specific: get all the patches
+BASH_PATCHES="
+001 002 003 004 005 006 007 008 009 010
+011 012 013 014 015 016 017 018 019 020
+021 022 023
+"
+
+# XXX update this in the future
+BASH_PATCH_URL_BASE="https://ftp.gnu.org/gnu/bash/bash-4.4-patches/bash44"
+BASH_PATCH_BASENAME="bash44"
+
+pkg_fetch() {
+    [ -f $PKG_TARBALL ] || wget $PKG_URL
+    [ -d $PKG_ARCHIVE_DIR ] || tar -xf $PKG_TARBALL
+
+    for i in $BASH_PATCHES; do
+        if [ ! -f $BASH_PATCH_BASENAME-$i ]; then
+            wget $BASH_PATCH_URL_BASE-$i
+        fi
+    done
+
+    cd $PKG_ARCHIVE_DIR
+    patch -p1 < ../$PKG_NAME-$PKG_VERSION.patch
+
+    # bash-specific: apply all patches
+    for i in $BASH_PATCHES; do
+        patch -p0 < ../$BASH_PATCH_BASENAME-$i
+    done
+
+}
+
+pkg_build() {
+    cd $PKG_ARCHIVE_DIR
+    ./configure --host=x86_64-qword --prefix=$PKG_PREFIX --without-bash-malloc
+    make
+}
+
+pkg_install() {
+    cd $PKG_ARCHIVE_DIR
+    make DESTDIR=$QWORD_ROOT install
+}
+
+pkg_clean() {
+    rm -rf $PKG_ARCHIVE_DIR
+}

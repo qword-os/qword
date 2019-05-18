@@ -57,7 +57,7 @@ void kmain_thread(void *arg) {
         readline(tty, "Select root device: ", new_root, 64);
         root = new_root;
     } else {
-        kstrcpy(new_root, root);
+        strcpy(new_root, root);
         root = new_root;
     }
     kprint(KPRN_INFO, "kmain: root=%s", new_root);
@@ -69,7 +69,7 @@ void kmain_thread(void *arg) {
         readline(tty, "Root filesystem to use: ", new_rootfs, 64);
         rootfs = new_rootfs;
     } else {
-        kstrcpy(new_rootfs, rootfs);
+        strcpy(new_rootfs, rootfs);
         rootfs = new_rootfs;
     }
     kprint(KPRN_INFO, "kmain: rootfs=%s", new_rootfs);
@@ -81,7 +81,7 @@ void kmain_thread(void *arg) {
         readline(tty, "Location of init: ", new_init, 64);
         init = new_init;
     } else {
-        kstrcpy(new_init, init);
+        strcpy(new_init, init);
         init = new_init;
     }
     kprint(KPRN_INFO, "kmain: init=%s", new_init);

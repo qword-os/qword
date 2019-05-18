@@ -1,0 +1,28 @@
+PKG_NAME=nasm
+PKG_VERSION=2.14.02
+PKG_URL=https://www.nasm.us/pub/nasm/releasebuilds/$PKG_VERSION/nasm-$PKG_VERSION.tar.gz
+PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.gz
+PKG_PREFIX=/usr
+PKG_DEPS="mlibc"
+
+PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
+
+pkg_fetch() {
+    [ -f $PKG_TARBALL ] || wget $PKG_URL
+    [ -d $PKG_ARCHIVE_DIR ] || tar -xf $PKG_TARBALL
+}
+
+pkg_build() {
+    cd $PKG_ARCHIVE_DIR
+    ./configure --host=x86_64-qword --prefix=$PKG_PREFIX
+    make
+}
+
+pkg_install() {
+    cd $PKG_ARCHIVE_DIR
+    make DESTDIR=$QWORD_ROOT install
+}
+
+pkg_clean() {
+    rm -rf $PKG_ARCHIVE_DIR
+}

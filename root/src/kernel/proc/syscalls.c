@@ -314,13 +314,13 @@ int syscall_getcwd(struct regs_t *regs) {
     size_t limit = (size_t)regs->rsi;
 
     spinlock_acquire(&process->cwd_lock);
-    if (kstrlen(process->cwd) + 1 > limit) {
+    if (strlen(process->cwd) + 1 > limit) {
         spinlock_release(&process->cwd_lock);
         errno = ERANGE;
         return -1;
     }
 
-    kstrcpy(buf, process->cwd);
+    strcpy(buf, process->cwd);
     spinlock_release(&process->cwd_lock);
 
     return 0;
@@ -365,7 +365,7 @@ int syscall_readdir(struct regs_t *regs) {
 int syscall_chdir(struct regs_t *regs) {
     char *new_path = (char *)regs->rdi;
 
-    if (privilege_check(regs->rdi, kstrlen(new_path) + 1))
+    if (privilege_check(regs->rdi, strlen(new_path) + 1))
         return -1;
 
     spinlock_acquire(&scheduler_lock);
@@ -394,7 +394,7 @@ int syscall_chdir(struct regs_t *regs) {
     }
 
     spinlock_acquire(&process->cwd_lock);
-    kstrcpy(process->cwd, abs_path);
+    strcpy(process->cwd, abs_path);
     spinlock_release(&process->cwd_lock);
     return 0;
 }
@@ -552,7 +552,7 @@ int syscall_fork(struct regs_t *regs) {
     spinlock_release(&old_process->perfmon_lock);
 
     /* Copy relevant metadata over */
-    kstrcpy(new_process->cwd, old_process->cwd);
+    strcpy(new_process->cwd, old_process->cwd);
     new_process->cur_brk = old_process->cur_brk;
 
     /* Duplicate all file handles */
@@ -681,7 +681,7 @@ int syscall_debug_print(struct regs_t *regs) {
         return -1;
 
     // Make sure we're not trying to print memory that doesn't belong to us
-    if (privilege_check(regs->rsi, kstrlen((const char *)regs->rsi) + 1))
+    if (privilege_check(regs->rsi, strlen((const char *)regs->rsi) + 1))
         return -1;
 
     kprint(regs->rdi, "[%u:%u:%u] %s",
@@ -706,13 +706,14 @@ pid_t syscall_getppid(void) {
 
 int syscall_pipe(struct regs_t *regs) {
     int *pipefd = (int *)regs->rdi;
+    int flflags = (int)regs->rsi;
 
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
-    if (privilege_check(regs->rdi, sizeof(int) * 2))
+    if (privilege_check(pipefd, sizeof(int) * 2))
         return -1;
 
     spinlock_acquire(&process->file_handles_lock);
@@ -726,6 +727,7 @@ int syscall_pipe(struct regs_t *regs) {
             close(sys_pipefd[0]);
             close(sys_pipefd[1]);
             spinlock_release(&process->file_handles_lock);
+            errno = EMFILE;
             return -1;
         }
     process->file_handles[local_fd_read] = sys_pipefd[0];
@@ -735,7 +737,9 @@ int syscall_pipe(struct regs_t *regs) {
         if (local_fd_write + 1 == MAX_FILE_HANDLES) {
             close(sys_pipefd[0]);
             close(sys_pipefd[1]);
+            process->file_handles[local_fd_read] = -1;
             spinlock_release(&process->file_handles_lock);
+            errno = EMFILE;
             return -1;
         }
     process->file_handles[local_fd_write] = sys_pipefd[1];
@@ -744,6 +748,15 @@ int syscall_pipe(struct regs_t *regs) {
     pipefd[1] = local_fd_write;
 
     spinlock_release(&process->file_handles_lock);
+
+    if (flflags) {
+        setflflags(sys_pipefd[0], flflags);
+        setflflags(sys_pipefd[1], flflags);
+    } else {
+        setflflags(sys_pipefd[0], 0);
+        setflflags(sys_pipefd[1], 0);
+    }
+
     return 0;
 }
 
@@ -757,7 +770,7 @@ int syscall_unlink(struct regs_t *regs) {
 
     const char *path = (const char *)regs->rdi;
 
-    if (privilege_check(regs->rdi, kstrlen(path) + 1)) {
+    if (privilege_check(regs->rdi, strlen(path) + 1)) {
         errno = EFAULT;
         return -1;
     }
@@ -802,7 +815,7 @@ int syscall_open(struct regs_t *regs) {
     struct process_t *process = process_table[current_process];
     spinlock_release(&scheduler_lock);
 
-    if (privilege_check(regs->rdi, kstrlen((const char *)regs->rdi) + 1)) {
+    if (privilege_check(regs->rdi, strlen((const char *)regs->rdi) + 1)) {
         errno = EFAULT;
         return -1;
     }

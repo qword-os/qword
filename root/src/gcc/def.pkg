@@ -1,0 +1,38 @@
+PKG_NAME=gcc
+PKG_VERSION=9.1.0
+PKG_URL=https://ftp.gnu.org/gnu/gcc/gcc-$PKG_VERSION/gcc-$PKG_VERSION.tar.xz
+PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.xz
+PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
+PKG_PREFIX=/usr
+PKG_DEPS="mlibc binutils"
+
+pkg_fetch() {
+    [ -f $PKG_TARBALL ] || wget $PKG_URL
+    [ -d $PKG_ARCHIVE_DIR ] || tar -xf $PKG_TARBALL
+
+    cd $PKG_ARCHIVE_DIR
+    contrib/download_prerequisites
+    patch -p1 < ../$PKG_NAME.patch
+    cd libstdc++-v3 && autoconf && cd ..
+}
+
+pkg_build() {
+    mkdir build-gcc && cd build-gcc
+    ../$PKG_ARCHIVE_DIR/configure --host=x86_64-qword --target=x86_64-qword --prefix=$PKG_PREFIX --with-sysroot=/ --with-build-sysroot=$QWORD_ROOT --enable-languages=c,c++ --disable-gcov --disable-multilib --enable-initfini-array
+    make all-gcc
+    make all-target-libgcc
+    make all-target-libstdc++-v3
+}
+
+pkg_install() {
+    cd build-gcc
+
+    make DESTDIR=$QWORD_ROOT install-gcc
+    make DESTDIR=$QWORD_ROOT install-target-libgcc
+    make DESTDIR=$QWORD_ROOT install-target-libstdc++-v3
+}
+
+pkg_clean() {
+    rm -rf $PKG_ARCHIVE_DIR
+    rm -rf build-gcc
+}

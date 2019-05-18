@@ -1,0 +1,12 @@
+diff -urN grep-3.3/build-aux/config.sub grep-3.3-patched/build-aux/config.sub
+--- grep-3.3/build-aux/config.sub	2018-12-21 04:31:37.000000000 +0100
++++ grep-3.3-patched/build-aux/config.sub	2019-05-06 17:59:48.831352638 +0200
+@@ -1361,7 +1361,7 @@
+ 	     | powermax* | dnix* | nx6 | nx7 | sei* | dragonfly* \
+ 	     | skyos* | haiku* | rdos* | toppers* | drops* | es* \
+ 	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
+-	     | midnightbsd* | amdhsa* | unleashed*)
++	     | midnightbsd* | amdhsa* | unleashed* | qword*)
+ 	# Remember, each alternative MUST END IN *, to match a version number.
+ 		;;
+ 	qnx*)

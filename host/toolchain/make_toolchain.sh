@@ -6,8 +6,8 @@ set -x
 CROSS_ROOT="$(pwd)/cross-root"
 TARGET_ROOT="$(realpath ../..)/root"
 TARGET=x86_64-qword
-GCCVERSION=8.2.0
-BINUTILSVERSION=2.31.1
+GCCVERSION=9.1.0
+BINUTILSVERSION=2.32
 
 if [ -z "$MAKEFLAGS" ]; then
 	MAKEFLAGS="$1"
@@ -49,11 +49,11 @@ fi
 if [ ! -f gcc-$GCCVERSION.tar.gz ]; then
 	wget https://ftp.gnu.org/gnu/gcc/gcc-$GCCVERSION/gcc-$GCCVERSION.tar.gz
 fi
-tar -vxf gcc-$GCCVERSION.tar.gz
-tar -vxf binutils-$BINUTILSVERSION.tar.gz
+tar -xf gcc-$GCCVERSION.tar.gz
+tar -xf binutils-$BINUTILSVERSION.tar.gz
 
 cd binutils-$BINUTILSVERSION
-patch -p1 < ../../binutils-$BINUTILSVERSION.patch
+patch -p1 < ../../binutils.patch
 cd ..
 mkdir build-binutils
 cd build-binutils
@@ -63,11 +63,12 @@ make install
 
 cd ../gcc-$GCCVERSION
 contrib/download_prerequisites
-patch -p1 < ../../gcc-$GCCVERSION.patch
+patch -p1 < ../../gcc.patch
+cd libstdc++-v3 && autoconf && cd ..
 cd ..
 mkdir build-gcc
 cd build-gcc
-../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$CROSS_ROOT" --with-sysroot="$TARGET_ROOT" --enable-languages=c,c++ --disable-multilib --enable-initfini-array
+../gcc-$GCCVERSION/configure --target=$TARGET --prefix="$CROSS_ROOT" --with-sysroot="$TARGET_ROOT" --enable-languages=c,c++ --disable-gcov --disable-multilib --enable-initfini-array
 make all-gcc
 make install-gcc
 cd ../..

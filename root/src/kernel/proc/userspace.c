@@ -14,6 +14,57 @@
 extern void *signal_trampoline[];
 extern void *signal_trampoline_size[];
 
+static int parse_shebang(int fd, pid_t pid, const char *argv[], const char *envp[]) {
+    kprint(KPRN_DBG, "Found shebang. Parsing.");
+
+    char **shebang = kalloc(1024);
+    int i = 0;
+    int j = 0;
+
+    for (;;) {
+        char c;
+        read(fd, &c, 1);
+        switch (c) {
+            case '\n':
+                goto done;
+            case ' ':
+            case '\t':
+                continue;
+            default:
+                j = 0;
+                goto found_arg;
+        }
+
+        for (;;) {
+            read(fd, &c, 1);
+            if (c == ' ' || c == '\t' || c == '\n') {
+                i++;
+                if (c == '\n')
+                    goto done;
+                else
+                    break;
+            }
+found_arg:
+            shebang[i] = krealloc(shebang[i], j + 1);
+            shebang[i][j++] = c;
+        }
+    }
+
+done:
+    // Append original arguments at the end
+    for (j = 0; argv[j]; j++) {
+        shebang[i] = kalloc(strlen(argv[j]) + 1);
+        strcpy(shebang[i], argv[j]);
+        i++;
+    }
+
+    int ret = exec(pid, shebang[0], (const char **)shebang, envp);
+    for (i = 0; shebang[i]; i++)
+        kfree(shebang[i]);
+    kfree(shebang);
+    return ret;
+}
+
 int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]) {
     int ret;
     size_t entry;
@@ -21,14 +72,21 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
     struct process_t *process = process_table[pid];
 
     struct pagemap_t *old_pagemap = process->pagemap;
-    struct pagemap_t *new_pagemap = new_address_space();
 
-    /* Load the executable */
+    // Load the executable
     int fd = open(filename, O_RDONLY);
     if (fd < 0) {
-        free_address_space(new_pagemap);
         return -1;
     }
+
+    // Check for a shebang
+    char shebang[2];
+    read(fd, shebang, 2);
+    if (!strncmp(shebang, "#!", 2)) {
+        return parse_shebang(fd, pid, argv, envp);
+    }
+
+    struct pagemap_t *new_pagemap = new_address_space();
 
     struct auxval_t auxval;
     char *ld_path;
@@ -41,7 +99,7 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
         return -1;
     }
 
-    /* If requested: Load the dynamic linker */
+    // If requested: Load the dynamic linker
     if (!ld_path) {
         entry = auxval.at_entry;
     } else {

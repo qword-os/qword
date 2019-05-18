@@ -1,0 +1,30 @@
+PKG_NAME=ncurses
+PKG_VERSION=6.1
+PKG_URL=https://ftp.gnu.org/gnu/ncurses/ncurses-$PKG_VERSION.tar.gz
+PKG_TARBALL=$PKG_NAME-$PKG_VERSION.tar.gz
+PKG_ARCHIVE_DIR=$PKG_NAME-$PKG_VERSION
+PKG_PREFIX=/usr
+PKG_DEPS="mlibc"
+
+pkg_fetch() {
+    [ -f $PKG_TARBALL ] || wget $PKG_URL
+    [ -d $PKG_ARCHIVE_DIR ] || tar -xf $PKG_TARBALL
+
+    cd $PKG_ARCHIVE_DIR
+    patch -p1 < ../$PKG_NAME.patch
+}
+
+pkg_build() {
+    cd $PKG_ARCHIVE_DIR
+    ./configure --host=x86_64-qword --prefix=$PKG_PREFIX
+    make
+}
+
+pkg_install() {
+    cd $PKG_ARCHIVE_DIR
+    make DESTDIR=$QWORD_ROOT install
+}
+
+pkg_clean() {
+    rm -rf $PKG_ARCHIVE_DIR
+}

@@ -27,7 +27,7 @@ void init_acpi(void) {
             i = 0xe0000 - 16 + MEM_PHYS_OFFSET;
             continue;
         }
-        if (!kstrncmp((char *)i, "RSD PTR ", 8)) {
+        if (!strncmp((char *)i, "RSD PTR ", 8)) {
             kprint(KPRN_INFO, "acpi: Found RSDP at %X", i);
             rsdp = (struct rsdp_t *)i;
             goto rsdp_found;
@@ -65,7 +65,7 @@ void *acpi_find_sdt(const char *signature) {
     if (use_xsdt) {
         for (size_t i = 0; i < xsdt->sdt.length; i++) {
             ptr = (struct sdt_t *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
-            if (!kstrncmp(ptr->signature, signature, 4)) {
+            if (!strncmp(ptr->signature, signature, 4)) {
                 kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
                 return (void *)ptr;
             }
@@ -73,7 +73,7 @@ void *acpi_find_sdt(const char *signature) {
     } else {
         for (size_t i = 0; i < rsdt->sdt.length; i++) {
             ptr = (struct sdt_t *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
-            if (!kstrncmp(ptr->signature, signature, 4)) {
+            if (!strncmp(ptr->signature, signature, 4)) {
                 kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
                 return (void *)ptr;
             }

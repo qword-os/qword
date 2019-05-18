@@ -48,7 +48,7 @@ static int devfs_open(const char *path, int flags, int unused) {
         return -1;
     }
 
-    if (!kstrcmp(path, "/")) {
+    if (!strcmp(path, "/")) {
         new_handle.root = 1;
         return dynarray_add(struct devfs_handle_t, devfs_handles, &new_handle);
     }
@@ -56,7 +56,7 @@ static int devfs_open(const char *path, int flags, int unused) {
     if (*path == '/')
         path++;
 
-    struct device_t *device = dynarray_search(struct device_t, devices, !kstrcmp(elem->name, path));
+    struct device_t *device = dynarray_search(struct device_t, devices, !strcmp(elem->name, path));
     if (!device) {
         if (flags & O_CREAT)
             errno = EROFS;
@@ -396,7 +396,7 @@ static int devfs_readdir(int fd, struct dirent *dir) {
         if (dev) {
             // valid entry
             dir->d_ino = (ino_t)((size_t)dev & 0xfffffff);
-            kstrcpy(dir->d_name, dev->name);
+            strcpy(dir->d_name, dev->name);
             dir->d_reclen = sizeof(struct dirent);
             if (!dev->size) {
                 dir->d_type = DT_CHR;
@@ -420,7 +420,7 @@ void init_fs_devfs(void) {
     struct fs_t devfs = {0};
 
     devfs = default_fs_handler;
-    kstrcpy(devfs.name, "devfs");
+    strcpy(devfs.name, "devfs");
     devfs.read = devfs_read;
     devfs.write = devfs_write;
     devfs.mount = devfs_mount;

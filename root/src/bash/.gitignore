@@ -1,0 +1,4 @@
+*
+!.gitignore
+!def.pkg
+!*.patch

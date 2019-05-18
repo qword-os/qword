@@ -1,6 +1,6 @@
 PREFIX =
 
-DEBUG = qemu
+DBGOUT = no
 DBGSYM = no
 
 CC = x86_64-qword-gcc
@@ -23,24 +23,22 @@ CHARDFLAGS := \
     -I./ \
 	-I./acpi/lai/include/
 
-ifeq ($(DEBUG), vga)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_
-else ifeq ($(DEBUG), qemu)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_QEMU_
-else ifeq ($(DEBUG), both)
-CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_ -D_KERNEL_QEMU_
-else
-$(error variable DEBUG invalid)
+ifeq ($(DBGOUT), tty)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
+else ifeq ($(DBGOUT), qemu)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_QEMU_
+else ifeq ($(DBGOUT), both)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_ -D_DBGOUT_QEMU_
 endif
 
 ifeq ($(DBGSYM), yes)
-CHARDFLAGS := $(CHARDFLAGS) -g
+CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'
 CLINKFLAGS := -nostdlib -no-pie
 
-REAL_FILES := $(shell find ./real -type f -name '*.real')
+REAL_FILES := $(shell find ./ -type f -name '*.real')
 BINS := $(REAL_FILES:.real=.bin)
 C_FILES := $(shell find ./ -type f -name '*.c')
 ASM_FILES := $(shell find ./asm -type f -name '*.asm')

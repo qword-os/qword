@@ -1,0 +1,6 @@
+*
+!.gitignore
+!def.pkg
+!*.patch
+!Makefile
+!*.c

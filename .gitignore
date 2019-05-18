@@ -1,5 +1,9 @@
 /root/*
+!/root/bin
+/root/bin/*
+!/root/bin/pkg
 !/root/src
+!/root/dev
 !/root/root
 !/root/etc
 !/root/boot
@@ -11,6 +15,7 @@
 /**/*.tar.gz
 /qword.iso
 /qword.img
+/qword.hdd
 
 /**/*.o
 /**/*.bin

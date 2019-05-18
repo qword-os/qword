@@ -12,9 +12,9 @@
 static const char *base_digits = "0123456789abcdef";
 
 char *prefixed_itoa(const char *prefix, int64_t n, int base) {
-    int prefix_len = kstrlen(prefix);
+    int prefix_len = strlen(prefix);
     char *final_buf = kalloc(prefix_len + 1);
-    kstrcpy(final_buf, prefix);
+    strcpy(final_buf, prefix);
     const int buf_size = 64;
     char *buf = kalloc(buf_size);
 
@@ -37,28 +37,28 @@ char *prefixed_itoa(const char *prefix, int64_t n, int base) {
             i++;
     }
 
-    final_buf = krealloc(final_buf, prefix_len + kstrlen(buf + i) + 1);
-    kstrcpy(final_buf + prefix_len, buf + i);
+    final_buf = krealloc(final_buf, prefix_len + strlen(buf + i) + 1);
+    strcpy(final_buf + prefix_len, buf + i);
 
     kfree(buf);
 
     return final_buf;
 }
 
-int ktolower(int c) {
+int tolower(int c) {
     if (c >= 0x41 && c <= 0x5a)
         return c + 0x20;
     return c;
 }
 
-char *kstrchrnul(const char *s, int c) {
+char *strchrnul(const char *s, int c) {
     while (*s)
         if ((*s++) == c)
             break;
     return (char *)s;
 }
 
-char *kstrcpy(char *dest, const char *src) {
+char *strcpy(char *dest, const char *src) {
     size_t i = 0;
 
     for (i = 0; src[i]; i++)
@@ -69,7 +69,7 @@ char *kstrcpy(char *dest, const char *src) {
     return dest;
 }
 
-char *kstrncpy(char *dest, const char *src, size_t cnt) {
+char *strncpy(char *dest, const char *src, size_t cnt) {
     size_t i = 0;
 
     for (i = 0; i < cnt; i++)
@@ -78,7 +78,7 @@ char *kstrncpy(char *dest, const char *src, size_t cnt) {
     return dest;
 }
 
-int kstrcmp(const char *dst, const char *src) {
+int strcmp(const char *dst, const char *src) {
     size_t i;
 
     for (i = 0; dst[i] == src[i]; i++) {
@@ -88,7 +88,7 @@ int kstrcmp(const char *dst, const char *src) {
     return 1;
 }
 
-int kstrncmp(const char *dst, const char *src, size_t count) {
+int strncmp(const char *dst, const char *src, size_t count) {
     size_t i;
 
     for (i = 0; i < count; i++)
@@ -97,7 +97,7 @@ int kstrncmp(const char *dst, const char *src, size_t count) {
     return 0;
 }
 
-size_t kstrlen(const char *str) {
+size_t strlen(const char *str) {
     size_t len;
 
     for (len = 0; str[len]; len++);
@@ -107,7 +107,7 @@ size_t kstrlen(const char *str) {
 
 void readline(int fd, const char *prompt, char *str, size_t max) {
     size_t i;
-    write(fd, prompt, kstrlen(prompt));
+    write(fd, prompt, strlen(prompt));
     for (i = 0; i < (max - 1); i++) {
         read(fd, &str[i], 1);
         if (str[i] == '\n')
@@ -158,16 +158,19 @@ static void kputchar(char *kprint_buf, size_t *kprint_buf_i, char c) {
 }
 
 static void kprint_buf_flush(char *kprint_buf, size_t *kprint_buf_i) {
-    #ifdef _KERNEL_QEMU_
+    #ifdef _DBGOUT_QEMU_
         qemu_debug_puts(kprint_buf);
     #endif
-    #ifdef _KERNEL_VGA_
+    #ifdef _DBGOUT_TTY_
         tty_write(0, kprint_buf, 0, *kprint_buf_i);
     #endif
+    (void)kprint_buf;
+    (void)kprint_buf_i;
     return;
 }
 
 static void kprint_buf_flush_panic(char *kprint_buf, size_t *kprint_buf_i) {
+    (void)kprint_buf_i;
     qemu_debug_puts_urgent(kprint_buf);
     return;
 }

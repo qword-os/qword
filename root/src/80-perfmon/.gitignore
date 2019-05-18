@@ -1,6 +1,0 @@
-*
-!.gitignore
-!buildport.sh
-!*.patch
-!Makefile
-!*.c

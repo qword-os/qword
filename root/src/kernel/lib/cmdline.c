@@ -5,10 +5,10 @@
 static char value[256];
 
 char *cmdline_get_value(const char *key) {
-    size_t key_len = kstrlen(key);
+    size_t key_len = strlen(key);
 
     for (size_t i = 0; cmdline[i]; i++) {
-        if (!kstrncmp(&cmdline[i], key, key_len) && cmdline[i + key_len] == '=') {
+        if (!strncmp(&cmdline[i], key, key_len) && cmdline[i + key_len] == '=') {
             if (i && cmdline[i - 1] != ' ')
                 continue;
             i += key_len + 1;
