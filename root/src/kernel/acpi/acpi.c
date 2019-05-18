@@ -54,6 +54,13 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
+/*    void *fadt = acpi_find_sdt("FACP");
+    if (fadt) {
+        void *dsdt = (char *)(size_t)fadt->dsdt + 36 + MEM_PHYS_OFFSET;
+        lai_create_namespace(dsdt);
+    } else {
+        kprint(KPRN_INFO, "acpi: FADT not found. AML namespace features will not be available");
+    }*/
 
     return;
 }
@@ -63,7 +70,7 @@ void *acpi_find_sdt(const char *signature) {
     struct sdt_t *ptr;
 
     if (use_xsdt) {
-        for (size_t i = 0; i < xsdt->sdt.length; i++) {
+        for (size_t i = 0; i < (xsdt->sdt.length - sizeof(struct sdt_t)) / 8; i++) {
             ptr = (struct sdt_t *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!strncmp(ptr->signature, signature, 4)) {
                 kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
@@ -71,7 +78,7 @@ void *acpi_find_sdt(const char *signature) {
             }
         }
     } else {
-        for (size_t i = 0; i < rsdt->sdt.length; i++) {
+        for (size_t i = 0; i < (rsdt->sdt.length - sizeof(struct sdt_t)) / 4; i++) {
             ptr = (struct sdt_t *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!strncmp(ptr->signature, signature, 4)) {
                 kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
