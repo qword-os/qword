@@ -20,7 +20,8 @@ CHARDFLAGS := \
     -mcmodel=kernel \
     -ffreestanding \
     -fno-stack-protector \
-    -I./
+    -I./ \
+	-I./acpi/lai/include/
 
 ifeq ($(DEBUG), vga)
 CHARDFLAGS := $(CHARDFLAGS) -D_KERNEL_VGA_

@@ -1,7 +1,7 @@
 #include <lib/klib.h>
 #include <lib/alloc.h>
 #include <sys/panic.h>
-#include <acpi/lai/host.h>
+#include <lai/host.h>
 #include <stdarg.h>
 
 void laihost_log(int level, const char *fmt, va_list args) {

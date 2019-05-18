@@ -7,9 +7,9 @@ cd lai
 mkdir build && cd build
 meson ..
 ninja
+pwd
 cp liblai.a ../../kernel/
-cd ..
-cp -r include/lai ../kernel/acpi/
-rm -rf build
-cd ..
+cd ../..
+pwd
+cp -r lai/ ./kernel/acpi/
 rm -rf lai
