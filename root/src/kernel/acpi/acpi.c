@@ -60,16 +60,16 @@ rsdp_found:
     init_madt();
     lai_create_namespace();
     // TODO: figure out bug with register_isr()
-    /*acpi_fadt_t *fadt = acpi_find_sdt("FACP", 0);
+    acpi_fadt_t *fadt = acpi_find_sdt("FACP", 0);
     if (fadt) {
         uint16_t irq = fadt->sci_irq;
-        kprint(KPRN_DBG, "system control interrupt vector is %x", irq);
+        kprint(KPRN_DBG, "system control IRQ is %x", irq);
         void (*handlers[1])(int, struct regs_t *) = {sci_handler};
         kprint(KPRN_DBG, "registering isr");
         io_apic_set_mask(irq, 1, 1);
         int ret = register_isr((size_t)irq + 0x20, handlers, 1, 1, 0x8e);
         kprint(KPRN_DBG, "registered isr");
-    }*/
+    }
 
     return;
 }
