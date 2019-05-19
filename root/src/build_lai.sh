@@ -1,7 +1,8 @@
+#!/usr/bin/env bash
+
 set -e
 
-PKG_URL=https://github.com/windozz/lai.git
+PKG_URL=https://github.com/qword-os/lai.git
 
-git clone $PKG_URL
-cp -r lai/ ./kernel/acpi/
-rm -rf lai
+cd ./kernel/acpi/
+git clone $PKG_URL || ( cd lai && git pull )
