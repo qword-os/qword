@@ -22,7 +22,7 @@ size_t madt_nmi_i = 0;
 
 void init_madt(void) {
     /* search for MADT table */
-    if ((madt = acpi_find_sdt("APIC"))) {
+    if ((madt = acpi_find_sdt("APIC", 0))) {
         madt_available = 1;
     } else {
         madt_available = 0;

@@ -48,6 +48,6 @@ extern struct rsdt_t *rsdt;
 extern struct xsdt_t *xsdt;
 
 void init_acpi(void);
-void *acpi_find_sdt(const char *);
+void *acpi_find_sdt(const char *, int);
 
 #endif

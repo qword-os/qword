@@ -55,30 +55,34 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-    // TODO: make acpi_find_sdt() take an index as a parameter, for use with multiple tables that have the same signature.
     //lai_create_namespace();
 
     return;
 }
 
 /* Find SDT by signature */
-void *acpi_find_sdt(const char *signature) {
+void *acpi_find_sdt(const char *signature, int index) {
     struct sdt_t *ptr;
+    int cnt = 0;
 
     if (use_xsdt) {
         for (size_t i = 0; i < (xsdt->sdt.length - sizeof(struct sdt_t)) / 8; i++) {
             ptr = (struct sdt_t *)((size_t)xsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!strncmp(ptr->signature, signature, 4)) {
-                kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
-                return (void *)ptr;
+                if (cnt++ == index) {
+                    kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
+                    return (void *)ptr;
+                }
             }
         }
     } else {
         for (size_t i = 0; i < (rsdt->sdt.length - sizeof(struct sdt_t)) / 4; i++) {
             ptr = (struct sdt_t *)((size_t)rsdt->sdt_ptr[i] + MEM_PHYS_OFFSET);
             if (!strncmp(ptr->signature, signature, 4)) {
-                kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
-                return (void *)ptr;
+                if (cnt++ == index) {
+                    kprint(KPRN_INFO, "acpi: Found \"%s\" at %X", signature, (size_t)ptr);
+                    return (void *)ptr;
+                }
             }
         }
     }
