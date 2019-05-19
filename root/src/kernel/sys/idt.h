@@ -24,7 +24,7 @@ struct idt_ptr_t {
 
 void init_idt(void);
 int register_interrupt_handler(size_t, void (*)(void), uint8_t, uint8_t);
-int register_isr(size_t, void (**)(int, struct regs_t), size_t, uint8_t, uint8_t);
+int register_isr(size_t, void (**)(int, struct regs_t *), size_t, uint8_t, uint8_t);
 void dummy_int_handler(void);
 
 extern void *isr_handler_addresses[];

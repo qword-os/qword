@@ -67,7 +67,7 @@ void init_idt(void) {
     );
 }
 
-int register_isr(size_t vec, void (**functions)(int, struct regs_t),
+int register_isr(size_t vec, void (**functions)(int, struct regs_t *),
                  size_t count, uint8_t ist, uint8_t type) {
     if (!isr_function_addresses[0])
         isr_function_addresses[0] = (void *)1;
