@@ -55,7 +55,7 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-    //lai_create_namespace();
+    lai_create_namespace();
 
     return;
 }

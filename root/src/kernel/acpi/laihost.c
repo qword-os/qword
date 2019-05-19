@@ -31,7 +31,7 @@ void *laihost_scan(char *signature, size_t index) {
     if (!strncmp(signature, "DSDT", 4)) {
         // Scan for the FACP
         acpi_facp_t *facp = (acpi_facp_t *)acpi_find_sdt("FACP", 0);
-        void *dsdt = (char *)(size_t)facp->dsdt + 36 + MEM_PHYS_OFFSET;
+        void *dsdt = (char *)(size_t)facp->dsdt + MEM_PHYS_OFFSET;
         kprint(KPRN_INFO, "acpi: Address of DSDT is %X", dsdt);
         return dsdt;
     } else {
