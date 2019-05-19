@@ -42,8 +42,6 @@ global ipi_resched
 global ipi_abortexec
 
 ; Misc.
-extern dummy_int_handler
-global int_handler
 extern task_resched_bsp
 extern task_resched
 extern task_trigger_resched
@@ -62,7 +60,6 @@ eoi:
     pop rax
     ret
 
-; Common handler that saves registers, calls a common function, restores registers and then returns.
 %macro common_handler 1
     pusham
 
@@ -72,6 +69,88 @@ eoi:
 
     iretq
 %endmacro
+
+%macro isr_handler 1
+section .text
+global isr_handler_%1
+isr_handler_%1:
+    push rax
+    push rbx
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+    push rbp
+    push r8
+    push r9
+    push r10
+    push r11
+    push r12
+    push r13
+    push r14
+    push r15
+    mov r12, 1
+  .loop:
+    mov rbx, [isr_%1_functions + r12 * 8]
+    test rbx, rbx
+    jz .out
+    mov rdi, %1
+    mov rsi, rsp
+    call rbx
+    inc r12
+    jmp .loop
+  .out:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop r11
+    pop r10
+    pop r9
+    pop r8
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+    iretq
+section .bss
+    global isr_%1_functions
+    isr_%1_functions resq 256
+section .text
+%endmacro
+
+%assign i 0
+%rep 256
+isr_handler i
+%assign i i+1
+%endrep
+
+%macro isr_addresses_add 1
+dq isr_handler_%1
+%endmacro
+
+global isr_handler_addresses
+isr_handler_addresses:
+%assign i 0
+%rep 256
+isr_addresses_add i
+%assign i i+1
+%endrep
+
+%macro isr_fnaddr_add 1
+dq isr_%1_functions
+%endmacro
+
+global isr_function_addresses
+isr_function_addresses:
+%assign i 0
+%rep 256
+isr_fnaddr_add i
+%assign i i+1
+%endrep
 
 %macro raise_irq 1
     lock inc dword [irq+%1*4]
@@ -208,8 +287,6 @@ exc_security_handler:
     except_handler_err_code 0x1e
 
 ; IRQs
-int_handler:
-    common_handler dummy_int_handler
 
 ipi_abortexec:
     mov rdi, qword [rsp]

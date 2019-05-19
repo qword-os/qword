@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stddef.h>
+// TODO regs_t should be in sys/cpu.h
+#include <proc/task.h>
 
 struct idt_entry_t {
     uint16_t offset_lo;
@@ -22,6 +24,10 @@ struct idt_ptr_t {
 
 void init_idt(void);
 int register_interrupt_handler(size_t, void (*)(void), uint8_t, uint8_t);
+int register_isr(size_t, void (**)(int, struct regs_t), size_t, uint8_t, uint8_t);
 void dummy_int_handler(void);
+
+extern void *isr_handler_addresses[];
+extern void **isr_function_addresses[];
 
 #endif

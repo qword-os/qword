@@ -8,9 +8,9 @@
 static struct idt_entry_t idt[256];
 
 void init_idt(void) {
-    /* Register unhandled interrupts */
-    for (size_t vec = 0; vec < 256; vec++)
-        register_interrupt_handler(vec, int_handler, 0, 0x8e);
+    /* Register all interrupts */
+    for (size_t i = 0; i < 256; i++)
+        register_interrupt_handler(i, isr_handler_addresses[i], 0, 0x8e);
 
     /* Exception handlers */
     register_interrupt_handler(0x0, exc_div0_handler, 0, 0x8e);
@@ -65,6 +65,19 @@ void init_idt(void) {
         :
         : "m" (idt_ptr)
     );
+}
+
+int register_isr(size_t vec, void (**functions)(int, struct regs_t),
+                 size_t count, uint8_t ist, uint8_t type) {
+    if (!isr_function_addresses[0])
+        isr_function_addresses[0] = (void *)1;
+    size_t current_available_vector = (size_t)isr_function_addresses[0];
+    for (size_t i = 0; i < count; i++)
+        isr_function_addresses[vec][current_available_vector++] = (void *)functions[i];
+    isr_function_addresses[0] = (void *)current_available_vector;
+    idt[vec].ist = ist;
+    idt[vec].type_attr = type;
+    return 0;
 }
 
 int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t ist, uint8_t type) {
