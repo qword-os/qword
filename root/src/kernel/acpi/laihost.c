@@ -27,11 +27,11 @@ void laihost_free(void *p) {
 }
 
 void *laihost_scan(char *signature, size_t index) {
-    // The DSDT is a special case, as it must be located using the pointer found in the FACP
+    // The DSDT is a special case, as it must be located using the pointer found in the FADT
     if (!strncmp(signature, "DSDT", 4)) {
-        // Scan for the FACP
-        acpi_facp_t *facp = (acpi_facp_t *)acpi_find_sdt("FACP", 0);
-        void *dsdt = (char *)(size_t)facp->dsdt + MEM_PHYS_OFFSET;
+        // Scan for the FADT
+        acpi_fadt_t *fadt = (acpi_fadt_t *)acpi_find_sdt("FACP", 0);
+        void *dsdt = (char *)(size_t)fadt->dsdt + MEM_PHYS_OFFSET;
         kprint(KPRN_INFO, "acpi: Address of DSDT is %X", dsdt);
         return dsdt;
     } else {
