@@ -166,6 +166,12 @@ void kmain(void) {
     /* Enable interrupts on BSP */
     asm volatile ("sti");
 
+    // ACPI specification section 5.8.1 - we are using the APIC,
+    // so we need to be using mode 1 with the _PIC method.
+
+    // This function enables the use of lai functions inside qword
+    //lai_enable_acpi(1);
+
     init_smp();
 
     /* Initialise scheduler */

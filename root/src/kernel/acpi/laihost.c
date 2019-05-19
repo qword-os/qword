@@ -1,5 +1,6 @@
 #include <lib/klib.h>
 #include <lib/alloc.h>
+#include <lib/cio.h>
 #include <sys/panic.h>
 #include <lai/host.h>
 #include <acpispec/tables.h>
@@ -37,4 +38,32 @@ void *laihost_scan(char *signature, size_t index) {
     } else {
         return acpi_find_sdt(signature, index);
     }
+}
+
+uint8_t laihost_inb(uint16_t port) {
+    return port_in_b(port);
+}
+
+void laihost_outb(uint16_t port, uint8_t value) {
+    port_out_b(port, value);
+}
+
+uint16_t laihost_inw(uint16_t port) {
+    return port_in_w(port);
+}
+
+void laihost_outw(uint16_t port, uint16_t value) {
+    port_out_w(port, value);
+}
+
+uint32_t laihost_ind(uint16_t port) {
+    return port_in_d(port);
+}
+
+void laihost_outd(uint16_t port, uint32_t value) {
+    port_out_d(port, value);
+}
+
+void laihost_sleep(uint64_t duration) {
+    ksleep(duration);
 }

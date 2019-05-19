@@ -72,6 +72,7 @@ int register_isr(size_t vec, void (**functions)(int, struct regs_t *),
     if (!isr_function_addresses[0])
         isr_function_addresses[0] = (void *)1;
     size_t current_available_vector = (size_t)isr_function_addresses[0];
+    kprint(KPRN_DBG, "%x", current_available_vector);
     for (size_t i = 0; i < count; i++)
         isr_function_addresses[vec][current_available_vector++] = (void *)functions[i];
     isr_function_addresses[0] = (void *)current_available_vector;

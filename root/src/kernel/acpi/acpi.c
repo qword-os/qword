@@ -6,6 +6,7 @@
 #include <lai/core.h>
 #include <acpispec/tables.h>
 #include <mm/mm.h>
+#include <sys/idt.h>
 
 int acpi_available = 0;
 
@@ -14,6 +15,8 @@ static int use_xsdt = 0;
 struct rsdp_t *rsdp;
 struct rsdt_t *rsdt;
 struct xsdt_t *xsdt;
+
+void sci_handler(int, struct regs_t *);
 
 /* This function should look for all the ACPI tables and index them for
    later use */
@@ -56,6 +59,28 @@ rsdp_found:
     /* Call table inits */
     init_madt();
     lai_create_namespace();
+    // TODO: figure out bug with register_isr()
+    /*acpi_fadt_t *fadt = acpi_find_sdt("FACP", 0);
+    if (fadt) {
+        uint16_t irq = fadt->sci_irq;
+        kprint(KPRN_DBG, "system control interrupt vector is %x", irq);
+        void (*handlers[1])(int, struct regs_t *) = {sci_handler};
+        kprint(KPRN_DBG, "registering isr");
+        io_apic_set_mask(irq, 1, 1);
+        int ret = register_isr((size_t)irq + 0x20, handlers, 1, 1, 0x8e);
+        kprint(KPRN_DBG, "registered isr");
+    }*/
+
+    return;
+}
+
+void sci_handler(int num, struct regs_t *regs) {
+    // Use lai to determine whether this irq was ACPI-related.
+    uint16_t event = lai_get_sci_event();
+    kprint(KPRN_DBG, "acpi: SCI interrupt occured, event data 0x%04X", event,
+            event & ACPI_POWER_BUTTON ? "The power button was pressed" : "",
+            event & ACPI_SLEEP_BUTTON ? "System sleep event occured" : "",
+            event & ACPI_WAKE ? "System woke up from sleep" : "");
 
     return;
 }
