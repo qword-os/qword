@@ -13,9 +13,8 @@ IMGSIZE := 4096
 
 img: all
 	cp root/src/qloader/qloader.bin ./qword.img
-	dd bs=1M count=$(IMGSIZE) if=/dev/zero >> ./qword.img
-	truncate -s $$(( $$( wc -c < qword.img ) - 4096 )) qword.img
-	echfs-utils ./qword.img format 32768
+	fallocate -l $(IMGSIZE)M ./qword.img
+	echfs-utils ./qword.img quick-format 32768
 	./copy-root-to-img.sh root qword.img
 
 LOOP_DEVICE = $(shell losetup --find)
@@ -24,7 +23,7 @@ hdd: all
 	sudo -v
 	rm -rf qword.part
 	fallocate -l $(IMGSIZE)M qword.part
-	echfs-utils ./qword.part format 32768
+	echfs-utils ./qword.part quick-format 32768
 	./copy-root-to-img.sh root qword.part
 	rm -rf qword.hdd
 	fallocate -l $(IMGSIZE)M qword.hdd
