@@ -8,24 +8,24 @@
 #include <stdarg.h>
 #include <misc/pci.h>
 
-void laihost_log(int level, const char *fmt, va_list args) {
+void laihost_log(int level, const char *str) {
     switch (level) {
         case LAI_DEBUG_LOG:
-            kvprint(KPRN_DBG, fmt, args);
+            kprint(KPRN_DBG, str);
             break;
         case LAI_WARN_LOG:
-            kvprint(KPRN_WARN, fmt, args);
+            kprint(KPRN_WARN, str);
             break;
         default:
-            kvprint(KPRN_WARN, fmt, args);
+            kprint(KPRN_WARN, str);
             break;
     }
 
     return;
 }
 
-void laihost_panic(const char *fmt, va_list args) {
-    panic(fmt, 0, 0, NULL);
+void laihost_panic(const char *str) {
+    panic(str, 0, 0, NULL);
 }
 
 void *laihost_malloc(size_t size) {
