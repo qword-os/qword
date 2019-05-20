@@ -9,7 +9,19 @@
 #include <misc/pci.h>
 
 void laihost_log(int level, const char *fmt, va_list args) {
-    kvprint(level, fmt, args);
+    switch (level) {
+        case LAI_DEBUG_LOG:
+            kvprint(KPRN_DBG, fmt, args);
+            break;
+        case LAI_WARN_LOG:
+            kvprint(KPRN_WARN, fmt, args);
+            break;
+        default:
+            kvprint(KPRN_WARN, fmt, args);
+            break;
+    }
+
+    return;
 }
 
 void laihost_panic(const char *fmt, va_list args) {
