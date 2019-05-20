@@ -6,6 +6,7 @@
 #include <acpispec/tables.h>
 #include <acpi/acpi.h>
 #include <stdarg.h>
+#include <misc/pci.h>
 
 void laihost_log(int level, const char *fmt, va_list args) {
     kvprint(level, fmt, args);
@@ -66,4 +67,29 @@ void laihost_outd(uint16_t port, uint32_t value) {
 
 void laihost_sleep(uint64_t duration) {
     ksleep(duration);
+}
+
+void laihost_pci_write(uint8_t bus, uint8_t function, uint8_t device, uint16_t offset, uint32_t data) {
+    struct pci_device_t *dev = kalloc(sizeof(struct pci_device_t));
+    dev->bus = bus;
+    dev->func = function;
+    dev->device = device;
+
+    pci_write_device(dev, (uint32_t)offset, data);
+}
+
+uint32_t laihost_pci_read(uint8_t bus, uint8_t function, uint8_t device, uint16_t offset) {
+    struct pci_device_t *dev = kalloc(sizeof(struct pci_device_t));
+    dev->bus = bus;
+    dev->func = function;
+    dev->device = device;
+
+    return pci_read_device(dev, (uint32_t)offset);
+}
+
+void *laihost_map(size_t phys_addr, size_t count) {
+    // all physical memory is mapped into the higher half, so we can just return
+    // the physical address + the offset into the higher half.
+    size_t virt_addr = phys_addr + MEM_PHYS_OFFSET;
+    return (void *)virt_addr;
 }

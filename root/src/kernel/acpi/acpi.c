@@ -59,7 +59,6 @@ rsdp_found:
     /* Call table inits */
     init_madt();
     lai_create_namespace();
-    // TODO: figure out bug with register_isr()
     acpi_fadt_t *fadt = acpi_find_sdt("FACP", 0);
     if (fadt) {
         uint16_t irq = fadt->sci_irq;
