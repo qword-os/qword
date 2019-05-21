@@ -247,6 +247,13 @@ static void control_sequence_parse(int tty, char c) {
             else
                 set_cursor_pos(tty, 0, ttys[tty].cursor_y - ttys[tty].esc_values[0]);
             break;
+        case 'd':
+            if (ttys[tty].esc_values[0] >= rows)
+                break;
+            clear_cursor(tty);
+            ttys[tty].cursor_y = ttys[tty].esc_values[0];
+            draw_cursor(tty);
+            break;
         case 'G':
         case '`':
             if (ttys[tty].esc_values[0] >= cols)
@@ -293,6 +300,10 @@ static void control_sequence_parse(int tty, char c) {
         case 'm':
             sgr(tty);
             break;
+        case 'r':
+            ttys[tty].scrolling_region_top = ttys[tty].esc_values[0];
+            ttys[tty].scrolling_region_bottom = ttys[tty].esc_values[1];
+            break;
         case 's':
             ttys[tty].saved_cursor_x = ttys[tty].cursor_x;
             ttys[tty].saved_cursor_y = ttys[tty].cursor_y;
@@ -304,6 +315,7 @@ static void control_sequence_parse(int tty, char c) {
             draw_cursor(tty);
             break;
         default:
+            kprint(KPRN_WARN, "error: unknown CSI sequence '%c'", c);
             break;
     }
 

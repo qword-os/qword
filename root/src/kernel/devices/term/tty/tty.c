@@ -33,6 +33,8 @@ struct tty_t {
     int control_sequence;
     int saved_cursor_x;
     int saved_cursor_y;
+    int scrolling_region_top;
+    int scrolling_region_bottom;
     int escape;
     int esc_values[MAX_ESC_VALUES];
     int esc_values_i;
