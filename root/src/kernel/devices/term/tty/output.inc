@@ -6,6 +6,9 @@
 #include <lib/alloc.h>
 #include <lib/bit.h>
 
+// Tries to implement this standard for terminfo
+// http://man7.org/linux/man-pages/man4/console_codes.4.html
+
 static int rows;
 static int cols;
 
@@ -209,6 +212,9 @@ static void control_sequence_parse(int tty, char c) {
         ttys[tty].esc_values[i] = 1;
 
     switch (c) {
+        case '@':
+            // TODO
+            break;
         case 'A':
             if (ttys[tty].esc_values[0] > ttys[tty].cursor_y)
                 ttys[tty].esc_values[0] = ttys[tty].cursor_y;
@@ -241,6 +247,14 @@ static void control_sequence_parse(int tty, char c) {
             else
                 set_cursor_pos(tty, 0, ttys[tty].cursor_y - ttys[tty].esc_values[0]);
             break;
+        case 'G':
+        case '`':
+            if (ttys[tty].esc_values[0] >= cols)
+                break;
+            clear_cursor(tty);
+            ttys[tty].cursor_x = ttys[tty].esc_values[0];
+            draw_cursor(tty);
+            break;
         case 'H':
         case 'f':
             ttys[tty].esc_values[0] -= 1;
@@ -251,17 +265,33 @@ static void control_sequence_parse(int tty, char c) {
                 ttys[tty].esc_values[0] = rows - 1;
             set_cursor_pos(tty, ttys[tty].esc_values[1], ttys[tty].esc_values[0]);
             break;
-        case 'm':
-            sgr(tty);
-            break;
         case 'J':
             switch (ttys[tty].esc_values[0]) {
+                case 1: {
+                    int cursor_abs = ttys[tty].cursor_y * cols + ttys[tty].cursor_x;
+                    clear_cursor(tty);
+
+                    for (int i = 0; i < cursor_abs; i++) {
+                        plot_char_grid(tty,
+                            ' ',
+                            i % cols,
+                            i / cols,
+                            ttys[tty].text_fg_col,
+                            ttys[tty].text_bg_col);
+                    }
+
+                    draw_cursor(tty);
+                    }
+                    break;
                 case 2:
                     clear(tty);
                     break;
                 default:
                     break;
             }
+            break;
+        case 'm':
+            sgr(tty);
             break;
         case 's':
             ttys[tty].saved_cursor_x = ttys[tty].cursor_x;
