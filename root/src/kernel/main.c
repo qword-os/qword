@@ -157,7 +157,6 @@ void kmain(void) {
     flush_irqs();
 
     /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
-
     init_acpi();
     init_pic();
 
@@ -170,7 +169,9 @@ void kmain(void) {
     // so we need to be using mode 1 with the _PIC method.
 
     // This function enables the use of lai functions inside qword
-    lai_enable_acpi(1);
+    #ifdef _NO_ACPI_
+      lai_enable_acpi(1);
+    #endif
 
     init_smp();
 
