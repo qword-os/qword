@@ -105,22 +105,13 @@ static int start_ap(uint8_t target_apic_id, int cpu_number) {
     /* Send the Startup IPI */
     lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
     lapic_write(APICREG_ICR0, 0x600 | (uint32_t)(size_t)trampoline);
-    /* wait 1ms */
-    ksleep(1);
 
-    if (smp_check_ap_flag()) {
-        return 0;
-    } else {
-        /* Send the Startup IPI again */
-        lapic_write(APICREG_ICR1, ((uint32_t)target_apic_id) << 24);
-        lapic_write(APICREG_ICR0, 0x600 | (uint32_t)(size_t)trampoline);
-        /* wait 1s */
-        ksleep(1000);
+    for (int i = 0; i < 1000; i++) {
+        ksleep(1);
         if (smp_check_ap_flag())
             return 0;
-        else
-            return -1;
     }
+    return -1;
 }
 
 static void init_cpu0(void) {
