@@ -169,7 +169,7 @@ void kmain(void) {
     // so we need to be using mode 1 with the _PIC method.
 
     // This function enables the use of lai functions inside qword
-    #ifdef _NO_ACPI_
+    #ifdef _ACPI_
       lai_enable_acpi(1);
     #endif
 

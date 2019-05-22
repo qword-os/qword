@@ -36,8 +36,8 @@ ifeq ($(DBGSYM), yes)
 CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
 endif
 
-ifeq ($(ACPI), no)
-CHARDFLAGS := $(CHARDFLAGS) -D_NO_ACPI_
+ifeq ($(ACPI), yes)
+CHARDFLAGS := $(CHARDFLAGS) -D_ACPI_
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'

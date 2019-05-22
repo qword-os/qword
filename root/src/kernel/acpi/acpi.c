@@ -58,7 +58,7 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-    #ifdef _NO_ACPI_
+    #ifdef _ACPI_
       lai_create_namespace();
     #endif
 
