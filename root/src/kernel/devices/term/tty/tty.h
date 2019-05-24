@@ -147,5 +147,6 @@ struct termios {
 
 int tty_write(int, const void *, uint64_t, size_t);
 int tty_read(int, void *, uint64_t, size_t);
+void init_tty(void);
 
 #endif

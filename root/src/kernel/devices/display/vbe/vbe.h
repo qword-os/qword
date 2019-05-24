@@ -10,6 +10,6 @@ extern int vbe_width;
 extern int vbe_height;
 extern int vbe_pitch;
 
-void early_init_vbe(void);
+void init_vbe(void);
 
 #endif

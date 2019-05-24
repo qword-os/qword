@@ -48,7 +48,7 @@ static void edid_call(void) {
     return;
 }
 
-void early_init_vbe(void) {
+void init_vbe(void) {
     kprint(KPRN_INFO, "vbe: Initialising...");
 
     get_vbe_info(&vbe_info_struct);

@@ -203,6 +203,26 @@ void init_tty_extended(uint32_t *__fb,
             ttys[i].gridfg[j] = ttys[i].text_fg_col;
         }
         refresh(i);
+    }
+
+    tty_ready = 1;
+    kprint(KPRN_INFO, "tty: Ready!");
+    return;
+}
+
+void init_tty(void) {
+    init_tty_extended(
+            vbe_framebuffer,
+            vbe_height,
+            vbe_width,
+            vbe_pitch,
+            vga_font,
+            vga_font_height,
+            vga_font_width);
+}
+
+void init_dev_tty(void) {
+    for (int i = 0; i < MAX_TTYS; i++) {
         struct device_t device = {0};
         device.calls = default_device_calls;
         strcpy(device.name, tty_names[i]);
@@ -220,19 +240,4 @@ void init_tty_extended(uint32_t *__fb,
 
     io_apic_set_mask(0, 1, 1);
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, kbd_handler, 0));
-
-    tty_ready = 1;
-    kprint(KPRN_INFO, "tty: Ready!");
-    return;
-}
-
-void init_dev_tty(void) {
-    init_tty_extended(
-            vbe_framebuffer,
-            vbe_height,
-            vbe_width,
-            vbe_pitch,
-            vga_font,
-            vga_font_height,
-            vga_font_width);
 }

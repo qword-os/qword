@@ -4,6 +4,7 @@
 #include <lib/klib.h>
 #include <misc/serial.h>
 #include <devices/display/vbe/vbe.h>
+#include <devices/term/tty/tty.h>
 #include <sys/e820.h>
 #include <mm/mm.h>
 #include <sys/idt.h>
@@ -126,21 +127,21 @@ void kmain_thread(void *arg) {
 
 /* Main kernel entry point, only initialise essential services and scheduler */
 void kmain(void) {
-    init_idt();
-
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
 
+    init_idt();
+
     /* Memory-related stuff */
     init_e820();
     init_pmm();
-    //init_alloc();
     init_rand();
     init_vmm();
 
-    /* Early inits */
-    early_init_vbe();
+    dump_vga_font(vga_font);
+    init_vbe();
+    init_tty();
 
     /* Time stuff */
     struct s_time_t s_time;
@@ -152,11 +153,8 @@ void kmain(void) {
                                 s_time.days, s_time.months, s_time.years);
     kprint(KPRN_INFO, "Current unix epoch: %U", unix_epoch);
 
-    dump_vga_font(vga_font);
-
-    flush_irqs();
-
     /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
+    flush_irqs();
     init_acpi();
     init_pic();
 
