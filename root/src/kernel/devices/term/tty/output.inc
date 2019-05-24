@@ -188,6 +188,8 @@ def:
     return;
 }
 
+static int dec_private_mode = 0;
+
 static void control_sequence_parse(int tty, char c) {
     if (c >= '0' && c <= '9') {
         ttys[tty].rrr = 1;
@@ -314,8 +316,21 @@ static void control_sequence_parse(int tty, char c) {
             ttys[tty].cursor_y = ttys[tty].saved_cursor_y;
             draw_cursor(tty);
             break;
+        case 'h':
+            if (dec_private_mode) {
+                dec_private_mode = 0;
+                switch (ttys[tty].esc_values[1]) {
+                    default:
+                        kprint(KPRN_WARN, "tty: unknown DEC sequence '%d'", (int)ttys[tty].esc_values[1]);
+                        break;
+                }
+            }
+            break;
+        case '?':
+            dec_private_mode = 1;
+            return;
         default:
-            kprint(KPRN_WARN, "error: unknown CSI sequence '%c'", c);
+            kprint(KPRN_WARN, "tty: unknown CSI sequence '%c'", c);
             break;
     }
 
