@@ -285,7 +285,7 @@ await:
     if (input_byte < MAX_CODE) {
         if (ctrl_active)
             // TODO: Proper caret notation would be nice
-            c = ascii_capslock[input_byte] - ('?' - 1);
+            c = ascii_capslock[input_byte] - ('?' + 1);
         else if (!capslock_active && !shift_active)
             c = ascii_nomod[input_byte];
         else if (!capslock_active && shift_active)
