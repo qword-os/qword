@@ -49,6 +49,8 @@ struct tty_t {
     struct termios termios;
     int tcioff;
     int tcooff;
+    int dec_private_mode;
+    int decckm;
 };
 
 /*
@@ -188,6 +190,8 @@ void init_tty_extended(uint32_t *__fb,
         ttys[i].termios.c_cc[VINTR] = 0x03;
         ttys[i].tcooff = 0;
         ttys[i].tcioff = 0;
+        ttys[i].dec_private_mode = 0;
+        ttys[i].decckm = 0;
         ttys[i].grid = kalloc(rows * cols);
         ttys[i].gridbg = kalloc(rows * cols * sizeof(uint32_t));
         ttys[i].gridfg = kalloc(rows * cols * sizeof(uint32_t));

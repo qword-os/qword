@@ -186,50 +186,60 @@ await:
     }
 
     if (extra_scancodes) {
-        // extra scancodes
         extra_scancodes = 0;
+
+        // extra scancodes
         switch (input_byte) {
-            case 0x47:
-                // home
-                add_to_buf(current_tty, "\e[H", 3);
-                goto out;
-            case 0x4f:
-                // end
-                add_to_buf(current_tty, "\e[F", 3);
-                goto out;
-            case 0x48:
-                // cursor up
-                add_to_buf(current_tty, "\e[A", 3);
-                goto out;
-            case 0x4B:
-                // cursor left
-                add_to_buf(current_tty, "\e[D", 3);
-                goto out;
-            case 0x50:
-                // cursor down
-                add_to_buf(current_tty, "\e[B", 3);
-                goto out;
-            case 0x4D:
-                // cursor right
-                add_to_buf(current_tty, "\e[C", 3);
-                goto out;
-            case 0x49:
-                // pgup
-                add_to_buf(current_tty, "\e[5~", 4);
-                goto out;
-            case 0x51:
-                // pgdown
-                add_to_buf(current_tty, "\e[6~", 4);
-                goto out;
-            case 0x53:
-                // delete
-                add_to_buf(current_tty, "\e[3~", 4);
-                goto out;
             case CTRL:
                 ctrl_active = 1;
                 goto out;
             case CTRL_REL:
                 ctrl_active = 0;
+                goto out;
+            default:
+                break;
+        }
+
+        // figure out correct escape sequence
+        int decckm = ttys[current_tty].decckm;
+
+        // extra scancodes
+        switch (input_byte) {
+            case 0x47:
+                // home
+                add_to_buf(current_tty, decckm ? "\e[H" : "\eOH", 3);
+                goto out;
+            case 0x4f:
+                // end
+                add_to_buf(current_tty, decckm ? "\e[F" : "\eOF", 3);
+                goto out;
+            case 0x48:
+                // cursor up
+                add_to_buf(current_tty, decckm ? "\e[A" : "\eOA", 3);
+                goto out;
+            case 0x4B:
+                // cursor left
+                add_to_buf(current_tty, decckm ? "\e[D" : "\eOD", 3);
+                goto out;
+            case 0x50:
+                // cursor down
+                add_to_buf(current_tty, decckm ? "\e[B" : "\eOB", 3);
+                goto out;
+            case 0x4D:
+                // cursor right
+                add_to_buf(current_tty, decckm ? "\e[C" : "\eOC", 3);
+                goto out;
+            case 0x49:
+                // pgup
+                add_to_buf(current_tty, decckm ? "\e[5~" : "\eO5~", 4);
+                goto out;
+            case 0x51:
+                // pgdown
+                add_to_buf(current_tty, decckm ? "\e[6~" : "\eO6~", 4);
+                goto out;
+            case 0x53:
+                // delete
+                add_to_buf(current_tty, decckm ? "\e[3~" : "\eO3~", 4);
                 goto out;
             default:
                 break;
