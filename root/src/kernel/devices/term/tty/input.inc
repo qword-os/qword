@@ -276,10 +276,6 @@ await:
 
     if (ctrl_active) {
         switch (input_byte) {
-            case 0x2e:
-                // ctrl-c
-                add_to_buf(current_tty, "\x3", 1);
-                goto out;
             default:
                 break;
         }
@@ -287,7 +283,10 @@ await:
 
     /* Assign the correct character for this scancode based on modifiers */
     if (input_byte < MAX_CODE) {
-        if (!capslock_active && !shift_active)
+        if (ctrl_active)
+            // TODO: Proper caret notation would be nice
+            c = ascii_capslock[input_byte] - ('?' - 1);
+        else if (!capslock_active && !shift_active)
             c = ascii_nomod[input_byte];
         else if (!capslock_active && shift_active)
             c = ascii_shift[input_byte];
