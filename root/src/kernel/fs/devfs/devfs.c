@@ -23,16 +23,6 @@ struct devfs_handle_t {
 dynarray_new(struct devfs_handle_t, devfs_handles);
 
 dev_t device_add(struct device_t *device) {
-    /* check if any entry is bogus */
-    /* XXX make this prettier */
-    size_t *p = (size_t *)&device->calls;
-    for (size_t i = 0; i < sizeof(struct device_calls_t) / sizeof(size_t); i++)
-        if (!p[i]) {
-            kprint(KPRN_ERR, "devfs: Device %s does not register all needed calls.", device->name);
-            kprint(KPRN_ERR, "devfs: (call %U unregistered, struct at %X)", i, &device->calls);
-            panic("Incomplete device", 0, 0, NULL);
-        }
-
     return dynarray_add(struct device_t, devices, device);
 }
 
@@ -80,13 +70,15 @@ void device_sync_worker(void *arg) {
             struct device_t *device = dynarray_getelem(struct device_t, devices, i);
             if (!device)
                 continue;
-            switch (device->calls.flush(device->intern_fd)) {
-                case 1:
-                    /* flush is a no-op */
-                    break;
-                default:
-                    relaxed_sleep(100);
-                    break;
+            if (device->calls.flush) {
+                switch (device->calls.flush(device->intern_fd)) {
+                    case 1:
+                        /* flush is a no-op */
+                        break;
+                    default:
+                        relaxed_sleep(100);
+                        break;
+                }
             }
             dynarray_unref(devices, i);
             relaxed_sleep(1000);

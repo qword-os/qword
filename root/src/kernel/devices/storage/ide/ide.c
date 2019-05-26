@@ -6,6 +6,7 @@
 #include <misc/pci.h>
 #include <mm/mm.h>
 #include <lib/errno.h>
+#include <lib/part.h>
 
 #define DEVICE_COUNT 4
 #define BYTES_PER_SECT 512
@@ -259,6 +260,7 @@ void init_dev_ide(void) {
         device.calls.write = ide_write;
         device.calls.flush = ide_flush1;
         device_add(&device);
+        enum_partitions(dev_name, &device);
     }
 }
 

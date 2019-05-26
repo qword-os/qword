@@ -40,14 +40,14 @@ void kmain_thread(void *arg) {
     /* Initialise file descriptor handlers */
     init_fd();
 
-    /* Initialise device drivers */
-    init_dev();
-
     /* Initialise filesystem drivers */
     init_fs();
 
     /* Mount /dev */
     mount("devfs", "/dev", "devfs", 0, 0);
+
+    /* Initialise device drivers */
+    init_dev();
 
     int tty = open("/dev/tty0", O_RDWR);
 

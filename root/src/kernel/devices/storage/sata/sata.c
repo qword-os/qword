@@ -5,6 +5,7 @@
 #include <lib/klib.h>
 #include <fs/devfs/devfs.h>
 #include <lib/errno.h>
+#include <lib/part.h>
 
 static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);
@@ -153,6 +154,7 @@ void init_dev_sata(void) {
                     device.calls.write = ahci_write;
                     device.calls.flush = ahci_flush;
                     device_add(&device);
+                    enum_partitions(dev_name, &device);
                 }
                 break;
             default:
