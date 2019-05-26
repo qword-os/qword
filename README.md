@@ -13,10 +13,11 @@ We have a [Discord server](https://discord.gg/RnCtsqD) with all the developers f
 - Fully functional VFS with support for several filesystems.
 - Support for AHCI/SATA.
 - ATA disk support.
+- MBR partitions support.
 
 ## Build requirements
 In order to build qword, make sure to have the following installed:
-  `wget`, `git`, `bash`, `make` (`gmake` on *BSD), `meson`, `ninja`, `gcc/g++ (8 or higher)`, `nasm`, `xz`, `autoconf`, and QEMU (to test it).
+  `wget`, `git`, `bash`, `make`, `patch`, `fdisk`, `grub`, `meson`, `ninja`, `gcc/g++ (8 or higher)`, `nasm`, `xz`, `autoconf`, and QEMU (to test it).
 
 ## Building
 ```bash
@@ -42,12 +43,11 @@ cd root/src
 MAKEFLAGS=-j4 ./makeworld.sh
 # Now to build qword itself
 cd ../..
-# You might need to use gmake instead of make here on FreeBSD
-make clean && make img               # For a standard release build
-make clean && make DBGOUT=qemu img   # For QEMU console debug output
-make clean && make DBGOUT=tty img    # For kernel tty debug output
-make clean && make DBGOUT=both img   # For both of the above
-make clean && make DBGSYM=yes img    # For compilation with debug symbols and other debug facilities (can be used in combination with the other options)
+make clean && make hdd               # For a standard release build
+make clean && make DBGOUT=qemu hdd   # For QEMU console debug output
+make clean && make DBGOUT=tty hdd    # For kernel tty debug output
+make clean && make DBGOUT=both hdd   # For both of the above
+make clean && make DBGSYM=yes hdd    # For compilation with debug symbols and other debug facilities (can be used in combination with the other options)
 # And now if you wanna test it in qemu simply run
 make run
 # If that doesn't work because you don't have hardware virtualisation/KVM, run

@@ -3,7 +3,7 @@ SHELL = /bin/bash
 PATH := $(shell pwd)/host/toolchain/cross-root/bin:$(PATH)
 PREFIX = $(shell pwd)/root
 
-.PHONY: all img hdd clean run run-nokvm run-hdd run-img-nvme-test
+.PHONY: all img hdd clean run run-img run-nokvm run-img-nvme-test
 
 all:
 	$(MAKE) core PREFIX=$(PREFIX) -C root/src
@@ -51,13 +51,13 @@ QEMU_FLAGS := $(QEMU_FLAGS) \
 	-d cpu_reset
 
 run:
+	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.hdd,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
+
+run-img:
 	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
 
 run-nokvm:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1
-
-run-hdd:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.hdd,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
+	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.hdd,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1
 
 run-img-nvme-test:
 	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw \
