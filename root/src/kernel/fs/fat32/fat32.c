@@ -57,6 +57,8 @@ static int mount_i = 0;
 static struct handle_t *handles = NULL;
 static int handle_i = 0;
 
+static lock_t fat32_lock = new_lock;
+
 static int read_ent(struct mount_t *mnt, uint32_t cluster,
                     size_t index, struct fs_ent *dest) {
     uint64_t off = CLUSTER_TO_OFF(cluster, mnt->info.cluster_begin_off, 
@@ -85,10 +87,12 @@ static inline uint32_t next_cluster(uint32_t cluster, uint32_t *fat, uint32_t fa
 }
 
 static int fat32_mount(const char *source) {
+    spinlock_acquire(&fat32_lock);
     int device = open(source, O_RDONLY);
 
     if (device < 0) {
         kprint(KPRN_ERR, "fat32: failed to open mount source!");
+        spinlock_release(&fat32_lock);
         return -1;
     }
 
@@ -112,7 +116,12 @@ static int fat32_mount(const char *source) {
     mnt->device = device;
     mnt->info = info;
 
-    return mount_i++;
+    size_t mount_new = mount_i;
+    mount_i++;
+
+    spinlock_release(&fat32_lock);
+
+    return mount_new;
 }
 
 #define min(a, b) ((a) > (b) ? (b) : (a))
@@ -216,6 +225,8 @@ static int create_handle(struct handle_t handle) {
 }
 
 static int fat32_open(const char *path, int flags, int mount) {
+    spinlock_acquire(&fat32_lock);
+    
     struct handle_t handle = {0};
     strcpy(handle.path, path);
     handle.flags = flags;
@@ -225,44 +236,69 @@ static int fat32_open(const char *path, int flags, int mount) {
     handle.offset = 0;
 
     handle.ent = parse_path(mount, path);
-    return create_handle(handle);
+    
+    int hnd = create_handle(handle);
+
+    spinlock_release(&fat32_lock);
+
+    return hnd;
 }
 
 static int fat32_read(int handle, void *buf, size_t count) {
-    if (handle >= handle_i) return -1;
-    if (handles[handle].free) return -1;
+    spinlock_acquire(&fat32_lock);
+    
+    if (handle >= handle_i) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+
+    if (handles[handle].free) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+
     struct mount_t *mnt = &mounts[handles[handle].mount];
     struct fs_ent *ent = &handles[handle].ent;
 
-    if (handles[handle].offset >= ent->file_size) return -1;
-
+    if (handles[handle].offset >= ent->file_size) {
+        spinlock_release(&fat32_lock);
+        return 0;
+    }
     size_t fat_len = mnt->info.sectors_per_fat * 512;
     uint32_t *fat = kalloc(fat_len);
     read_off(mnt->device, SECTOR_TO_OFF(mnt->info.fat_off), fat, fat_len);
 
-    kprint(KPRN_DBG, "fat32: in read");
- 
     int read_size = min(count, ent->file_size);
 
     size_t bytes_per_cluster = mnt->info.sectors_per_cluster * 512;
     size_t cluster_bytes = ((read_size + bytes_per_cluster - 1) / bytes_per_cluster) * bytes_per_cluster;
     
     size_t cluster_offset = (handles[handle].offset + bytes_per_cluster - 1) / bytes_per_cluster;
-    size_t cluster = ent->begin_cluster + cluster_offset;
+    size_t cluster = ent->begin_cluster;
     while (cluster_offset--) cluster = next_cluster(cluster, fat, fat_len);
     size_t index = 0;
 
-    while (index + handles[handle].offset < cluster_bytes) {
-        size_t off = CLUSTER_TO_OFF(cluster, mnt->info.cluster_begin_off, 
-                                    mnt->info.sectors_per_cluster);
-        read_off(mnt->device, off, (buf + index), min(cluster_bytes - index, bytes_per_cluster));
-        index += bytes_per_cluster;
+    while (index + handles[handle].offset < read_size) {
+        size_t off = CLUSTER_TO_OFF(cluster, mnt->info.cluster_begin_off,
+                                    mnt->info.sectors_per_cluster) + (handles[handle].offset % bytes_per_cluster);
+    
+        size_t read_amount = min(cluster_bytes - index, bytes_per_cluster);
+        if (read_amount > read_size - index) read_amount = read_size - index;
+
+        read_off(mnt->device, off, (buf + index), read_amount);
         
-        cluster = next_cluster(cluster, fat, fat_len);
+        index += bytes_per_cluster;
+
+        if (index + handles[handle].offset < read_size) {
+            size_t old_cluster = cluster;
+            cluster = next_cluster(cluster, fat, fat_len);
+        }
     }
 
     kfree(fat);
     handles[handle].offset += read_size;
+
+    spinlock_release(&fat32_lock);
 
     return read_size;
 }
@@ -272,28 +308,64 @@ static int fat32_write(int handle, const void *buf, size_t count) {
 }
 
 static int fat32_close(int handle) {
-    if (handle >= handle_i) return -1;
-    if (handles[handle].free) return -1;
+    spinlock_acquire(&fat32_lock);
+    if (handle >= handle_i) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+
+    if (handles[handle].free) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
     if (!(--handles[handle].refcount))
         handles[handle].free = 1;
 
+
+    spinlock_release(&fat32_lock);
     return 0;
 }
 
 static int fat32_dup(int handle) {
-    if (handle < 0) return -1;
-    if (handle >= handle_i) return -1;
-    if (handles[handle].free) return -1;
+    spinlock_acquire(&fat32_lock);
+    if (handle < 0) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+
+    if (handle >= handle_i) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+    if (handles[handle].free) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
     handles[handle].refcount++;
+
+    spinlock_release(&fat32_lock);
 
     return 0;
 }
 
 static int fat32_fstat(int handle, struct stat *st) {
-    if (handle < 0) return -1;
-    if (handle >= handle_i) return -1;
-    if (handles[handle].free) return -1;
+    spinlock_acquire(&fat32_lock);
+    if (handle < 0) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
 
+    if (handle >= handle_i) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+    if (handles[handle].free) {
+        spinlock_release(&fat32_lock);
+        return -1;
+    }
+
+
+    spinlock_release(&fat32_lock);
     return 0;
 }
 
