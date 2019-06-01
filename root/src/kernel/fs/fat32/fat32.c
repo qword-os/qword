@@ -12,6 +12,8 @@
 
 #define PATH_MAX 254
 
+#define ATTRIB_DIR 0x10
+
 static void read_off(int handle, uint64_t location, void *dst, size_t len) {
     lseek(handle, location, SEEK_SET);
     read(handle, dst, len);
@@ -61,7 +63,7 @@ static lock_t fat32_lock = new_lock;
 
 static int read_ent(struct mount_t *mnt, uint32_t cluster,
                     size_t index, struct fs_ent *dest) {
-    uint64_t off = CLUSTER_TO_OFF(cluster, mnt->info.cluster_begin_off, 
+    uint64_t off = CLUSTER_TO_OFF(cluster, mnt->info.cluster_begin_off,
                                     mnt->info.sectors_per_cluster) + index * 32;
 
     uint8_t buf[32];
@@ -158,6 +160,7 @@ static struct fs_ent parse_path(int mount, const char *path) {
         .name = {' '},
         .file_size = 0,
         .begin_cluster = mnt->info.root_dir_cluster,
+        .attrib = ATTRIB_DIR,
     };
     if (path[0] == '/' && path[1] == '\0') return root;
     
@@ -364,6 +367,25 @@ static int fat32_fstat(int handle, struct stat *st) {
         return -1;
     }
 
+    int is_dir = handles[handle].ent.attrib & ATTRIB_DIR;
+
+    st->st_dev = mounts[handles[handle].mount].device;
+    st->st_ino = 1;
+    st->st_nlink = 1;
+    st->st_uid = 1;
+    st->st_gid = 1;
+    st->st_rdev = 0;
+    st->st_size = handles[handle].ent.file_size;
+    st->st_blksize = 512;
+    st->st_blocks = (st->st_size + 512 - 1) / 512;
+    st->st_atim.tv_sec = 0;
+    st->st_atim.tv_nsec = 0;
+    st->st_mtim.tv_sec = 0;
+    st->st_mtim.tv_nsec = 0;
+    st->st_ctim.tv_sec = 0;
+    st->st_ctim.tv_nsec = 0;
+
+    st->st_mode |= is_dir ? S_IFDIR : S_IFREG;
 
     spinlock_release(&fat32_lock);
     return 0;
