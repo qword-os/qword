@@ -88,6 +88,7 @@ void laihost_pci_write(uint8_t bus, uint8_t function, uint8_t device, uint16_t o
     dev->device = device;
 
     pci_write_device(dev, (uint32_t)offset, data);
+    kfree(dev);
 }
 
 uint32_t laihost_pci_read(uint8_t bus, uint8_t function, uint8_t device, uint16_t offset) {
