@@ -33,7 +33,7 @@ hdd: all
 	sudo mkfs.fat $(LOOP_DEVICE)p1
 	sudo rm -rf mnt
 	sudo mkdir mnt && sudo mount $(LOOP_DEVICE)p1 ./mnt
-	sudo grub-install --boot-directory=`realpath ./mnt/boot` $(LOOP_DEVICE)
+	sudo grub-install --target=i386-pc --boot-directory=`realpath ./mnt/boot` $(LOOP_DEVICE)
 	sudo cp -r ./root/boot/* ./mnt/boot/
 	sudo umount ./mnt
 	sudo rm -rf mnt

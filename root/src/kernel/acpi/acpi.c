@@ -76,7 +76,7 @@ rsdp_found:
 void sci_handler(int num, struct regs_t *regs) {
     // Use lai to determine whether this irq was ACPI-related.
     uint16_t event = lai_get_sci_event();
-    kprint(KPRN_DBG, "acpi: SCI interrupt occured, event data 0x%04X", event,
+    kprint(KPRN_DBG, "acpi: SCI interrupt occured, event data 0x%04X, %s, %s, %s", event,
             event & ACPI_POWER_BUTTON ? "The power button was pressed" : "",
             event & ACPI_SLEEP_BUTTON ? "System sleep event occured" : "",
             event & ACPI_WAKE ? "System woke up from sleep" : "");
