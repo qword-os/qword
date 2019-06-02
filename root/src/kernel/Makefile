@@ -2,7 +2,6 @@ PREFIX =
 
 DBGOUT = no
 DBGSYM = no
-ACPI = yes
 
 CC = x86_64-qword-gcc
 AS = nasm
@@ -34,10 +33,6 @@ endif
 
 ifeq ($(DBGSYM), yes)
 CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
-endif
-
-ifeq ($(ACPI), yes)
-CHARDFLAGS := $(CHARDFLAGS) -D_ACPI_
 endif
 
 CHARDFLAGS := $(CHARDFLAGS) -DBUILD_TIME='"$(BUILD_TIME)"'

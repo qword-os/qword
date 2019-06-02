@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <lib/klib.h>
+#include <lib/cmdline.h>
 #include <acpi/acpi.h>
 #include <acpi/madt.h>
 #include <lai/core.h>
@@ -58,9 +59,10 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-    #ifdef _ACPI_
-      lai_create_namespace();
-    #endif
+
+    char *cmdline_val = cmdline_get_value("acpi");
+    if (!cmdline_val || !strcmp(cmdline_val, "enabled"))
+        lai_create_namespace();
 
     acpi_fadt_t *fadt = acpi_find_sdt("FACP", 0);
     if (fadt) {

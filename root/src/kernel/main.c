@@ -167,9 +167,9 @@ void kmain(void) {
     // so we need to be using mode 1 with the _PIC method.
 
     // This function enables the use of lai functions inside qword
-    #ifdef _ACPI_
-      lai_enable_acpi(1);
-    #endif
+    char *cmdline_val = cmdline_get_value("acpi");
+    if (!cmdline_val || !strcmp(cmdline_val, "enabled"))
+        lai_enable_acpi(1);
 
     init_smp();
 
