@@ -79,43 +79,6 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
     pool = pmm_alloc(pool_size);
     size_t pool_ptr = 0;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    /* Map and copy all used pages */
-    for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
-        if (old_pagemap->pml4[i] & 1) {
-            pdpt = (pt_entry_t *)((old_pagemap->pml4[i] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-            for (size_t j = 0; j < PAGE_TABLE_ENTRIES; j++) {
-                if (pdpt[j] & 1) {
-                    pd = (pt_entry_t *)((pdpt[j] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-                    for (size_t k = 0; k < PAGE_TABLE_ENTRIES; k++) {
-                        if (pd[k] & 1) {
-                            pt = (pt_entry_t *)((pd[k] & 0xfffffffffffff000) + MEM_PHYS_OFFSET);
-                            for (size_t l = 0; l < PAGE_TABLE_ENTRIES; l++) {
-                                if (pt[l] & 1) {
-                                    /* FIXME find a way to expand the pool instead of dying */
-                                    if (pool_ptr == pool_size)
-                                        panic("Fork memory pool exhausted", 0, 0, NULL);
-                                    size_t new_page = (size_t)&pool[pool_ptr++];
-                                    memcpy64((char *)(new_page + MEM_PHYS_OFFSET),
-                                            (char *)((pt[l] & 0xfffffffffffff000) + MEM_PHYS_OFFSET),
-                                            PAGE_SIZE);
-                                    map_page(new_pagemap,
-                                             new_page,
-                                             entries_to_virt_addr(i, j, k, l),
-                                             (pt[l] & 0xfff),0);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-=======
-=======
->>>>>>> Sorta stable
-=======
->>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
     spinlock_acquire(&old_pagemap->lock);
     size_t total_mapped_pages;
     struct page_attributes_t **pas =
@@ -129,7 +92,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                 if (pool_ptr == pool_size)
                     panic("Fork memory pool exhausted", 0, 0, NULL);
                 size_t new_page = (size_t)&pool[pool_ptr++];
-                kmemcpy64((char *)(new_page + MEM_PHYS_OFFSET),
+                memcpy64((char *)(new_page + MEM_PHYS_OFFSET),
                           (char *)(pas[i]->phys_addr + MEM_PHYS_OFFSET),
                           PAGE_SIZE);
                 map_page(new_pagemap,
@@ -145,13 +108,6 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                          pas[i]->flags,
                          pas[i]->attr);
                 break;
-<<<<<<< HEAD
-<<<<<<< HEAD
->>>>>>> Sorta stable
-=======
->>>>>>> Sorta stable
-=======
->>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
         }
     }
 

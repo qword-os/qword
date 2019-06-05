@@ -130,38 +130,14 @@ out: \
     ret; \
 })
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
 #define ht_remove(type, hashtable, nname) ({ \
-=======
-#define hti_get(type, hashtable, vvalue) ({ \
->>>>>>> Sorta stable
-=======
-#define hti_get(type, hashtable, vvalue) ({ \
->>>>>>> Sorta stable
-=======
-#define hti_get(type, hashtable, vvalue) ({ \
->>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
     __label__ out; \
     type *ret; \
         \
     spinlock_acquire(&hashtable##_lock); \
     type **ht = hashtable; \
     for (;;) { \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
         uint64_t hash = ht_hash_str(nname, (uint64_t)ht[0]); \
-=======
-        uint64_t hash = ht_hash_u64((uint64_t)(vvalue), (uint64_t)ht[0]); \
->>>>>>> Sorta stable
-=======
-        uint64_t hash = ht_hash_u64((uint64_t)(vvalue), (uint64_t)ht[0]); \
->>>>>>> Sorta stable
-=======
-        uint64_t hash = ht_hash_u64((uint64_t)(vvalue), (uint64_t)ht[0]); \
->>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
         if (!ht[hash]) { \
             ret = NULL; \
             goto out; \
@@ -169,33 +145,12 @@ out: \
             ht = (void *)((size_t)ht[hash] - 1); \
             continue; \
         } else { \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
             if (strcmp(nname, ((type **)ht)[hash]->name)) { \
-=======
-            if (vvalue != [hash]->value) { \
->>>>>>> Sorta stable
-=======
-            if (vvalue != [hash]->value) { \
->>>>>>> Sorta stable
-=======
-            if (vvalue != [hash]->value) { \
->>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
                 ret = NULL; \
                 goto out; \
             } \
             ret = ht[hash]; \
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
             ht[hash] = 0; \
-=======
->>>>>>> Sorta stable
-=======
->>>>>>> Sorta stable
-=======
->>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
             goto out; \
         } \
     } \
