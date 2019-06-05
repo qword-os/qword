@@ -81,6 +81,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     /* Map and copy all used pages */
     for (size_t i = 0; i < PAGE_TABLE_ENTRIES / 2; i++) {
         if (old_pagemap->pml4[i] & 1) {
@@ -113,6 +114,8 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
 =======
 =======
 >>>>>>> Sorta stable
+=======
+>>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
     spinlock_acquire(&old_pagemap->lock);
     size_t total_mapped_pages;
     struct page_attributes_t **pas =
@@ -143,9 +146,12 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                          pas[i]->attr);
                 break;
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> Sorta stable
 =======
 >>>>>>> Sorta stable
+=======
+>>>>>>> 834df5d3895a3359757358de94fa8f4e6754ad50
         }
     }
 
