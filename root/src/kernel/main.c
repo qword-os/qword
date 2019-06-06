@@ -171,6 +171,10 @@ void kmain(void) {
     if (!cmdline_val || !strcmp(cmdline_val, "enabled"))
         lai_enable_acpi(1);
 
+    cmdline_val = cmdline_get_value("acpidebug");
+    if (cmdline_val && !strcmp(cmdline_val, "enabled"))
+        lai_enable_tracing(1);
+
     init_smp();
 
     /* Initialise scheduler */
