@@ -172,8 +172,19 @@ out:; \
 
 #else /* _DEBUG_ */
 
-#define spinlock_acquire(lock) \
-    while (!spinlock_test_and_acquire(lock));
+#define spinlock_acquire(LOCK) ({ \
+    asm volatile ( \
+        "1: " \
+        "lock btr %0, 0;" \
+        "jc 2f;" \
+        "pause;" \
+        "jmp 1b;" \
+        "2: " \
+        : "+m" ((LOCK)->lock) \
+        : \
+        : "memory", "cc" \
+    ); \
+})
 
 #define spinlock_test_and_acquire(LOCK) ({ \
     int ret; \
