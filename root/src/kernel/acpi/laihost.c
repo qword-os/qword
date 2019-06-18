@@ -81,7 +81,7 @@ void laihost_sleep(uint64_t duration) {
     ksleep(duration);
 }
 
-void laihost_pci_write(uint8_t bus, uint8_t function, uint8_t device, uint16_t offset, uint32_t data) {
+void laihost_pci_write(uint8_t bus, uint8_t device, uint8_t function, uint16_t offset, uint32_t data) {
     struct pci_device_t *dev = kalloc(sizeof(struct pci_device_t));
     dev->bus = bus;
     dev->func = function;
@@ -91,13 +91,15 @@ void laihost_pci_write(uint8_t bus, uint8_t function, uint8_t device, uint16_t o
     kfree(dev);
 }
 
-uint32_t laihost_pci_read(uint8_t bus, uint8_t function, uint8_t device, uint16_t offset) {
+uint32_t laihost_pci_read(uint8_t bus, uint8_t device, uint8_t function, uint16_t offset) {
     struct pci_device_t *dev = kalloc(sizeof(struct pci_device_t));
     dev->bus = bus;
     dev->func = function;
     dev->device = device;
 
-    return pci_read_device(dev, (uint32_t)offset);
+    uint32_t ret = pci_read_device(dev, (uint32_t)offset);
+    kfree(dev);
+    return ret;
 }
 
 void *laihost_map(size_t phys_addr, size_t count) {
