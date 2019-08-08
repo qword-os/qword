@@ -2,7 +2,7 @@
 
 [![goto counter](https://img.shields.io/github/search/qword-os/qword/goto.svg)](https://github.com/qword-os/qword/search?q=goto)
 
-The qword-OS kernel, a fully featured, x86_64 sex machine!
+The qword-OS kernel, a fully featured, capable x86_64 sex machine!
 
 ## Build requirements
 
