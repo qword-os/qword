@@ -1,66 +1,80 @@
-SHELL = /bin/bash
+# Directories and files.
+SOURCEDIR := ./source
 
-PATH := $(shell pwd)/host/toolchain/cross-root/bin:$(PATH)
-PREFIX = $(shell pwd)/root
+KERNEL    := qword
+KERNELBIN := $(KERNEL).bin
+KERNELELF := $(KERNEL).elf
 
-.PHONY: all img hdd clean run run-img run-nokvm run-img-nvme-test
+CFILES    := $(shell find $(SOURCEDIR) -type f -name '*.c')
+ASMFILES  := $(shell find $(SOURCEDIR) -type f -name '*.asm')
+REALFILES := $(shell find $(SOURCEDIR) -type f -name '*.real')
+BINS      := $(REALFILES:.real=.bin)
+OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.o)
 
-all:
-	$(MAKE) core PREFIX=$(PREFIX) -C root/src
-	cp -v /etc/localtime ./root/etc/
+# User options.
+DBGOUT = no
+DBGSYM = no
 
-IMGSIZE := 4096
+PREFIX = $(shell pwd)
 
-img: all
-	cp root/src/qloader/qloader.bin ./qword.img
-	fallocate -l $(IMGSIZE)M ./qword.img
-	echfs-utils ./qword.img quick-format 32768
-	./copy-root-to-img.sh root qword.img
+CC = gcc
+AS = nasm
 
-LOOP_DEVICE = $(shell losetup --find)
+CFLAGS  = -O2 -pipe -Wall -Wextra
+LDFLAGS = -O2
 
-hdd: all
-	sudo -v
-	rm -rf qword.part
-	fallocate -l $(IMGSIZE)M qword.part
-	echfs-utils ./qword.part quick-format 32768
-	./copy-root-to-img.sh root qword.part
-	rm -rf qword.hdd
-	fallocate -l $(IMGSIZE)M qword.hdd
-	fallocate -o $(IMGSIZE)M -l $$(( 67108864 + 1048576 )) qword.hdd
-	./create_partition_scheme.sh
-	sudo losetup -P $(LOOP_DEVICE) qword.hdd
-	sudo mkfs.fat $(LOOP_DEVICE)p1
-	sudo rm -rf mnt
-	sudo mkdir mnt && sudo mount $(LOOP_DEVICE)p1 ./mnt
-	sudo grub-install --target=i386-pc --boot-directory=`realpath ./mnt/boot` $(LOOP_DEVICE)
-	sudo cp -r ./root/boot/* ./mnt/boot/
-	sudo umount ./mnt
-	sudo rm -rf mnt
-	sudo bash -c "cat qword.part > $(LOOP_DEVICE)p2"
-	sudo losetup -d $(LOOP_DEVICE)
-	rm qword.part
+# Compile-time options.
+BUILD_TIME := $(shell date)
+
+CHARDFLAGS := $(CFLAGS) \
+	-DBUILD_TIME='"$(BUILD_TIME)"' \
+	-std=gnu99                     \
+	-masm=intel                    \
+	-fno-pic                       \
+	-mno-sse                       \
+	-mno-sse2                      \
+	-mno-red-zone                  \
+	-mcmodel=kernel                \
+	-ffreestanding                 \
+	-fno-stack-protector           \
+	-I $(SOURCEDIR)
+
+ifeq ($(DBGOUT), tty)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
+else ifeq ($(DBGOUT), qemu)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_QEMU_
+else ifeq ($(DBGOUT), both)
+CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_ -D_DBGOUT_QEMU_
+endif
+
+ifeq ($(DBGSYM), yes)
+CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
+endif
+
+LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie
+
+.PHONY: all install uninstall clean
+
+all: $(BINS) $(OBJ)
+	$(CC) $(OBJ) $(LDHARDFLAGS) -T $(SOURCEDIR)/linker.ld     -o $(KERNELBIN)
+	$(CC) $(OBJ) $(LDHARDFLAGS) -T $(SOURCEDIR)/linker-elf.ld -o $(KERNELELF)
+
+install: all
+	mkdir -p $(PREFIX)/boot
+	mv $(KERNELBIN) $(PREFIX)/boot/
+	mv $(KERNELELF) $(PREFIX)/boot/
+
+uninstall:
+	rm -f $(PREFIX)/$(KERNELBIN) $(PREFIX)/boot/$(KERNELELF)
+
+%.o: %.c
+	$(CC) $(CHARDFLAGS) -c $< -o $@
+
+%.bin: %.real
+	$(AS) $< -I$(SOURCEDIR) -f bin -o $@
+
+%.o: %.asm
+	$(AS) $< -I$(SOURCEDIR) -f elf64 -o $@
 
 clean:
-	$(MAKE) core-clean -C root/src
-
-QEMU_FLAGS := $(QEMU_FLAGS) \
-	-m 2G \
-	-net none \
-	-debugcon stdio \
-	-d cpu_reset
-
-run:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.hdd,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
-
-run-img:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 -enable-kvm
-
-run-nokvm:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.hdd,format=raw -device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1
-
-run-img-nvme-test:
-	qemu-system-x86_64 $(QEMU_FLAGS) -device ahci,id=ahci -drive if=none,id=disk,file=qword.img,format=raw \
-	-device ide-drive,drive=disk,bus=ahci.0 -smp sockets=1,cores=4,threads=1 \
-	-drive if=none,id=disk1,file=test.img,format=raw \
-	-device nvme,drive=disk1,serial=deadbeef
+	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)

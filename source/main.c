@@ -153,10 +153,6 @@ void kmain(void) {
                                 s_time.days, s_time.months, s_time.years);
     kprint(KPRN_INFO, "Current unix epoch: %U", unix_epoch);
 
-    char *cmdline_val = cmdline_get_value("acpidebug");
-    if (cmdline_val && !strcmp(cmdline_val, "enabled"))
-        lai_enable_tracing(1);
-
     /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
     flush_irqs();
     init_acpi();
@@ -169,11 +165,6 @@ void kmain(void) {
 
     // ACPI specification section 5.8.1 - we are using the APIC,
     // so we need to be using mode 1 with the _PIC method.
-
-    // This function enables the use of lai functions inside qword
-    cmdline_val = cmdline_get_value("acpi");
-    if (!cmdline_val || !strcmp(cmdline_val, "enabled"))
-        lai_enable_acpi(1);
 
     init_smp();
 
