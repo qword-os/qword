@@ -1,5 +1,4 @@
-# Directories and files.
-
+# Globals and files to compile.
 KERNEL    := qword
 KERNELBIN := $(KERNEL).bin
 KERNELELF := $(KERNEL).elf
@@ -16,13 +15,14 @@ DBGSYM = no
 
 PREFIX = $(shell pwd)
 
-CC = gcc
-AS = nasm
+CC      = gcc
+AS      = nasm
+OBJCOPY = objcopy
 
 CFLAGS  = -O2 -pipe -Wall -Wextra
 LDFLAGS = -O2
 
-# Compile-time options.
+# Flags for compilation.
 BUILD_TIME := $(shell date)
 
 CHARDFLAGS := $(CFLAGS) \
@@ -50,13 +50,13 @@ ifeq ($(DBGSYM), yes)
 CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
 endif
 
-LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie
+LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld
 
 .PHONY: all install uninstall clean run
 
 all: $(BINS) $(OBJ)
-	$(CC) $(OBJ) $(LDHARDFLAGS) -T linker.ld     -o $(KERNELBIN)
-	$(CC) $(OBJ) $(LDHARDFLAGS) -T linker-elf.ld -o $(KERNELELF)
+	$(CC) $(OBJ) $(LDHARDFLAGS) -o $(KERNELELF)
+	$(OBJCOPY) -O binary $(KERNELELF) $(KERNELBIN)
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/boot

@@ -15,6 +15,7 @@ These are the tools needed for the build:
 - `make`.
 - `gcc`, 8 or higher.
 - `nasm`.
+- `objcopy`.
 - `qemu` (to test it).
 
 ## Building

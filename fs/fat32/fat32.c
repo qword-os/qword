@@ -110,11 +110,11 @@ static int fat32_mount(const char *source) {
 
     info.fat_off = info.reserved_sectors;
     info.cluster_begin_off = (info.reserved_sectors + info.num_fats * info.sectors_per_fat);
-    
+
     mounts = krealloc(mounts, sizeof(struct mount_t) * (mount_i + 1));
-    
+
     struct mount_t *mnt = &mounts[mount_i];
-   
+
     mnt->device = device;
     mnt->info = info;
 
@@ -137,7 +137,7 @@ int toupper(int c) {
 // TODO: actually parse lfn and only resort to this when there's no lfn
 static int compare_fs_ent_and_path(struct fs_ent *ent, const char *path) {
     const char *ext = strchrnul(path, '.');
-    
+
     char name[12];
     memset(name, 0, 12);
     memset(name, ' ', 11);
@@ -163,15 +163,15 @@ static struct fs_ent parse_path(int mount, const char *path) {
         .attrib = ATTRIB_DIR,
     };
     if (path[0] == '/' && path[1] == '\0') return root;
-    
+
     uint32_t cluster = mnt->info.root_dir_cluster;
-   
+
     path++;
 
     size_t fat_len = mnt->info.sectors_per_fat * 512;
     uint32_t *fat = kalloc(fat_len);
     read_off(mnt->device, SECTOR_TO_OFF(mnt->info.fat_off), fat, fat_len);
- 
+
     struct fs_ent ent = {0};
     for (size_t i = 0; read_ent(mnt, cluster, i, &ent); i++) {
         if (i == mnt->info.sectors_per_cluster * 16) {
@@ -229,7 +229,7 @@ static int create_handle(struct handle_t handle) {
 
 static int fat32_open(const char *path, int flags, int mount) {
     spinlock_acquire(&fat32_lock);
-    
+
     struct handle_t handle = {0};
     strcpy(handle.path, path);
     handle.flags = flags;
@@ -239,7 +239,7 @@ static int fat32_open(const char *path, int flags, int mount) {
     handle.offset = 0;
 
     handle.ent = parse_path(mount, path);
-    
+
     int hnd = create_handle(handle);
 
     spinlock_release(&fat32_lock);
@@ -249,7 +249,7 @@ static int fat32_open(const char *path, int flags, int mount) {
 
 static int fat32_read(int handle, void *buf, size_t count) {
     spinlock_acquire(&fat32_lock);
-    
+
     if (handle >= handle_i) {
         spinlock_release(&fat32_lock);
         return -1;
@@ -275,7 +275,7 @@ static int fat32_read(int handle, void *buf, size_t count) {
 
     size_t bytes_per_cluster = mnt->info.sectors_per_cluster * 512;
     size_t cluster_bytes = ((read_size + bytes_per_cluster - 1) / bytes_per_cluster) * bytes_per_cluster;
-    
+
     size_t cluster_offset = (handles[handle].offset + bytes_per_cluster - 1) / bytes_per_cluster;
     size_t cluster = ent->begin_cluster;
     while (cluster_offset--) cluster = next_cluster(cluster, fat, fat_len);
@@ -284,12 +284,12 @@ static int fat32_read(int handle, void *buf, size_t count) {
     while (index + handles[handle].offset < read_size) {
         size_t off = CLUSTER_TO_OFF(cluster, mnt->info.cluster_begin_off,
                                     mnt->info.sectors_per_cluster) + (handles[handle].offset % bytes_per_cluster);
-    
+
         size_t read_amount = min(cluster_bytes - index, bytes_per_cluster);
         if (read_amount > read_size - index) read_amount = read_size - index;
 
         read_off(mnt->device, off, (buf + index), read_amount);
-        
+
         index += bytes_per_cluster;
 
         if (index + handles[handle].offset < read_size) {
