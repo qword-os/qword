@@ -52,7 +52,7 @@ endif
 
 LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie
 
-.PHONY: all install uninstall clean
+.PHONY: all install uninstall clean run
 
 all: $(BINS) $(OBJ)
 	$(CC) $(OBJ) $(LDHARDFLAGS) -T linker.ld     -o $(KERNELBIN)
@@ -77,3 +77,6 @@ uninstall:
 
 clean:
 	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)
+
+run:
+	qemu-system-x86_64 -net none -kernel qword.bin
