@@ -1,13 +1,12 @@
 # Directories and files.
-SOURCEDIR := ./source
 
 KERNEL    := qword
 KERNELBIN := $(KERNEL).bin
 KERNELELF := $(KERNEL).elf
 
-CFILES    := $(shell find $(SOURCEDIR) -type f -name '*.c')
-ASMFILES  := $(shell find $(SOURCEDIR) -type f -name '*.asm')
-REALFILES := $(shell find $(SOURCEDIR) -type f -name '*.real')
+CFILES    := $(shell find . -type f -name '*.c')
+ASMFILES  := $(shell find . -type f -name '*.asm')
+REALFILES := $(shell find . -type f -name '*.real')
 BINS      := $(REALFILES:.real=.bin)
 OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.o)
 
@@ -37,7 +36,7 @@ CHARDFLAGS := $(CFLAGS) \
 	-mcmodel=kernel                \
 	-ffreestanding                 \
 	-fno-stack-protector           \
-	-I $(SOURCEDIR)
+	-I.
 
 ifeq ($(DBGOUT), tty)
 CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
@@ -56,25 +55,25 @@ LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie
 .PHONY: all install uninstall clean
 
 all: $(BINS) $(OBJ)
-	$(CC) $(OBJ) $(LDHARDFLAGS) -T $(SOURCEDIR)/linker.ld     -o $(KERNELBIN)
-	$(CC) $(OBJ) $(LDHARDFLAGS) -T $(SOURCEDIR)/linker-elf.ld -o $(KERNELELF)
+	$(CC) $(OBJ) $(LDHARDFLAGS) -T linker.ld     -o $(KERNELBIN)
+	$(CC) $(OBJ) $(LDHARDFLAGS) -T linker-elf.ld -o $(KERNELELF)
 
 install: all
-	mkdir -p $(PREFIX)/boot
-	mv $(KERNELBIN) $(PREFIX)/boot/
-	mv $(KERNELELF) $(PREFIX)/boot/
+	mkdir -p $(DESTDIR)$(PREFIX)/boot
+	cp $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
+	cp $(KERNELELF) $(DESTDIR)$(PREFIX)/boot/
 
 uninstall:
-	rm -f $(PREFIX)/$(KERNELBIN) $(PREFIX)/boot/$(KERNELELF)
+	rm -f $(DESTDIR)$(PREFIX)/$(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/$(KERNELELF)
 
 %.o: %.c
 	$(CC) $(CHARDFLAGS) -c $< -o $@
 
 %.bin: %.real
-	$(AS) $< -I$(SOURCEDIR) -f bin -o $@
+	$(AS) $< -f bin -o $@
 
 %.o: %.asm
-	$(AS) $< -I$(SOURCEDIR) -f elf64 -o $@
+	$(AS) $< -f elf64 -o $@
 
 clean:
 	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)
