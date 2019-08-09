@@ -124,8 +124,8 @@ void init_pmm(void) {
     return;
 }
 
-/* Allocate physical memory. */
-void *pmm_alloc_slow(size_t pg_count) {
+/* Allocate physical memory without optimisation for early boot */
+static void *pmm_alloc_slow(size_t pg_count) {
     spinlock_acquire(&pmm_lock);
 
     size_t pg_cnt = pg_count;
@@ -153,8 +153,8 @@ found:;
     return (void *)(start * PAGE_SIZE);
 }
 
-/* Allocate physical memory. */
-void *pmm_alloc_fast(size_t pg_count) {
+/* Allocate physical memory with O(1)-like optimisation */
+static void *pmm_alloc_fast(size_t pg_count) {
     spinlock_acquire(&pmm_lock);
 
     size_t pg_cnt = pg_count;
