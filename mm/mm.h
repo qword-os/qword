@@ -33,7 +33,9 @@ struct pagemap_t {
 
 extern struct pagemap_t *kernel_pagemap;
 
-void *pmm_alloc(size_t);
+void pmm_change_allocation_method(void);
+
+extern void *(*pmm_alloc)(size_t);
 void *pmm_allocz(size_t);
 void pmm_free(void *, size_t);
 void init_pmm(void);

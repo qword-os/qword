@@ -125,7 +125,36 @@ void init_pmm(void) {
 }
 
 /* Allocate physical memory. */
-void *pmm_alloc(size_t pg_count) {
+void *pmm_alloc_slow(size_t pg_count) {
+    spinlock_acquire(&pmm_lock);
+
+    size_t pg_cnt = pg_count;
+
+    size_t i;
+    for (i = BITMAP_BASE; i < BITMAP_BASE + bitmap_entries; ) {
+        if (!read_bitmap(i++)) {
+            if (!--pg_cnt)
+                goto found;
+        } else {
+            pg_cnt = pg_count;
+        }
+    }
+
+    spinlock_release(&pmm_lock);
+    return NULL;
+
+found:;
+    size_t start = i - pg_count;
+    set_bitmap(start, pg_count);
+
+    spinlock_release(&pmm_lock);
+
+    // Return the physical address that represents the start of this physical page(s).
+    return (void *)(start * PAGE_SIZE);
+}
+
+/* Allocate physical memory. */
+void *pmm_alloc_fast(size_t pg_count) {
     spinlock_acquire(&pmm_lock);
 
     size_t pg_cnt = pg_count;
@@ -133,7 +162,7 @@ void *pmm_alloc(size_t pg_count) {
     for (size_t i = 0; i < bitmap_entries; i++) {
         if (cur_ptr == BITMAP_BASE + bitmap_entries) {
             cur_ptr = BITMAP_BASE;
-            cur_ptr = pg_count;
+            pg_cnt = pg_count;
         }
         if (!read_bitmap(cur_ptr++)) {
             if (!--pg_cnt)
@@ -154,6 +183,12 @@ found:;
 
     // Return the physical address that represents the start of this physical page(s).
     return (void *)(start * PAGE_SIZE);
+}
+
+void *(*pmm_alloc)(size_t) = pmm_alloc_slow;
+
+void pmm_change_allocation_method(void) {
+    pmm_alloc = pmm_alloc_fast;
 }
 
 /* Allocate physical memory and zero it out. */
