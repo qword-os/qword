@@ -4,11 +4,14 @@
 
 The qword-OS kernel, a fully featured, capable x86_64 sex machine!
 
+As said, this is just the kernel. To build the whole system, follow the
+instructions at <https://github.com/qword-os/build>.
+
 ## Build requirements
 
 These are the tools needed for the build:
 - `git` (only for the initial download).
-- `bash`, `zsh`, or any other POSIX compatible shell.
+- `bash`.
 - `make`.
 - `gcc`, 8 or higher.
 - `nasm`.
