@@ -363,10 +363,10 @@ syscall_table:
     dq syscall_pipe ;19
     extern syscall_getcwd
     dq syscall_getcwd ;20
-    extern syscall_perfmon_create
-    dq syscall_perfmon_create ;21
-    extern syscall_perfmon_attach
-    dq syscall_perfmon_attach ;22
+    ;
+    dq invalid_syscall ;21
+    ;
+    dq invalid_syscall ;22
     extern syscall_tcsetattr
     dq syscall_tcsetattr ;23
     extern syscall_tcgetattr

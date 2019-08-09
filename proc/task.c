@@ -273,8 +273,6 @@ void task_resched(struct regs_t *regs) {
             current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
             /* Save errno */
             current_thread->thread_errno = cpu_locals[current_cpu].thread_errno;
-            /* Update statistics. */
-            current_thread->total_cputime += uptime_raw - cpu_locals[current_cpu].last_schedule_time;
         }
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
@@ -404,8 +402,6 @@ found_new_pid:
     new_process->cur_brk_lock = new_lock;
 
     new_process->child_event_lock = new_lock;
-
-    new_process->perfmon_lock = new_lock;
 
     memset(&new_process->own_usage, 0, sizeof(struct rusage_t));
     memset(&new_process->child_usage, 0, sizeof(struct rusage_t));

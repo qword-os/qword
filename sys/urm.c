@@ -179,9 +179,6 @@ static void exit_receive_request(struct exit_request_t *exit_request) {
 
     free_address_space(process->pagemap);
 
-    if (process->active_perfmon)
-        perfmon_unref(process->active_perfmon);
-
     struct child_event_t child_event;
 
     child_event.pid = exit_request->pid;

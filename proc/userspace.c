@@ -8,7 +8,6 @@
 #include <lib/lock.h>
 #include <lib/event.h>
 #include <sys/panic.h>
-#include <fd/perfmon/perfmon.h>
 #include <lib/signal.h>
 
 extern void *signal_trampoline[];

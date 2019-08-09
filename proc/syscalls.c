@@ -6,7 +6,6 @@
 #include <lib/lock.h>
 #include <fd/vfs/vfs.h>
 #include <fd/pipe/pipe.h>
-#include <fd/perfmon/perfmon.h>
 #include <proc/task.h>
 #include <mm/mm.h>
 #include <lib/time.h>
@@ -25,59 +24,27 @@ static inline int privilege_check(size_t base, size_t len) {
 
 void enter_syscall(int syscall) {
     spinlock_acquire(&scheduler_lock);
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+    struct thread_t *thread = task_table[current_task];
 
-    while (locked_read(int, &task_table[CURRENT_TASK]->event_abrt)) {
+    while (locked_read(int, &thread->event_abrt)) {
         spinlock_release(&scheduler_lock);
         yield();
         spinlock_acquire(&scheduler_lock);
     }
 
-    pid_t current_task = cpu_locals[current_cpu].current_task;
-    pid_t current_process = cpu_locals[current_cpu].current_process;
+    locked_write(int, &thread->in_syscall, 1);
+    thread->last_syscall = syscall;
 
-    locked_write(int, &task_table[current_task]->in_syscall, 1);
-    task_table[current_task]->last_syscall = syscall;
-
-    struct thread_t *thread = task_table[current_task];
-    struct process_t *process = process_table[current_process];
-
-    /* Account thread statistics since last syscall. */
-    int64_t cputime_delta = thread->total_cputime - thread->accounted_cputime;
-    thread->accounted_cputime = thread->total_cputime;
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->cpu_time, cputime_delta);
-    spinlock_release(&process->perfmon_lock);
-
-    thread->syscall_entry_time = uptime_raw;
     spinlock_release(&scheduler_lock);
 }
 
 void leave_syscall(void) {
     spinlock_acquire(&scheduler_lock);
     pid_t current_task = cpu_locals[current_cpu].current_task;
-    pid_t current_process = cpu_locals[current_cpu].current_process;
     struct thread_t *thread = task_table[current_task];
-    struct process_t *process = process_table[current_process];
 
-    spinlock_acquire(&process->usage_lock);
-    time_t syscall_time = uptime_raw - thread->syscall_entry_time;
-    process->own_usage.ru_stime.tv_sec += syscall_time / 1000;
-    process->own_usage.ru_stime.tv_usec += ((syscall_time % 1000) * 1000);
-    if (process->own_usage.ru_stime.tv_usec >= 1000000) {
-        process->own_usage.ru_stime.tv_usec -= 1000000;
-        process->own_usage.ru_stime.tv_sec += 1;
-    }
-    spinlock_release(&process->usage_lock);
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->syscall_time,
-                uptime_raw - thread->syscall_entry_time);
-    spinlock_release(&process->perfmon_lock);
-
-    int *in_syscall_ptr = &task_table[CURRENT_TASK]->in_syscall;
+    int *in_syscall_ptr = &thread->in_syscall;
 
     spinlock_release(&scheduler_lock);
 
@@ -327,8 +294,6 @@ int syscall_getcwd(struct regs_t *regs) {
 }
 
 int syscall_readdir(struct regs_t *regs) {
-    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
-
     int fd = (int)regs->rdi;
     struct dirent *buf = (struct dirent *)regs->rsi;
 
@@ -348,16 +313,9 @@ int syscall_readdir(struct regs_t *regs) {
         return -1;
     }
 
-    perfmon_timer_start(&io_timer);
     size_t ret = readdir(process->file_handles[fd], buf);
-    perfmon_timer_stop(&io_timer);
 
     spinlock_release(&process->file_handles_lock);
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
-    spinlock_release(&process->perfmon_lock);
 
     return ret;
 }
@@ -512,16 +470,11 @@ int syscall_execve(struct regs_t *regs) {
 }
 
 int syscall_fork(struct regs_t *regs) {
-    struct perfmon_timer_t mm_timer = PERFMON_TIMER_INITIALIZER;
-
     spinlock_acquire(&scheduler_lock);
 
     pid_t current_task = cpu_locals[current_cpu].current_task;
-
     struct thread_t *calling_thread = task_table[current_task];
-
     pid_t current_process = cpu_locals[current_cpu].current_process;
-
     struct process_t *old_process = process_table[current_process];
 
     spinlock_release(&scheduler_lock);
@@ -530,9 +483,7 @@ int syscall_fork(struct regs_t *regs) {
         return -1;
     spinlock_acquire(&scheduler_lock);
 
-    perfmon_timer_start(&mm_timer);
     struct pagemap_t *new_pagemap = fork_address_space(old_process->pagemap);
-    perfmon_timer_stop(&mm_timer);
 
     struct process_t *new_process = process_table[new_pid];
 
@@ -543,13 +494,6 @@ int syscall_fork(struct regs_t *regs) {
     new_process->pagemap = new_pagemap;
     memset(&new_process->own_usage, 0, sizeof(struct rusage_t));
     memset(&new_process->child_usage, 0, sizeof(struct rusage_t));
-
-    spinlock_acquire(&old_process->perfmon_lock);
-    if (old_process->active_perfmon) {
-        perfmon_ref(old_process->active_perfmon);
-        new_process->active_perfmon = old_process->active_perfmon;
-    }
-    spinlock_release(&old_process->perfmon_lock);
 
     /* Copy relevant metadata over */
     strcpy(new_process->cwd, old_process->cwd);
@@ -599,11 +543,6 @@ found_new_task_id:
 
     spinlock_release(&scheduler_lock);
 
-    spinlock_acquire(&old_process->perfmon_lock);
-    if (old_process->active_perfmon)
-        atomic_add_uint64_relaxed(&old_process->active_perfmon->mman_time, mm_timer.elapsed);
-    spinlock_release(&old_process->perfmon_lock);
-
     return new_pid;
 }
 
@@ -625,8 +564,6 @@ int syscall_set_fs_base(struct regs_t *regs) {
 void *syscall_alloc_at(struct regs_t *regs) {
     // rdi: virtual address / 0 for sbrk-like allocation
     // rsi: page count
-    struct perfmon_timer_t mm_timer = PERFMON_TIMER_INITIALIZER;
-
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
@@ -648,7 +585,6 @@ void *syscall_alloc_at(struct regs_t *regs) {
         spinlock_release(&process->cur_brk_lock);
     }
 
-    perfmon_timer_start(&mm_timer);
     void *ptr = pmm_allocz(regs->rsi);
     if (!ptr) {
         errno = ENOMEM;
@@ -662,12 +598,6 @@ void *syscall_alloc_at(struct regs_t *regs) {
             return (void *)0;
         }
     }
-    perfmon_timer_stop(&mm_timer);
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->mman_time, mm_timer.elapsed);
-    spinlock_release(&process->perfmon_lock);
 
     return (void *)base_address;
 }
@@ -808,8 +738,6 @@ int syscall_mkdir(struct regs_t *regs) {
 int syscall_open(struct regs_t *regs) {
     // rdi: path
     // rsi: mode
-    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
-
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
@@ -835,14 +763,7 @@ int syscall_open(struct regs_t *regs) {
     vfs_get_absolute_path(abs_path, (const char *)regs->rdi, process->cwd);
     spinlock_release(&process->cwd_lock);
 
-    perfmon_timer_start(&io_timer);
     int fd = open(abs_path, regs->rsi);
-    perfmon_timer_stop(&io_timer);
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
-    spinlock_release(&process->perfmon_lock);
 
     if (fd < 0) {
         spinlock_release(&process->file_handles_lock);
@@ -1158,8 +1079,6 @@ int syscall_read(struct regs_t *regs) {
     // rdi: fd
     // rsi: buf
     // rdx: len
-    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
-
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
@@ -1176,7 +1095,6 @@ int syscall_read(struct regs_t *regs) {
         return -1;
     }
 
-    perfmon_timer_start(&io_timer);
     size_t ptr = 0;
     while (ptr < regs->rdx) {
         size_t step;
@@ -1189,14 +1107,8 @@ int syscall_read(struct regs_t *regs) {
         if (ret < step)
             break;
     }
-    perfmon_timer_stop(&io_timer);
 
     spinlock_release(&process->file_handles_lock);
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
-    spinlock_release(&process->perfmon_lock);
 
     return ptr;
 }
@@ -1205,8 +1117,6 @@ int syscall_write(struct regs_t *regs) {
     // rdi: fd
     // rsi: buf
     // rdx: len
-    struct perfmon_timer_t io_timer = PERFMON_TIMER_INITIALIZER;
-
     spinlock_acquire(&scheduler_lock);
     pid_t current_process = cpu_locals[current_cpu].current_process;
     struct process_t *process = process_table[current_process];
@@ -1223,7 +1133,6 @@ int syscall_write(struct regs_t *regs) {
         return -1;
     }
 
-    perfmon_timer_start(&io_timer);
     size_t ptr = 0;
     while (ptr < regs->rdx) {
         size_t step;
@@ -1236,61 +1145,8 @@ int syscall_write(struct regs_t *regs) {
         if (ret < step)
             break;
     }
-    perfmon_timer_stop(&io_timer);
 
     spinlock_release(&process->file_handles_lock);
-
-    spinlock_acquire(&process->perfmon_lock);
-    if (process->active_perfmon)
-        atomic_add_uint64_relaxed(&process->active_perfmon->io_time, io_timer.elapsed);
-    spinlock_release(&process->perfmon_lock);
 
     return ptr;
-}
-
-int syscall_perfmon_create(struct regs_t *regs) {
-    spinlock_acquire(&scheduler_lock);
-    pid_t current_process = cpu_locals[current_cpu].current_process;
-    struct process_t *process = process_table[current_process];
-    spinlock_release(&scheduler_lock);
-
-    int sys_fd = perfmon_create();
-    if (sys_fd == -1)
-        return -1;
-
-    spinlock_acquire(&process->file_handles_lock);
-
-    int local_fd;
-    for (local_fd = 0; process->file_handles[local_fd] != -1; local_fd++)
-        if (local_fd + 1 == MAX_FILE_HANDLES) {
-            close(sys_fd);
-            spinlock_release(&process->file_handles_lock);
-            return -1;
-        }
-    process->file_handles[local_fd] = sys_fd;
-
-    spinlock_release(&process->file_handles_lock);
-    return local_fd;
-}
-
-int syscall_perfmon_attach(struct regs_t *regs) {
-    spinlock_acquire(&scheduler_lock);
-    pid_t current_process = cpu_locals[current_cpu].current_process;
-    struct process_t *process = process_table[current_process];
-    spinlock_release(&scheduler_lock);
-
-    spinlock_acquire(&process->file_handles_lock);
-    if (process->file_handles[regs->rdi] == -1) {
-        spinlock_release(&process->file_handles_lock);
-        errno = EBADF;
-        return -1;
-    }
-
-    if (perfmon_attach(process->file_handles[regs->rdi])) {
-        spinlock_release(&process->file_handles_lock);
-        return -1;
-    }
-
-    spinlock_release(&process->file_handles_lock);
-    return 0;
 }

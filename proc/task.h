@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <mm/mm.h>
 #include <lib/lock.h>
-#include <fd/perfmon/perfmon.h>
 #include <lib/time.h>
 #include <lib/types.h>
 #include <lib/signal.h>
@@ -87,9 +86,6 @@ struct thread_t {
     int paused;
     event_t *event_ptr;
     int active_on_cpu;
-    uint64_t syscall_entry_time;
-    int64_t total_cputime;
-    int64_t accounted_cputime;
     size_t kstack;
     size_t ustack;
     size_t thread_errno;
@@ -129,8 +125,6 @@ struct process_t {
     size_t child_event_i;
     lock_t child_event_lock;
     event_t child_event;
-    lock_t perfmon_lock;
-    struct perfmon_t *active_perfmon;
     lock_t usage_lock;
     struct rusage_t own_usage;
     struct rusage_t child_usage;
