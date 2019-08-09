@@ -139,7 +139,6 @@ void kmain(void) {
     init_rand();
     init_vmm();
 
-    dump_vga_font(vga_font);
     init_vbe();
     init_tty();
 

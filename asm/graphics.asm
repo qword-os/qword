@@ -4,7 +4,6 @@ global get_vbe_info
 global get_edid_info
 global get_vbe_mode_info
 global set_vbe_mode
-global dump_vga_font
 
 %define kernel_phys_offset 0xffffffffc0000000
 
@@ -25,10 +24,6 @@ get_vbe_mode_info_end:
 %define set_vbe_mode_size           set_vbe_mode_end - set_vbe_mode_bin
 set_vbe_mode_bin:                   incbin "real/set_vbe_mode.bin"
 set_vbe_mode_end:
-
-%define dump_vga_font_size           dump_vga_font_end - dump_vga_font_bin
-dump_vga_font_bin:                   incbin "real/dump_vga_font.bin"
-dump_vga_font_end:
 
 section .text
 
@@ -115,29 +110,6 @@ set_vbe_mode:
     mov rbx, rdi
     mov rsi, set_vbe_mode_bin
     mov rcx, set_vbe_mode_size
-    call real_routine
-
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbp
-    pop rbx
-    ret
-
-dump_vga_font:
-    ; void dump_vga_font(uint8_t *bitmap);
-    push rbx
-    push rbp
-    push r12
-    push r13
-    push r14
-    push r15
-
-    mov rbx, rdi
-    sub rbx, kernel_phys_offset
-    mov rsi, dump_vga_font_bin
-    mov rcx, dump_vga_font_size
     call real_routine
 
     pop r15

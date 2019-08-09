@@ -1,4 +1,5 @@
 /**/*.o
 /**/*.bin
+!/sys/font.bin
 qword.bin
 qword.elf
