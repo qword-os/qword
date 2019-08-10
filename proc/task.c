@@ -13,7 +13,7 @@
 #include <lib/time.h>
 #include <lib/event.h>
 #include <lib/signal.h>
-#include <misc/pit.h>
+#include <sys/pit.h>
 #include <sys/urm.h>
 
 #define SCHED_TIMESLICE_MS 5

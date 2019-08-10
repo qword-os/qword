@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <lib/cio.h>
 #include <lib/klib.h>
-#include <misc/pit.h>
+#include <sys/pit.h>
 #include <sys/apic.h>
 
 void init_pit(void) {

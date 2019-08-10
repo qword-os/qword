@@ -11,7 +11,7 @@
 #include <sys/pic.h>
 #include <acpi/acpi.h>
 #include <lib/cmdline.h>
-#include <misc/pit.h>
+#include <sys/pit.h>
 #include <sys/smp.h>
 #include <proc/task.h>
 #include <devices/dev.h>

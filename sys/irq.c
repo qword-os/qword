@@ -5,7 +5,7 @@
 #include <sys/pic_8259.h>
 #include <lib/klib.h>
 #include <lib/time.h>
-#include <misc/pit.h>
+#include <sys/pit.h>
 #include <lib/cio.h>
 #include <proc/task.h>
 #include <sys/smp.h>
