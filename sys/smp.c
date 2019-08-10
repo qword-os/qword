@@ -132,7 +132,8 @@ void init_smp(void) {
     /* start up the APs and jump them into the kernel */
     for (size_t i = 1; i < madt_local_apic_i; i++) {
         /* Check if LAPIC is marked as disabled */
-        if (!(madt_local_apics[i]->flags & 1)) {
+        uint32_t flags = madt_local_apics[i]->flags;
+        if (!((flags & 1) ^ ((flags >> 1) & 1))) {
             kprint(KPRN_INFO, "smp: Theoretical AP #%u ignored", i);
             continue;
         }
