@@ -131,14 +131,8 @@ void init_smp(void) {
 
     /* start up the APs and jump them into the kernel */
     for (size_t i = 1; i < madt_local_apic_i; i++) {
-        /*
-         * In practice some "dead" cores have a lapic == 0 and/or lapic == 255.
-         * These cores are meant to be ignored else a freeze or triple fault might happen.
-         * Tested on an AMD Ryzen 5 2400G (extra LAPIC IDs are 0).
-         * Tested on an Ideapad 330, Intel Core i3-7020U (extra LAPIC IDs are 255).
-         */
-        if ( madt_local_apics[i]->apic_id == 0
-          || madt_local_apics[i]->apic_id == 255) {
+        /* Check if LAPIC is marked as disabled */
+        if (!(madt_local_apics[i]->flags & 1)) {
             kprint(KPRN_INFO, "smp: Theoretical AP #%u ignored", i);
             continue;
         }
