@@ -157,8 +157,8 @@ void kmain(void) {
     init_acpi();
     init_pic();
 
-    /* Init timers */
-    init_timers();
+    /* Init timer(s) */
+    init_timer();
 
     /* Enable interrupts on BSP */
     asm volatile ("sti");
