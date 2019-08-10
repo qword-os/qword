@@ -169,9 +169,9 @@ static void kprint_buf_flush(char *kprint_buf, size_t *kprint_buf_i) {
     return;
 }
 
-static void kprint_buf_flush_panic(char *kprint_buf, size_t *kprint_buf_i) {
-    (void)kprint_buf_i;
+static void kprint_buf_flush_urgent(char *kprint_buf, size_t *kprint_buf_i) {
     qemu_debug_puts_urgent(kprint_buf);
+    tty_write(0, kprint_buf, 0, *kprint_buf_i);
     return;
 }
 
@@ -347,10 +347,10 @@ void kvprint(int type, const char *fmt, va_list args) {
     }
 
 out:
-    if (type != KPRN_PANIC) {
+    if (type == KPRN_INFO || type == KPRN_DBG) {
         kprint_buf_flush(kprint_buf, &kprint_buf_i);
     } else {
-        kprint_buf_flush_panic(kprint_buf, &kprint_buf_i);
+        kprint_buf_flush_urgent(kprint_buf, &kprint_buf_i);
     }
 
     return;
