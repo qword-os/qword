@@ -19,5 +19,5 @@ int init_hpet(void) {
         hpet->address->register_bit_offset
     }
     #endif
-    return 0;
+    return 1;
 }

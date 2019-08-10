@@ -21,5 +21,5 @@ int init_pit(void) {
     kprint(KPRN_INFO, "pit: Unmasking PIT IRQ");
     io_apic_set_mask(0, 0, 1);
 
-    return 1;
+    return 0;
 }
