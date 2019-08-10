@@ -11,7 +11,7 @@
 #include <sys/pic.h>
 #include <acpi/acpi.h>
 #include <lib/cmdline.h>
-#include <sys/pit.h>
+#include <sys/timer.h>
 #include <sys/smp.h>
 #include <proc/task.h>
 #include <devices/dev.h>
@@ -157,14 +157,13 @@ void kmain(void) {
     init_acpi();
     init_pic();
 
-    init_pit();
+    /* Init timers */
+    init_timers();
 
     /* Enable interrupts on BSP */
     asm volatile ("sti");
 
-    // ACPI specification section 5.8.1 - we are using the APIC,
-    // so we need to be using mode 1 with the _PIC method.
-
+    /* Init Symmetric Multiprocessing */
     init_smp();
 
     /* Initialise scheduler */

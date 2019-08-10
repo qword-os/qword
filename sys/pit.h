@@ -3,6 +3,6 @@
 
 #define PIT_FREQUENCY   1000
 
-void init_pit(void);
+int init_pit(void);
 
 #endif

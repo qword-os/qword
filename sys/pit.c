@@ -4,7 +4,7 @@
 #include <sys/pit.h>
 #include <sys/apic.h>
 
-void init_pit(void) {
+int init_pit(void) {
     kprint(KPRN_INFO, "pit: Setting frequency to %uHz", (uint64_t)PIT_FREQUENCY);
 
     uint16_t x = 1193182 / PIT_FREQUENCY;
@@ -21,5 +21,5 @@ void init_pit(void) {
     kprint(KPRN_INFO, "pit: Unmasking PIT IRQ");
     io_apic_set_mask(0, 0, 1);
 
-    return;
+    return 1;
 }

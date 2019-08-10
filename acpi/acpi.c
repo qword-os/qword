@@ -87,5 +87,5 @@ void *acpi_find_sdt(const char *signature, int index) {
     }
 
     kprint(KPRN_INFO, "acpi: \"%s\" not found", signature);
-    return (void *)0;
+    return NULL;
 }
