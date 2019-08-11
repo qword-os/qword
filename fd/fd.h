@@ -35,14 +35,14 @@
 #define O_SYNC 0x2000
 #define O_CLOEXEC 0x4000
 
-#define S_IFMT 0x0F00
-#define S_IFBLK 0x0000
-#define S_IFCHR 0x0100
-#define S_IFIFO 0x0200
-#define S_IFREG 0x0300
-#define S_IFDIR 0x0400
-#define S_IFLNK 0x0500
-#define S_IFSOCK 0x0600
+#define S_IFMT 0x0F000
+#define S_IFBLK 0x06000
+#define S_IFCHR 0x02000
+#define S_IFIFO 0x01000
+#define S_IFREG 0x08000
+#define S_IFDIR 0x04000
+#define S_IFLNK 0x0A000
+#define S_IFSOCK 0x0C000
 
 #define S_ISBLK(m) (((m) & S_IFMT) == S_IFBLK)
 #define S_ISCHR(m) (((m) & S_IFMT) == S_IFCHR)

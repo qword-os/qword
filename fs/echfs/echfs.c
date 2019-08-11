@@ -11,7 +11,7 @@
 #define ROOT_ID                 0xffffffffffffffff
 #define BYTES_PER_SECT          512
 #define ENTRIES_PER_SECT        2
-#define FILENAME_LEN            218
+#define FILENAME_LEN            201
 #define RESERVED_BLOCKS         16
 #define FILE_TYPE               0
 #define DIRECTORY_TYPE          1
@@ -29,10 +29,12 @@ struct entry_t {
     uint64_t parent_id;
     uint8_t type;
     char name[FILENAME_LEN];
-    uint8_t perms;
+    uint64_t atime;
+    uint64_t mtime;
+    uint16_t perms;
     uint16_t owner;
     uint16_t group;
-    uint64_t time;
+    uint64_t ctime;
     uint64_t payload;
     uint64_t size;
 }__attribute__((packed));
@@ -769,7 +771,9 @@ static int echfs_mkdir(const char *path, int m) {
     entry.perms = 0; // TODO
     entry.owner = 0; // TODO
     entry.group = 0; // TODO
-    entry.time = 0; // TODO
+    entry.ctime = 0; // TODO
+    entry.atime = 0; // TODO
+    entry.mtime = 0; // TODO
     entry.payload = new_dir_id;
     entry.size = 0;
 
@@ -823,7 +827,9 @@ static int echfs_open(const char *path, int flags, int m) {
         entry.perms = 0; // TODO
         entry.owner = 0; // TODO
         entry.group = 0; // TODO
-        entry.time = 0; // TODO
+        entry.ctime = 0; // TODO
+        entry.atime = 0; // TODO
+        entry.mtime = 0; // TODO
         entry.payload = END_OF_CHAIN;
         entry.size = 0;
 
@@ -1037,11 +1043,11 @@ static int echfs_fstat(int handle, struct stat *st) {
     st->st_size = path_res->target.size;
     st->st_blksize = 512;
     st->st_blocks = (st->st_size + 512 - 1) / 512;
-    st->st_atim.tv_sec = path_res->target.time;
+    st->st_atim.tv_sec = path_res->target.atime;
     st->st_atim.tv_nsec = 0;
-    st->st_mtim.tv_sec = path_res->target.time;
+    st->st_mtim.tv_sec = path_res->target.mtime;
     st->st_mtim.tv_nsec = 0;
-    st->st_ctim.tv_sec = path_res->target.time;
+    st->st_ctim.tv_sec = path_res->target.ctime;
     st->st_ctim.tv_nsec = 0;
 
     st->st_mode = 0;
@@ -1053,6 +1059,8 @@ static int echfs_fstat(int handle, struct stat *st) {
             st->st_mode |= S_IFREG;
             break;
     }
+
+    st->st_mode |= path_res->target.perms;
 
     spinlock_release(&mnt->lock);
     dynarray_unref(handles, handle);
