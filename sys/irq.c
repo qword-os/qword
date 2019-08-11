@@ -5,7 +5,7 @@
 #include <sys/pic_8259.h>
 #include <lib/klib.h>
 #include <lib/time.h>
-#include <sys/pit.h>
+#include <sys/hpet.h>
 #include <lib/cio.h>
 #include <proc/task.h>
 #include <sys/smp.h>
@@ -13,12 +13,10 @@
 
 /* Interrupts should be OFF */
 void pit_handler(void) {
-    if (!(++uptime_raw % PIT_FREQUENCY)) {
+    if (!(++uptime_raw % HPET_FREQUENCY_HZ)) {
         uptime_sec++;
         unix_epoch++;
     }
-
-    return;
 }
 
 void pic0_generic_handler(void) {

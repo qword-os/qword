@@ -13,7 +13,7 @@
 #include <lib/time.h>
 #include <lib/event.h>
 #include <lib/signal.h>
-#include <sys/pit.h>
+#include <sys/hpet.h>
 #include <sys/urm.h>
 
 #define SCHED_TIMESLICE_MS 5
@@ -75,7 +75,7 @@ void yield(void) {
 void relaxed_sleep(uint64_t ms) {
     spinlock_acquire(&scheduler_lock);
 
-    uint64_t yield_target = (uptime_raw + (ms * (PIT_FREQUENCY / 1000))) + 1;
+    uint64_t yield_target = (uptime_raw + (ms * (HPET_FREQUENCY_HZ / 1000))) + 1;
 
     tid_t current_task = cpu_locals[current_cpu].current_task;
     task_table[current_task]->yield_target = yield_target;

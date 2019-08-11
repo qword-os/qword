@@ -6,8 +6,7 @@
 #include <acpi/madt.h>
 #include <mm/mm.h>
 #include <sys/idt.h>
-
-int acpi_available = 0;
+#include <sys/panic.h>
 
 static int use_xsdt = 0;
 
@@ -34,12 +33,11 @@ void init_acpi(void) {
             goto rsdp_found;
         }
     }
-    acpi_available = 0;
-    kprint(KPRN_INFO, "acpi: Non-ACPI compliant system");
+
+    panic("Non-ACPI compliant system", 0, 0, NULL);
     return;
 
 rsdp_found:
-    acpi_available = 1;
     kprint(KPRN_INFO, "acpi: ACPI available");
 
     kprint(KPRN_INFO, "acpi: Revision: %u", (uint32_t)rsdp->rev);

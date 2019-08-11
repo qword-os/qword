@@ -11,7 +11,7 @@
 #include <sys/pic.h>
 #include <acpi/acpi.h>
 #include <lib/cmdline.h>
-#include <sys/timer.h>
+#include <sys/hpet.h>
 #include <sys/smp.h>
 #include <proc/task.h>
 #include <devices/dev.h>
@@ -157,8 +157,8 @@ void kmain(void) {
     init_acpi();
     init_pic();
 
-    /* Init timer(s) */
-    init_timer();
+    /* Init the HPET */
+    init_hpet();
 
     /* Enable interrupts on BSP */
     asm volatile ("sti");

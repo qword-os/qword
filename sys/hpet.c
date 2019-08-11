@@ -1,9 +1,11 @@
 #include <stdint.h>
+#include <stddef.h>
 #include <acpi/acpi.h>
 #include <sys/hpet.h>
 #include <lib/klib.h>
 #include <mm/mm.h>
 #include <sys/apic.h>
+#include <sys/panic.h>
 
 struct hpet_table_t {
     struct sdt_t sdt;
@@ -45,17 +47,14 @@ struct hpet_t {
 
 static struct hpet_t *hpet;
 
-int init_hpet(void) {
-    /* TODO: make this thing work */
-    return 1;
-
+void init_hpet(void) {
     uint64_t tmp;
 
     /* Find the HPET description table. */
     struct hpet_table_t *hpet_table = acpi_find_sdt("HPET", 0);
 
     if (!hpet_table)
-        return 1;
+        panic("HPET ACPI table not found", 0, 0, NULL);
 
     hpet = (struct hpet_t *)(hpet_table->address + MEM_PHYS_OFFSET);
     tmp = hpet->general_capabilities;
@@ -63,7 +62,7 @@ int init_hpet(void) {
     /* Check that the HPET is valid for our uses */
     if (!(tmp & (1 << 15)) /* Check if legacy replacement capable */
      || !(tmp & (1 << 13)) /* Check if 64 bit capable */) {
-        return 1;
+        panic("Required HPET capabilities not supported", 0, 0, NULL);
     }
 
     uint64_t counter_clk_period = tmp >> 32;
@@ -78,19 +77,20 @@ int init_hpet(void) {
 
     hpet->main_counter_value = 0;
 
-    kprint(KPRN_INFO, "hpet: Enable interrupts on timer #0");
+    kprint(KPRN_INFO, "hpet: Enabling interrupts on timer #0");
     tmp = hpet->timers[0].config_and_capabilities;
-    tmp |= (1 << 2);
-    hpet->timers[0].config_and_capabilities = tmp;
-    hpet->timers[0].comparator_value = 0x141283192;
+    if (!(tmp & (1 << 4)))
+        panic("HPET timer #0 does not support periodic mode", 0, 0, NULL);
 
-    kprint(KPRN_INFO, "hpet: Overall enable");
+    tmp |= (1 << 2) | (1 << 3) | (1 << 6);
+    hpet->timers[0].config_and_capabilities = tmp;
+    hpet->timers[0].comparator_value = frequency / HPET_FREQUENCY_HZ;
+
+    kprint(KPRN_INFO, "hpet: Enabling overall");
     tmp = hpet->general_configuration;
     tmp |= 0b01;
     hpet->general_configuration = tmp;
 
     kprint(KPRN_INFO, "hpet: Unmasking IRQ #0");
     io_apic_set_mask(0, 0, 1);
-
-    return 0;
 }

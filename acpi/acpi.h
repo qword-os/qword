@@ -41,8 +41,6 @@ struct xsdt_t {
     uint64_t sdt_ptr[];
 } __attribute__((packed));
 
-extern int acpi_available;
-
 extern struct rsdp_t *rsdp;
 extern struct rsdt_t *rsdt;
 extern struct xsdt_t *xsdt;
