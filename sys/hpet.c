@@ -60,10 +60,8 @@ void init_hpet(void) {
     tmp = hpet->general_capabilities;
 
     /* Check that the HPET is valid for our uses */
-    if (!(tmp & (1 << 15)) /* Check if legacy replacement capable */
-     || !(tmp & (1 << 13)) /* Check if 64 bit capable */) {
-        panic("Required HPET capabilities not supported", 0, 0, NULL);
-    }
+    if (!(tmp & (1 << 15)))
+        panic("HPET is not legacy replacement capable", 0, 0, NULL);
 
     uint64_t counter_clk_period = tmp >> 32;
     uint64_t frequency = 1000000000000000 / counter_clk_period;
