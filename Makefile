@@ -79,4 +79,4 @@ clean:
 	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)
 
 run:
-	qemu-system-x86_64 -net none -kernel qword.bin
+	qemu-system-x86_64 -net none -kernel qword.bin -debugcon stdio -smp 4
