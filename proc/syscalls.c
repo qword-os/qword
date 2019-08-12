@@ -13,6 +13,7 @@
 #include <lib/event.h>
 #include <devices/term/tty/tty.h>
 #include <sys/urm.h>
+#include <net/hostname.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -54,6 +55,24 @@ void leave_syscall(void) {
 /* Prototype syscall: int syscall_name(struct regs_t *regs) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
+
+int syscall_gethostname(struct regs_t *regs) {
+    char *buf = (char *)regs->rdi;
+    size_t len = (size_t)regs->rsi;
+
+    privilege_check((size_t)buf, len);
+
+    if (len > MAX_HOSTNAME_LEN)
+        len = MAX_HOSTNAME_LEN;
+    strncpy(buf, hostname, len);
+    buf[len-1] = 0;
+
+    size_t hostname_len = strlen(hostname);
+    if (hostname_len < len)
+        buf[hostname_len] = 0;
+
+    return 0;
+}
 
 int syscall_futex_wait(struct regs_t *regs) {
     int *ptr = (int *)regs->rdi;

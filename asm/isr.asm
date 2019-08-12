@@ -393,6 +393,8 @@ syscall_table:
     dq syscall_unlink ;34
     extern syscall_mkdir
     dq syscall_mkdir ;35
+    extern syscall_gethostname
+    dq syscall_gethostname ;36
   .end:
 
 section .text

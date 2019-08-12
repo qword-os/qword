@@ -5,7 +5,7 @@
 
 #define DEFAULT_HOSTNAME "qword"
 
-char hostname[1024];
+char hostname[MAX_HOSTNAME_LEN];
 
 void init_hostname(void) {
     int fd = open("/etc/hostname", O_RDONLY);
@@ -14,14 +14,14 @@ void init_hostname(void) {
         strcpy(hostname, DEFAULT_HOSTNAME);
         return;
     }
-    read(fd, hostname, 1023);
-    for (int i = 0; i < 1024; i++) {
+    read(fd, hostname, MAX_HOSTNAME_LEN-1);
+    for (int i = 0; i < MAX_HOSTNAME_LEN; i++) {
         if (hostname[i] == '\n') {
             hostname[i] = 0;
             break;
         }
     }
-    hostname[1023] = 0;
+    hostname[MAX_HOSTNAME_LEN-1] = 0;
     close(fd);
     kprint(KPRN_INFO, "net/hostname: Hostname set to \"%s\"", hostname);
 }
