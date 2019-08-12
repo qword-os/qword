@@ -102,6 +102,7 @@ enable_paging:
 
     mov eax, cr4
     or eax, 1 << 5
+    or eax, 1 << 7
     mov cr4, eax
 
     mov ecx, 0xC0000080

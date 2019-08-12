@@ -378,7 +378,7 @@ void init_vmm(void) {
         size_t addr = i * PAGE_SIZE;
         map_page(kernel_pagemap, addr, addr, 0x03, 0);
         map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
-        map_page(kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03, 0);
+        map_page(kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03 | (1 << 8), 0);
     }
 
     /* Reload new pagemap */
