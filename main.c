@@ -27,6 +27,7 @@
 #include <sys/vga_font.h>
 #include <lib/rand.h>
 #include <sys/urm.h>
+#include <net/hostname.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -93,6 +94,9 @@ void kmain_thread(void *arg) {
     if (mount(root, "/", rootfs, 0, 0)) {
         panic("Unable to mount root", 0, 0, NULL);
     }
+
+    /* Set hostname */
+    init_hostname();
 
     /* Execute init process */
     kprint(KPRN_INFO, "kmain: Starting init");
