@@ -7,6 +7,10 @@ The qword-OS kernel, a fully featured, capable x86_64 sex machine!
 As said, this is just the kernel. To build the whole system, follow the
 instructions at <https://github.com/qword-os/build>.
 
+## Donations
+
+We welcome any kind of support in our official patreon: https://www.patreon.com/qwordOS
+
 ## Build requirements
 
 These are the tools needed for the build:
