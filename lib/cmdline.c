@@ -21,5 +21,5 @@ char *cmdline_get_value(const char *key) {
         }
     }
 
-    return (char *)0;
+    return NULL;
 }

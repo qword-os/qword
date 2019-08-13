@@ -79,8 +79,6 @@ static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
     /* Prepare TSS */
     cpu_tss[cpu_number].rsp0 = (uint64_t)&cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
     cpu_tss[cpu_number].ist1 = (uint64_t)&cpu_stacks[cpu_number].stack[CPU_STACK_SIZE];
-
-    return;
 }
 
 static int start_ap(uint8_t target_apic_id, int cpu_number) {
@@ -121,8 +119,6 @@ static void init_cpu0(void) {
     struct tss_t *tss = &cpu_tss[0];
 
     smp_init_cpu0_local(cpu_local, tss);
-
-    return;
 }
 
 void init_smp(void) {
@@ -153,6 +149,4 @@ void init_smp(void) {
     kprint(KPRN_INFO, "smp: Total CPU count: %u", smp_cpu_count);
 
     smp_ready = 1;
-
-    return;
 }

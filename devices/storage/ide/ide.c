@@ -369,8 +369,6 @@ success:
     kprint(KPRN_INFO, "ide: Device successfully identified!");
 
     dev->exists = 1;
-
-    return;
 }
 
 static int ide_read28(int disk, uint32_t sector, uint8_t *buffer) {

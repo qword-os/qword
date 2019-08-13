@@ -51,8 +51,6 @@ void pic_8259_remap(uint8_t pic0_offset, uint8_t pic1_offset) {
     io_wait();
     port_out_b(0xa1, pic1_mask);
     io_wait();
-
-    return;
 }
 
 /* Mask IRQ `line`. */
@@ -74,8 +72,6 @@ void pic_8259_set_mask(uint8_t line, int status) {
 
     port_out_b(port, value);
     io_wait();
-
-    return;
 }
 
 void pic_8259_mask_all(void) {

@@ -44,8 +44,6 @@ static void edid_call(void) {
     }
 
     kprint(KPRN_INFO, "vbe: EDID resolution: %ux%u", (uint32_t)vbe_width, (uint32_t)vbe_height);
-
-    return;
 }
 
 void init_vbe(void) {
@@ -128,7 +126,6 @@ modeset:
 success:
     vbe_available = 1;
     kprint(KPRN_INFO, "vbe: Init done.");
-    return;
 }
 
 static lock_t vesafb_lock = new_lock;

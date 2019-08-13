@@ -48,8 +48,6 @@ void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t f
         device->multifunction = 0;
     device->available = 1;
     available_count++;
-
-    return;
 }
 
 uint32_t pci_get_device_address(struct pci_device_t *device, uint32_t offset) {
@@ -68,8 +66,6 @@ void pci_write_device(struct pci_device_t *device, uint32_t offset, uint32_t val
     uint32_t address = pci_get_device_address(device, offset);
     port_out_d(0xcf8, address);
     port_out_d(0xcfc, value);
-
-    return;
 }
 
 void pci_set_device_flag(struct pci_device_t *device, uint32_t offset, uint32_t flag, int toggle) {
@@ -80,8 +76,6 @@ void pci_set_device_flag(struct pci_device_t *device, uint32_t offset, uint32_t 
     else
         value &= (0xffffffff - flag);
     pci_write_device(device, offset, value);
-
-    return;
 }
 
 int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass, uint8_t prog_if) {
@@ -112,8 +106,6 @@ void pci_init_device(uint8_t bus, uint8_t dev) {
     for (size_t func = 0; func < MAX_FUNCTION; func++) {
         pci_find_function(bus, dev, func);
     }
-
-    return;
 }
 
 void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
@@ -133,16 +125,12 @@ void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
 
         return;
     }
-
-    return;
 }
 
 void pci_init_bus(uint8_t bus) {
     for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
         pci_init_device(bus, dev);
     }
-
-    return;
 }
 
 void init_pci(void) {
@@ -159,6 +147,4 @@ void init_pci(void) {
     }
 
     kprint(KPRN_INFO, "pci: Full recursive device scan done, %u devices found", available_count);
-
-    return;
 }

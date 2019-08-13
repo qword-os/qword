@@ -13,7 +13,6 @@ void init_com1(void) {
     port_out_b(serial_ports[0] + 3, 0x03);
     port_out_b(serial_ports[0] + 2, 0xc7);
     port_out_b(serial_ports[0] + 4, 0x0b);
-    return;
 }
 
 static lock_t com1_lock = new_lock;
@@ -31,5 +30,4 @@ void com1_write(uint8_t data) {
     while (!(port_in_b(serial_ports[0] + 5) & 0x20));
     port_out_b(serial_ports[0], data);
     spinlock_release(&com1_lock);
-    return;
 }

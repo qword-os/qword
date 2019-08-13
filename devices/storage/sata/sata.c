@@ -75,8 +75,6 @@ static void start_cmd(volatile struct hba_port_t *port) {
 
     port->cmd |= HBA_PxCMD_FRE;
     port->cmd |= HBA_PxCMD_ST;
-
-    return;
 }
 
 static int find_cmdslot(volatile struct hba_port_t *port) {
@@ -101,8 +99,6 @@ static void stop_cmd(volatile struct hba_port_t *port) {
 
     /* Clear bit 4 */
     port->cmd &= ~HBA_PxCMD_FRE;
-
-    return;
 }
 
 void init_dev_sata(void) {

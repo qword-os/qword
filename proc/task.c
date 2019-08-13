@@ -63,8 +63,6 @@ void init_sched(void) {
     kprint(KPRN_INFO, "sched: Init done.");
 
     scheduler_ready = 1;
-
-    return;
 }
 
 void yield(void) {

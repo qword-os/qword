@@ -12,6 +12,4 @@ void init_pic(void) {
     } else {
         panic("APIC not available", 0, 0, NULL);
     }
-
-    return;
 }

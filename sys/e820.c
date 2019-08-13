@@ -42,6 +42,4 @@ void init_e820(void) {
     }
 
     kprint(KPRN_INFO, "e820: Total usable memory: %U MiB", memory_size / 1024 / 1024);
-
-    return;
 }

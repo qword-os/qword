@@ -415,6 +415,4 @@ void init_vmm(void) {
 
     /* lol bug fix */
     pmm_change_allocation_method();
-
-    return;
 }

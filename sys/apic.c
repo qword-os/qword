@@ -71,7 +71,6 @@ void lapic_eoi(void) {
 void lapic_send_ipi(int cpu, uint8_t vector) {
     lapic_write(APICREG_ICR1, ((uint32_t)cpu_locals[cpu].lapic_id) << 24);
     lapic_write(APICREG_ICR0, vector);
-    return;
 }
 
 /* Read from the `io_apic_num`'th I/O APIC as described by the MADT */
@@ -86,7 +85,6 @@ void io_apic_write(size_t io_apic_num, uint32_t reg, uint32_t data) {
     volatile uint32_t *base = (volatile uint32_t *)((size_t)madt_io_apics[io_apic_num]->addr + MEM_PHYS_OFFSET);
     *base = reg;
     *(base + 4) = data;
-    return;
 }
 
 /* Return the index of the I/O APIC that handles this redirect */
@@ -145,8 +143,6 @@ void io_apic_set_mask(int cpu, int irq, int status) {
     }
 
     io_apic_set_redirect(irq, irq, 0, apic, status);
-
-    return;
 }
 
 uint32_t *lapic_eoi_ptr;

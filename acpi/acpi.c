@@ -53,8 +53,6 @@ rsdp_found:
 
     /* Call table inits */
     init_madt();
-
-    return;
 }
 
 /* Find SDT by signature */

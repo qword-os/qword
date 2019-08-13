@@ -14,7 +14,6 @@ static uint32_t nvme_rread(size_t reg) {
 
 static void nvme_wread(size_t reg, uint32_t data) {
     *((volatile uint32_t *)(nvme_base + reg)) = data;
-    return;
 }
 
 void init_dev_nvme(void) {
@@ -37,6 +36,4 @@ void init_dev_nvme(void) {
     size_t dstrd = cap >> 32;
 
     kprint(KPRN_DBG, "%x", dstrd);
-
-    return;
 }

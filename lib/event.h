@@ -22,7 +22,6 @@ __attribute__((always_inline)) __attribute__((unused)) static inline int event_a
 
 __attribute__((always_inline)) __attribute__((unused)) static inline void event_trigger(event_t *event) {
     locked_inc(event);
-    return;
 }
 
 #endif

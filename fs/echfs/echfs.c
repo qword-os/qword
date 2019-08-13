@@ -110,7 +110,6 @@ static inline uint8_t rd_byte(int handle, uint64_t loc) {
 static inline void wr_byte(int handle, uint64_t loc, uint8_t val) {
     lseek(handle, loc, SEEK_SET);
     write(handle, (void *)&val, 1);
-    return;
 }
 
 static inline uint16_t rd_word(int handle, uint64_t loc) {
@@ -123,7 +122,6 @@ static inline uint16_t rd_word(int handle, uint64_t loc) {
 static inline void wr_word(int handle, uint64_t loc, uint16_t val) {
     lseek(handle, loc, SEEK_SET);
     write(handle, (void *)&val, 2);
-    return;
 }
 
 static inline uint32_t rd_dword(int handle, uint64_t loc) {
@@ -136,7 +134,6 @@ static inline uint32_t rd_dword(int handle, uint64_t loc) {
 static inline void wr_dword(int handle, uint64_t loc, uint32_t val) {
     lseek(handle, loc, SEEK_SET);
     write(handle, (void *)&val, 4);
-    return;
 }
 
 static inline uint64_t rd_qword(int handle, uint64_t loc) {
@@ -149,23 +146,18 @@ static inline uint64_t rd_qword(int handle, uint64_t loc) {
 static inline void wr_qword(int handle, uint64_t loc, uint64_t val) {
     lseek(handle, loc, SEEK_SET);
     write(handle, (void *)&val, 8);
-    return;
 }
 
 static inline void rd_entry(struct entry_t *entry_src, struct mount_t *mnt, uint64_t entry) {
     uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(struct entry_t));
     lseek(mnt->device, loc, SEEK_SET);
     read(mnt->device, (void *)entry_src, sizeof(struct entry_t));
-
-    return;
 }
 
 static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t *entry_src) {
     uint64_t loc = (mnt->dirstart * mnt->bytesperblock) + (entry * sizeof(struct entry_t));
     lseek(mnt->device, loc, SEEK_SET);
     write(mnt->device, (void *)entry_src, sizeof(struct entry_t));
-
-    return;
 }
 
 static void synchronise_cached_file(struct cached_file_t *cached_file) {
@@ -198,7 +190,6 @@ static void synchronise_cached_file(struct cached_file_t *cached_file) {
     }
 
     spinlock_release(&mnt->lock);
-    return;
 }
 
 static void echfs_sync(void) {
@@ -223,7 +214,6 @@ static void echfs_sync(void) {
 
         dynarray_unref(mounts, i);
     }
-    return;
 }
 
 static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {

@@ -63,6 +63,4 @@ void init_madt(void) {
                 break;
         }
     }
-
-    return;
 }

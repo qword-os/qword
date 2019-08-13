@@ -36,8 +36,6 @@ __attribute__((always_inline)) static inline void set_bitmap(size_t i, size_t co
     size_t f = i + count;
     for (size_t j = i; j < f; j++)
         set_bit(mem_bitmap, j);
-
-    return;
 }
 
 __attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t count) {
@@ -46,8 +44,6 @@ __attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t 
     size_t f = i + count;
     for (size_t j = i; j < f; j++)
         reset_bit(mem_bitmap, j);
-
-    return;
 }
 
 /* Populate bitmap using e820 data. */
@@ -120,8 +116,6 @@ void init_pmm(void) {
                 set_bitmap(page, 1);
         }
     }
-
-    return;
 }
 
 /* Allocate physical memory without optimisation for early boot */
@@ -214,6 +208,4 @@ void pmm_free(void *ptr, size_t pg_count) {
     unset_bitmap(start, pg_count);
 
     spinlock_release(&pmm_lock);
-
-    return;
 }
