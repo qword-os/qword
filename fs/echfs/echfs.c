@@ -21,7 +21,6 @@
 
 #define CACHE_NOTREADY 0
 #define CACHE_READY 1
-#define CACHE_DIRTY 2
 
 #define MAX_CACHED_BLOCKS 8192
 
@@ -65,8 +64,6 @@ struct cached_file_t {
     int overwritten_slot;
     uint64_t *alloc_map;
     uint64_t total_blocks;
-    int changed_entry;
-    int changed_cache;
 };
 
 struct mount_t {
@@ -160,60 +157,7 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     write(mnt->device, (void *)entry_src, sizeof(struct entry_t));
 }
 
-static void synchronise_cached_file(struct cached_file_t *cached_file) {
-    struct mount_t *mnt = cached_file->mnt;
-
-    spinlock_acquire(&mnt->lock);
-
-    if (!cached_file->unlinked && cached_file->changed_entry) {
-        wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
-        cached_file->changed_entry = 0;
-    }
-    if (cached_file->path_res.type != FILE_TYPE || cached_file->path_res.not_found) {
-        spinlock_release(&mnt->lock);
-        return;
-    }
-    if (cached_file->changed_cache) {
-        struct cached_block_t *cached_blocks = cached_file->cached_blocks;
-        for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
-            if (cached_blocks[i].status == CACHE_DIRTY) {
-                lseek(mnt->device,
-                      cached_file->alloc_map[cached_blocks[i].block] * mnt->bytesperblock,
-                      SEEK_SET);
-                write(mnt->device,
-                      cached_blocks[i].cache,
-                      mnt->bytesperblock);
-                cached_blocks[i].status = CACHE_READY;
-            }
-        }
-        cached_file->changed_cache = 0;
-    }
-
-    spinlock_release(&mnt->lock);
-}
-
 static void echfs_sync(void) {
-    for (size_t i = 0; i < locked_read(size_t, &mounts_i); i++) {
-        struct mount_t *mnt = dynarray_getelem(struct mount_t, mounts, i);
-        if (!mnt)
-            continue;
-
-        spinlock_acquire(&mnt->cached_files_lock);
-        size_t total_cached_files;
-        struct cached_file_t **cached_files = ht_dump(struct cached_file_t, mnt->cached_files, &total_cached_files);
-        if (!cached_files) {
-            spinlock_release(&mnt->cached_files_lock);
-            return;
-        }
-
-        for (size_t i = 0; i < total_cached_files; i++)
-            synchronise_cached_file(cached_files[i]);
-
-        kfree(cached_files);
-        spinlock_release(&mnt->cached_files_lock);
-
-        dynarray_unref(mounts, i);
-    }
 }
 
 static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {
@@ -269,8 +213,7 @@ static int erase_file(struct cached_file_t *cached_file) {
     cached_file->total_blocks = 0;
     kfree(cached_file->alloc_map);
     cached_file->alloc_map = kalloc(sizeof(uint64_t));
-    cached_file->changed_entry = 1;
-    cached_file->changed_cache = 0;
+    wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
 
     return 0;
 }
@@ -301,16 +244,6 @@ static int cache_block(struct cached_file_t *cached_file, uint64_t block) {
 
     targ = cached_file->overwritten_slot++;
 
-    /* Flush device cache */
-    if (cached_blocks[targ].status == CACHE_DIRTY) {
-        lseek(mnt->device,
-              cached_file->alloc_map[cached_blocks[targ].block] * mnt->bytesperblock,
-              SEEK_SET);
-        write(mnt->device,
-              cached_blocks[targ].cache,
-              mnt->bytesperblock);
-    }
-
     goto notfnd;
 
 fnd:
@@ -331,7 +264,7 @@ notfnd:
             if (!i) {
                 new_block = allocate_empty_block(mnt, 0);
                 cached_file->path_res.target.payload = new_block;
-                cached_file->changed_entry = 1;
+                wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
             } else {
                 new_block = allocate_empty_block(mnt, cached_file->alloc_map[i - 1]);
             }
@@ -452,8 +385,15 @@ static int echfs_write(int handle, const void *buf, size_t count) {
             chunk = mnt->bytesperblock - offset;
 
         memcpy(&cached_file->cached_blocks[slot].cache[offset], buf + progress, chunk);
-        cached_file->cached_blocks[slot].status = CACHE_DIRTY;
-        cached_file->changed_cache = 1;
+
+        struct cached_block_t *cached_blocks = cached_file->cached_blocks;
+        lseek(mnt->device,
+              cached_file->alloc_map[cached_blocks[slot].block] * mnt->bytesperblock,
+              SEEK_SET);
+        write(mnt->device,
+              cached_blocks[slot].cache,
+              mnt->bytesperblock);
+
         progress += chunk;
     }
 
@@ -462,7 +402,7 @@ static int echfs_write(int handle, const void *buf, size_t count) {
     if (echfs_handle->ptr > echfs_handle->end) {
         echfs_handle->end = echfs_handle->ptr;
         cached_file->path_res.target.size = echfs_handle->ptr;
-        cached_file->changed_entry = 1;
+        wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
     }
 
     spinlock_release(&mnt->lock);
