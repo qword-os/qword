@@ -60,10 +60,14 @@ int syscall_gethostname(struct regs_t *regs) {
     char *buf = (char *)regs->rdi;
     size_t len = (size_t)regs->rsi;
 
-    privilege_check((size_t)buf, len);
+    if (privilege_check((size_t)buf, len)) {
+        errno = EFAULT;
+        return -1;
+    }
 
     if (len > MAX_HOSTNAME_LEN)
         len = MAX_HOSTNAME_LEN;
+
     strncpy(buf, hostname, len);
     buf[len-1] = 0;
 

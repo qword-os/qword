@@ -1,0 +1,29 @@
+diff --git a/proc/syscalls.c b/proc/syscalls.c
+index 4ebba8d..fab38af 100644
+--- a/proc/syscalls.c
++++ b/proc/syscalls.c
+@@ -60,14 +60,23 @@ int syscall_gethostname(struct regs_t *regs) {
+     char *buf = (char *)regs->rdi;
+     size_t len = (size_t)regs->rsi;
+ 
+-    privilege_check((size_t)buf, len);
++    if (privilege_check((size_t)buf, len)) {
++        errno = EFAULT;
++        return -1;
++    }
+ 
++kprint(0, "req len: %U", len);
+     if (len > MAX_HOSTNAME_LEN)
+         len = MAX_HOSTNAME_LEN;
++kprint(0, "adj len: %U", len);
++
++kprint(0, "host: %s", hostname);
+     strncpy(buf, hostname, len);
+     buf[len-1] = 0;
++kprint(0, "host in buf: %s", buf);
+ 
+     size_t hostname_len = strlen(hostname);
++kprint(0, "host len: %s", hostname_len);
+     if (hostname_len < len)
+         buf[hostname_len] = 0;
+ 
