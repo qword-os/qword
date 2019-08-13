@@ -261,6 +261,9 @@ void task_resched(struct regs_t *regs) {
 
     if (current_task != -1) {
         struct thread_t *current_thread = task_table[current_task];
+        /* Bug fix. TODO: find a better solution for this */
+        if (current_thread == (void *)-1)
+            goto skip_invalid_thread_context_save;
         /* Save current context */
         current_thread->active_on_cpu = -1;
         current_thread->ctx.regs = *regs;
@@ -275,6 +278,7 @@ void task_resched(struct regs_t *regs) {
         /* Release lock on this thread */
         spinlock_release(&current_thread->lock);
     }
+skip_invalid_thread_context_save:
 
     cpu_locals[_current_cpu].last_schedule_time = uptime_raw;
 
