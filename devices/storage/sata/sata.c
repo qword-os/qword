@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "sata_private.h"
-#include <misc/pci.h>
+#include <sys/pci.h>
 #include <lib/klib.h>
 #include <fs/devfs/devfs.h>
 #include <lib/errno.h>

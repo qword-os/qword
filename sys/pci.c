@@ -1,6 +1,6 @@
 #include <lib/cio.h>
 #include <stdint.h>
-#include <misc/pci.h>
+#include <sys/pci.h>
 #include <lib/klib.h>
 #include <lib/alloc.h>
 

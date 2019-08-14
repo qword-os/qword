@@ -3,7 +3,7 @@
 #include <lib/cio.h>
 #include <lib/klib.h>
 #include <fs/devfs/devfs.h>
-#include <misc/pci.h>
+#include <sys/pci.h>
 #include <mm/mm.h>
 #include <lib/errno.h>
 #include <lib/part.h>

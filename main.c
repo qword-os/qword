@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <lib/cio.h>
 #include <lib/klib.h>
-#include <misc/serial.h>
 #include <devices/display/vbe/vbe.h>
 #include <devices/term/tty/tty.h>
 #include <sys/e820.h>
@@ -17,7 +16,7 @@
 #include <devices/dev.h>
 #include <fd/vfs/vfs.h>
 #include <proc/elf.h>
-#include <misc/pci.h>
+#include <sys/pci.h>
 #include <lib/time.h>
 #include <sys/irq.h>
 #include <sys/panic.h>

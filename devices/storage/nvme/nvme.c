@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <devices/storage/nvme/nvme.h>
-#include <misc/pci.h>
+#include <sys/pci.h>
 #include "nvme_private.h"
 #include <lib/klib.h>
 #include <devices/dev.h>
