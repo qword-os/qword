@@ -48,7 +48,9 @@ pid_t kexec(const char *, const char **, const char **,
             const char *, const char *, const char *);
 
 char *prefixed_itoa(const char *, int64_t, int);
+int islower(int);
 int tolower(int);
+int toupper(int);
 char *strchrnul(const char *, int);
 char *strcpy(char *, const char *);
 char *strncpy(char *, const char *, size_t);

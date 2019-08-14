@@ -45,10 +45,19 @@ char *prefixed_itoa(const char *prefix, int64_t n, int base) {
     return final_buf;
 }
 
+int islower(int c) {
+    return c >= 'a' && c <= 'z';
+}
+
 int tolower(int c) {
     if (c >= 0x41 && c <= 0x5a)
         return c + 0x20;
     return c;
+}
+
+int toupper(int c) {
+    if (islower(c)) return c - ('a' - 'A');
+    else return c;
 }
 
 char *strchrnul(const char *s, int c) {
