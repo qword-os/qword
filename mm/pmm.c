@@ -118,7 +118,7 @@ void init_pmm(void) {
             }
 
             if (e820_map[i].type == 1) {
-                free_pages++;
+                total_pages++;
                 unset_bitmap(page, 1);
             }
         }
