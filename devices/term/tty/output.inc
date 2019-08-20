@@ -323,7 +323,6 @@ static void control_sequence_parse(int tty, char c) {
                         ttys[tty].decckm = (c == 'h');
                         break;
                     default:
-                        kprint(KPRN_WARN, "tty: unknown DEC sequence '%d'", (int)ttys[tty].esc_values[1]);
                         break;
                 }
             }
@@ -332,7 +331,6 @@ static void control_sequence_parse(int tty, char c) {
             ttys[tty].dec_private_mode = 1;
             return;
         default:
-            kprint(KPRN_WARN, "tty: unknown CSI sequence '%c'", c);
             break;
     }
 
