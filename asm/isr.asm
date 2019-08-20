@@ -395,6 +395,8 @@ syscall_table:
     dq syscall_mkdir ;35
     extern syscall_gethostname
     dq syscall_gethostname ;36
+    extern syscall_getmemstats
+    dq syscall_getmemstats ;37
   .end:
 
 section .text

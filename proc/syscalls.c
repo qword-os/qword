@@ -56,6 +56,12 @@ void leave_syscall(void) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_getmemstats(struct regs_t *regs) {
+    // rdi: struct memstats *
+    struct memstats *memstats = (void *)regs->rdi;
+    return getmemstats(memstats);
+}
+
 int syscall_gethostname(struct regs_t *regs) {
     char *buf = (char *)regs->rdi;
     size_t len = (size_t)regs->rsi;

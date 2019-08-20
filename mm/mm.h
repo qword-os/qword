@@ -73,4 +73,11 @@ void free_address_space(struct pagemap_t *);
     cr2; \
 })
 
+struct memstats {
+    size_t total;
+    size_t used;
+};
+
+int getmemstats(struct memstats *);
+
 #endif

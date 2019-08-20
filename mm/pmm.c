@@ -18,6 +18,9 @@ static volatile uint32_t *tmp_bitmap;
 /* 32 entries because initial_bitmap is a single dword */
 static size_t bitmap_entries = 32;
 
+static size_t total_pages = 1;
+static size_t free_pages = 1;
+
 static size_t cur_ptr = BITMAP_BASE;
 
 /* A core wishing to modify the PMM bitmap must first acquire this lock,
@@ -33,6 +36,8 @@ __attribute__((always_inline)) static inline int read_bitmap(size_t i) {
 __attribute__((always_inline)) static inline void set_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
 
+    free_pages--;
+
     size_t f = i + count;
     for (size_t j = i; j < f; j++)
         set_bit(mem_bitmap, j);
@@ -40,6 +45,8 @@ __attribute__((always_inline)) static inline void set_bitmap(size_t i, size_t co
 
 __attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
+
+    free_pages++;
 
     size_t f = i + count;
     for (size_t j = i; j < f; j++)
@@ -110,10 +117,10 @@ void init_pmm(void) {
                 pmm_free(old_bitmap, cur_bitmap_size_in_pages);
             }
 
-            if (e820_map[i].type == 1)
+            if (e820_map[i].type == 1) {
+                free_pages++;
                 unset_bitmap(page, 1);
-            else
-                set_bitmap(page, 1);
+            }
         }
     }
 }
@@ -208,4 +215,11 @@ void pmm_free(void *ptr, size_t pg_count) {
     unset_bitmap(start, pg_count);
 
     spinlock_release(&pmm_lock);
+}
+
+int getmemstats(struct memstats *memstats) {
+    memstats->total = total_pages * PAGE_SIZE;
+    memstats->used  = total_pages * PAGE_SIZE - free_pages * PAGE_SIZE;
+
+    return 0;
 }
