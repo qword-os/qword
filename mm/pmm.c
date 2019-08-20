@@ -36,7 +36,7 @@ __attribute__((always_inline)) static inline int read_bitmap(size_t i) {
 __attribute__((always_inline)) static inline void set_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
 
-    free_pages--;
+    free_pages -= count;
 
     size_t f = i + count;
     for (size_t j = i; j < f; j++)
@@ -46,7 +46,7 @@ __attribute__((always_inline)) static inline void set_bitmap(size_t i, size_t co
 __attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t count) {
     i -= BITMAP_BASE;
 
-    free_pages++;
+    free_pages += count;
 
     size_t f = i + count;
     for (size_t j = i; j < f; j++)
