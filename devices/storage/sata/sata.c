@@ -107,7 +107,7 @@ void init_dev_sata(void) {
 
     int ret = pci_get_device(&device, AHCI_CLASS, AHCI_SUBCLASS, AHCI_PROG_IF);
     if (ret == -1) {
-        kprint(KPRN_WARN, "ahci: Failed to find AHCI controller. SATA support unavailable");
+        kprint(KPRN_INFO, "ahci: Failed to find AHCI controller. SATA support unavailable");
         return;
     }
 

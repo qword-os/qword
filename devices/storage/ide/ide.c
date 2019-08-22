@@ -230,7 +230,7 @@ void init_dev_ide(void) {
     // TODO figure out correct prog if and define these values elsewhere
     int ret = pci_get_device(&pci_device, 0x1, 0x1, 0x85);
     if (ret) {
-        kprint(KPRN_ERR, "ide: could not find pci device!");
+        kprint(KPRN_INFO, "ide: could not find pci device!");
         return;
     }
 
