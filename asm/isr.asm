@@ -399,6 +399,8 @@ syscall_table:
     dq syscall_getmemstats ;37
     extern syscall_getpgrp
     dq syscall_getpgrp ;38
+    extern syscall_setuid
+    dq syscall_setuid ;39
   .end:
 
 section .text

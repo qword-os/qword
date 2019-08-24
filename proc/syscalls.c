@@ -70,6 +70,17 @@ int syscall_getpgrp(struct regs_t *regs) {
     return ret;
 }
 
+int syscall_setuid(struct regs_t *regs) {
+    // rdi: UID to set.
+    uid_t uid = (uid_t)regs->rdi;
+
+    spinlock_acquire(&scheduler_lock);
+    process_table[CURRENT_PROCESS]->uid = uid;
+    spinlock_release(&scheduler_lock);
+
+    return 0;
+}
+
 int syscall_getmemstats(struct regs_t *regs) {
     // rdi: struct memstats *
     struct memstats *memstats = (void *)regs->rdi;
@@ -532,6 +543,7 @@ int syscall_fork(struct regs_t *regs) {
 
     new_process->ppid = current_process;
     new_process->pgid = old_process->pgid;
+    new_process->uid  = old_process->uid;
 
     free_address_space(new_process->pagemap);
 

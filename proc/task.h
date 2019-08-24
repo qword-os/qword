@@ -114,6 +114,7 @@ struct process_t {
     pid_t pid;
     pid_t ppid;
     pid_t pgid;
+    uid_t uid;
     struct pagemap_t *pagemap;
     struct thread_t **threads;
     char cwd[2048];
