@@ -56,6 +56,20 @@ void leave_syscall(void) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_getpgrp(struct regs_t *regs) {
+    // rdi: PID, 0 means current process
+    pid_t pid = (pid_t)regs->rdi;
+    pid_t ret;
+    spinlock_acquire(&scheduler_lock);
+    if (pid)
+        // TODO check if it's a valid process
+        ret = process_table[pid]->pgid;
+    else
+        ret = process_table[CURRENT_PROCESS]->pgid;
+    spinlock_release(&scheduler_lock);
+    return ret;
+}
+
 int syscall_getmemstats(struct regs_t *regs) {
     // rdi: struct memstats *
     struct memstats *memstats = (void *)regs->rdi;
@@ -517,6 +531,7 @@ int syscall_fork(struct regs_t *regs) {
     struct process_t *new_process = process_table[new_pid];
 
     new_process->ppid = current_process;
+    new_process->pgid = old_process->pgid;
 
     free_address_space(new_process->pagemap);
 

@@ -397,6 +397,8 @@ syscall_table:
     dq syscall_gethostname ;36
     extern syscall_getmemstats
     dq syscall_getmemstats ;37
+    extern syscall_getpgrp
+    dq syscall_getpgrp ;38
   .end:
 
 section .text

@@ -113,6 +113,7 @@ struct child_event_t {
 struct process_t {
     pid_t pid;
     pid_t ppid;
+    pid_t pgid;
     struct pagemap_t *pagemap;
     struct thread_t **threads;
     char cwd[2048];

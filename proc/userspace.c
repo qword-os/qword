@@ -165,6 +165,7 @@ pid_t kexec(const char *filename, const char *argv[], const char *envp[],
     if (new_pid == (pid_t)(-1)) return -1;
 
     process_table[new_pid]->ppid = 0;
+    process_table[new_pid]->pgid = new_pid;
 
     /* Open stdio descriptors */
     process_table[new_pid]->file_handles[0] = open(stdin, O_RDONLY);
