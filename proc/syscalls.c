@@ -14,6 +14,7 @@
 #include <devices/term/tty/tty.h>
 #include <sys/urm.h>
 #include <net/hostname.h>
+#include <sys/hpet.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000
@@ -55,6 +56,12 @@ void leave_syscall(void) {
 /* Prototype syscall: int syscall_name(struct regs_t *regs) */
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
+
+int syscall_sleep(struct regs_t *regs) {
+    unsigned int secs = (unsigned int)regs->rdi;
+    relaxed_sleep(secs * HPET_FREQUENCY_HZ);
+    return 0;
+}
 
 int syscall_getpgrp(struct regs_t *regs) {
     // rdi: PID, 0 means current process

@@ -401,6 +401,8 @@ syscall_table:
     dq syscall_getpgrp ;38
     extern syscall_setuid
     dq syscall_setuid ;39
+    extern syscall_sleep
+    dq syscall_sleep ;40
   .end:
 
 section .text
