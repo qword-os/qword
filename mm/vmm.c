@@ -164,7 +164,7 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
         /* Allocate a page for the pd. */
         pd = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
         /* Catch allocation failure */
-        if ((size_t)pdpt == MEM_PHYS_OFFSET)
+        if ((size_t)pd == MEM_PHYS_OFFSET)
             goto fail2;
         /* Present + writable + user (0b111) */
         pdpt[pdpt_entry] = (pt_entry_t)((size_t)pd - MEM_PHYS_OFFSET) | 0b111;
@@ -177,7 +177,7 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
         /* Allocate a page for the pt. */
         pt = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
         /* Catch allocation failure */
-        if ((size_t)pdpt == MEM_PHYS_OFFSET)
+        if ((size_t)pt == MEM_PHYS_OFFSET)
             goto fail3;
         /* Present + writable + user (0b111) */
         pd[pd_entry] = (pt_entry_t)((size_t)pt - MEM_PHYS_OFFSET) | 0b111;
