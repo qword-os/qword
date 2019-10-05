@@ -74,6 +74,7 @@ eoi:
 section .text
 global isr_handler_%1
 isr_handler_%1:
+    cld
     push rax
     push rbx
     push rcx
@@ -188,6 +189,7 @@ isr_fnaddr_add i
 
 ; Save registers.
 %macro pusham 0
+    cld
     push rax
     push rbx
     push rcx
@@ -289,6 +291,7 @@ exc_security_handler:
 ; IRQs
 
 ipi_abortexec:
+    cld
     mov rdi, qword [rsp]
     mov rsp, qword [gs:0008]
     extern abort_thread_exec
