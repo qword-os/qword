@@ -163,11 +163,10 @@ void kmain(void) {
     /* Init the HPET */
     init_hpet();
 
-    /* Enable interrupts on BSP */
-    asm volatile ("sti");
-
     /* Init Symmetric Multiprocessing */
+    asm volatile ("sti");
     init_smp();
+    asm volatile ("cli");
 
     /* Initialise scheduler */
     init_sched();
@@ -182,5 +181,6 @@ void kmain(void) {
          INSTEAD! ***/
 
     /* Pre-scheduler init done. Wait for the main kernel thread to be scheduled. */
+    asm volatile ("sti");
     for (;;) asm volatile ("hlt");
 }
