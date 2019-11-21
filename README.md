@@ -4,6 +4,8 @@
 
 The qword-OS kernel, a fully featured, capable x86_64 sex machine!
 
+Get a prebuilt qword distro at: https://ci.oogacraft.com/job/qword/lastSuccessfulBuild/artifact/qword.hdd
+
 As said, this is just the kernel. To build the whole system, follow the
 instructions at <https://github.com/qword-os/build>.
 
