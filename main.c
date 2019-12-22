@@ -27,6 +27,7 @@
 #include <lib/rand.h>
 #include <sys/urm.h>
 #include <net/hostname.h>
+#include <net/e1000.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -48,6 +49,9 @@ void kmain_thread(void *arg) {
 
     /* Initialise device drivers */
     init_dev();
+
+    /* Initialise E1000 based cards. */
+    init_e1000();
 
     int tty = open("/dev/tty0", O_RDWR);
 

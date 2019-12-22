@@ -111,12 +111,7 @@ void init_dev_sata(void) {
         return;
     }
 
-    uint32_t cmd_register = pci_read_device(&device, 0x4);
-    if (!(cmd_register & (1 << 2))) {
-        kprint(KPRN_DBG, "enabling busmastering");
-        cmd_register |= (1 << 2);
-        pci_write_device(&device, 0x4, cmd_register);
-    }
+    pci_enable_busmastering(&device);
 
     kprint(KPRN_INFO, "ahci: Found AHCI controller");
 

@@ -18,6 +18,8 @@ struct pci_device_t {
     int available;
 };
 
+uint32_t pci_read_bar0(struct pci_device_t *);
+void pci_enable_busmastering(struct pci_device_t *);
 void pci_probe(struct pci_device_t *, uint8_t, uint8_t, uint8_t);
 uint32_t pci_read_config(uint8_t, uint8_t, uint8_t, uint8_t);
 uint32_t pci_read_device(struct pci_device_t *, uint32_t);

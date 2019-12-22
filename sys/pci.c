@@ -12,6 +12,16 @@ struct pci_device_t *pci_devices;
 size_t device_count;
 size_t available_count;
 
+uint32_t pci_read_bar0(struct pci_device_t *device) {
+    return pci_read_device(device, 0x10);
+}
+
+void pci_enable_busmastering(struct pci_device_t *device) {
+    if (!(pci_read_device(device, 0x4) & (1 << 2))) {
+        pci_write_device(device, 0x4, pci_read_device(device, 0x4) & (1 << 2));
+    }
+}
+
 uint32_t pci_read_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     uint32_t address = 0x80000000 | ((uint32_t)bus) << 16 | ((uint32_t)slot) << 11
        | ((uint32_t)func) << 8 | (uint32_t)(offset & 0xfc);
