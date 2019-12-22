@@ -59,9 +59,9 @@ all: $(BINS) $(OBJ)
 	$(OBJCOPY) -O binary $(KERNELELF) $(KERNELBIN)
 
 install: all
-	mkdir -p $(DESTDIR)$(PREFIX)/boot
-	cp $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
-	cp $(KERNELELF) $(DESTDIR)$(PREFIX)/boot/
+	install -d $(DESTDIR)$(PREFIX)/boot
+	install -s $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
+	install -s $(KERNELELF) $(DESTDIR)$(PREFIX)/boot/
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/$(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/$(KERNELELF)

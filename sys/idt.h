@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-// TODO regs_t should be in sys/cpu.h
 #include <proc/task.h>
 
 struct idt_entry_t {

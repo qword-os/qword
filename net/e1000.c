@@ -202,7 +202,7 @@ static void e1000_start_receive(void) {
         e1000.receives[i]->status = 0;
     }
  
-    e1000_write_command(REG_TXDESCLO, (uint32_t)((uint64_t)e1000.receives >> 32) );
+    e1000_write_command(REG_TXDESCLO, (uint32_t)((uint64_t)e1000.receives >> 32));
     e1000_write_command(REG_TXDESCHI, (uint32_t)((uint64_t)e1000.receives & 0xFFFFFFFF));
  
     e1000_write_command(REG_RXDESCLO, (uint64_t)e1000.receives);
@@ -269,9 +269,11 @@ void init_e1000(void) {
         return;
     }
 
+    // TODO: This breaks the device somehow.
+    // pci_enable_busmastering(&pci_device);
+
     /* Find IO addresses and other useful info. */
     uint32_t bar = pci_read_bar0(&pci_device);
-    pci_enable_busmastering(&pci_device);
     e1000.mem_base = (bar & 0xFFFFFFF0) + MEM_PHYS_OFFSET;
     e1000_detect_eeprom();
     e1000_read_mac();
