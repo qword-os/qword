@@ -60,8 +60,8 @@ all: $(BINS) $(OBJ)
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/boot
-	install -s $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
-	install -s $(KERNELELF) $(DESTDIR)$(PREFIX)/boot/
+	install $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
+	install $(KERNELELF) $(DESTDIR)$(PREFIX)/boot/
 
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/$(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/$(KERNELELF)
