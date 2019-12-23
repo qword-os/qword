@@ -18,7 +18,7 @@ uint32_t pci_read_bar0(struct pci_device_t *device) {
 
 void pci_enable_busmastering(struct pci_device_t *device) {
     if (!(pci_read_device(device, 0x4) & (1 << 2))) {
-        pci_write_device(device, 0x4, pci_read_device(device, 0x4) & (1 << 2));
+        pci_write_device(device, 0x4, pci_read_device(device, 0x4) | (1 << 2));
     }
 }
 
