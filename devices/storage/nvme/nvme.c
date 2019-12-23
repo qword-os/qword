@@ -26,8 +26,8 @@ void init_dev_nvme(void) {
 
     kprint(KPRN_INFO, "nvme: Found NVME controller");
 
-    size_t bar0 = pci_read_device(&device, 0x10);
-    size_t bar1 = pci_read_device(&device, 0x14);
+    size_t bar0 = pci_read_device_dword(&device, 0x10);
+    size_t bar1 = pci_read_device_dword(&device, 0x14);
 
     nvme_base = (size_t)((uint64_t)bar0 << 32 | bar1);
 

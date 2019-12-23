@@ -3,6 +3,9 @@ KERNEL    := qword
 KERNELBIN := $(KERNEL).bin
 KERNELELF := $(KERNEL).elf
 
+LAI_URL := https://github.com/qword-os/lai.git
+LAI_DIR := acpi/lai
+
 CFILES    := $(shell find . -type f -name '*.c')
 ASMFILES  := $(shell find . -type f -name '*.asm')
 REALFILES := $(shell find . -type f -name '*.real')
@@ -18,9 +21,11 @@ PREFIX = $(shell pwd)
 CC      = gcc
 AS      = nasm
 OBJCOPY = objcopy
+QEMU    = qemu-system-x86_64
 
-CFLAGS  = -O2 -pipe -Wall -Wextra
-LDFLAGS = -O2
+CFLAGS    = -O2 -pipe -Wall -Wextra
+LDFLAGS   = -O2
+QEMUFLAGS = -m 2G -enable-kvm -smp 4
 
 # Flags for compilation.
 BUILD_TIME := $(shell date)
@@ -36,7 +41,8 @@ CHARDFLAGS := $(CFLAGS) \
 	-mcmodel=kernel                \
 	-ffreestanding                 \
 	-fno-stack-protector           \
-	-I.
+	-I.                            \
+	-I$(LAI_DIR)/include
 
 ifeq ($(DBGOUT), tty)
 CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
@@ -52,9 +58,21 @@ endif
 
 LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld
 
-.PHONY: all install uninstall clean run
+QEMUHARDFLAGS := $(QEMUFLAGS)          \
+	-kernel $(KERNELBIN)               \
+	-debugcon stdio                    \
+	-net nic,macaddr=00:00:00:11:11:11 \
 
-all: $(BINS) $(OBJ)
+.PHONY: all prepare build install uninstall clean run
+
+all:
+	$(MAKE) prepare
+	$(MAKE) build
+
+prepare:
+	git clone $(LAI_URL) $(LAI_DIR) || ( cd $(LAI_DIR) && git pull )
+
+build: $(BINS) $(OBJ)
 	$(CC) $(OBJ) $(LDHARDFLAGS) -o $(KERNELELF)
 	$(OBJCOPY) -O binary $(KERNELELF) $(KERNELBIN)
 
@@ -77,6 +95,5 @@ uninstall:
 
 clean:
 	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)
-
 run:
-	qemu-system-x86_64 -net nic,macaddr=00:00:00:11:11:11 -kernel qword.bin -debugcon stdio -smp 4
+	$(QEMU) $(QEMUHARDFLAGS)

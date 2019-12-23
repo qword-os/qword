@@ -116,7 +116,7 @@ void init_dev_sata(void) {
     kprint(KPRN_INFO, "ahci: Found AHCI controller");
 
     volatile struct hba_mem_t *ahci_base =
-      (volatile struct hba_mem_t *)((size_t)pci_read_device(&device, 0x24) + MEM_PHYS_OFFSET);
+      (volatile struct hba_mem_t *)((size_t)pci_read_device_dword(&device, 0x24) + MEM_PHYS_OFFSET);
     kprint(KPRN_INFO, "ahci: ABAR at %X", ahci_base);
 
     for (size_t i = 0; i < MAX_AHCI_DEVICES; i++) {

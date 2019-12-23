@@ -280,7 +280,7 @@ static ide_device init_ide_device(uint16_t port_base, int master,
     dev.exists = 0;
     dev.master = master;
 
-    dev.bar4 = pci_read_device(pci, 0x20);
+    dev.bar4 = pci_read_device_dword(pci, 0x20);
     if (dev.bar4 & 0x1)
         dev.bar4 &= 0xFFFFFFFC;
     dev.bmr_command = dev.bar4;
@@ -358,10 +358,10 @@ success:
     dev->prdt->mark_end = 0x8000;
     dev->cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));
 
-    cmd_register = pci_read_device(pci, 0x4);
+    cmd_register = pci_read_device_dword(pci, 0x4);
     if (!(cmd_register & (1 << 2))) {
         cmd_register |= (1 << 2);
-        pci_write_device(pci, 0x4, cmd_register);
+        pci_write_device_dword(pci, 0x4, cmd_register);
     }
     memcpy(&dev->sector_count, &dev->identify[100], sizeof(uint64_t));
     kprint(KPRN_INFO, "ide: Sector count: %u", dev->sector_count);

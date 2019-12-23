@@ -13,12 +13,12 @@ size_t device_count;
 size_t available_count;
 
 uint32_t pci_read_bar0(struct pci_device_t *device) {
-    return pci_read_device(device, 0x10);
+    return pci_read_device_dword(device, 0x10);
 }
 
 void pci_enable_busmastering(struct pci_device_t *device) {
-    if (!(pci_read_device(device, 0x4) & (1 << 2))) {
-        pci_write_device(device, 0x4, pci_read_device(device, 0x4) | (1 << 2));
+    if (!(pci_read_device_dword(device, 0x4) & (1 << 2))) {
+        pci_write_device_dword(device, 0x4, pci_read_device_dword(device, 0x4) | (1 << 2));
     }
 }
 
@@ -60,32 +60,62 @@ void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t f
     available_count++;
 }
 
-uint32_t pci_get_device_address(struct pci_device_t *device, uint32_t offset) {
-    return (1 << 31) | (((uint32_t)device->bus) << 16) | (((uint32_t)device->device) << 11)
-        | (((uint32_t)device->func) << 8) | (((uint32_t)offset) & 0xfc);
-}
-
-uint32_t pci_read_device(struct pci_device_t *device, uint32_t offset) {
-    uint32_t address = pci_get_device_address(device, offset);
+uint32_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset) {
+    uint32_t address = (1 << 31) | (((uint32_t)device->bus) << 16)
+        | (((uint32_t)device->device) << 11)
+        | (((uint32_t)device->func) << 8) | (offset & 0xffff);
     port_out_d(0xcf8, address);
-
     return port_in_d(0xcfc);
 }
 
-void pci_write_device(struct pci_device_t *device, uint32_t offset, uint32_t value) {
-    uint32_t address = pci_get_device_address(device, offset);
+void pci_write_device_byte(struct pci_device_t *device, uint32_t offset, uint32_t value) {
+    uint32_t address = (1 << 31) | (((uint32_t)device->bus) << 16)
+        | (((uint32_t)device->device) << 11)
+        | (((uint32_t)device->func) << 8) | (offset & 0xffff);
+    port_out_d(0xcf8, address);
+    port_out_d(0xcfc, value);
+}
+
+uint32_t pci_read_device_word(struct pci_device_t *device, uint32_t offset) {
+    uint32_t address = (1 << 31) | (((uint32_t)device->bus) << 16)
+        | (((uint32_t)device->device) << 11)
+        | (((uint32_t)device->func) << 8) | (offset & 0xfffe);
+    port_out_d(0xcf8, address);
+    return port_in_d(0xcfc);
+}
+
+void pci_write_device_word(struct pci_device_t *device, uint32_t offset, uint32_t value) {
+    uint32_t address = (1 << 31) | (((uint32_t)device->bus) << 16)
+        | (((uint32_t)device->device) << 11)
+        | (((uint32_t)device->func) << 8) | (offset & 0xfffe);
+    port_out_d(0xcf8, address);
+    port_out_d(0xcfc, value);
+}
+
+uint32_t pci_read_device_dword(struct pci_device_t *device, uint32_t offset) {
+    uint32_t address = (1 << 31) | (((uint32_t)device->bus) << 16)
+        | (((uint32_t)device->device) << 11)
+        | (((uint32_t)device->func) << 8) | (offset & 0xfffc);
+    port_out_d(0xcf8, address);
+    return port_in_d(0xcfc);
+}
+
+void pci_write_device_dword(struct pci_device_t *device, uint32_t offset, uint32_t value) {
+    uint32_t address = (1 << 31) | (((uint32_t)device->bus) << 16)
+        | (((uint32_t)device->device) << 11)
+        | (((uint32_t)device->func) << 8) | (offset & 0xfffc);
     port_out_d(0xcf8, address);
     port_out_d(0xcfc, value);
 }
 
 void pci_set_device_flag(struct pci_device_t *device, uint32_t offset, uint32_t flag, int toggle) {
-    uint32_t value = pci_read_device(device, offset);
+    uint32_t value = pci_read_device_dword(device, offset);
 
     if (toggle)
         value |= flag;
     else
         value &= (0xffffffff - flag);
-    pci_write_device(device, offset, value);
+    pci_write_device_dword(device, offset, value);
 }
 
 int pci_get_device(struct pci_device_t *device, uint8_t class, uint8_t subclass, uint8_t prog_if) {

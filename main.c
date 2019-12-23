@@ -29,14 +29,14 @@
 #include <net/hostname.h>
 #include <net/e1000.h>
 
+#include <lai/core.h>
+#include <lai/helpers/sci.h>
+
 void kmain_thread(void *arg) {
     (void)arg;
 
     /* Launch the urm */
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, userspace_request_monitor, 0));
-
-    /* Initialise PCI */
-    init_pci();
 
     /* Initialise file descriptor handlers */
     init_fd();
@@ -167,9 +167,20 @@ void kmain(void) {
     /* Init the HPET */
     init_hpet();
 
+    /* Initialise PCI */
+    init_pci();
+
     /* Init Symmetric Multiprocessing */
     asm volatile ("sti");
     init_smp();
+    
+    /* LAI */
+    char *cmdline_val = cmdline_get_value("acpi");
+    if (!cmdline_val || !strcmp(cmdline_val, "enabled")) {
+        lai_set_acpi_revision(rsdp->rev);
+        lai_create_namespace();
+        // lai_enable_acpi(1);
+    }
     asm volatile ("cli");
 
     /* Initialise scheduler */
