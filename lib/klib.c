@@ -177,29 +177,22 @@ static void kprn_ui(char *kprint_buf, size_t *kprint_buf_i, uint64_t x) {
     return;
 }
 
-static const char hex_to_ascii_tab[] = {
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-};
+static const char hex_to_ascii_tab[] = "0123456789abcdef";
 
-static void kprn_x(char *kprint_buf, size_t *kprint_buf_i, uint64_t x) {
-    int i;
-    char buf[17] = {0};
+static void kprn_x(char *kprint_buf, size_t *kprint_buf_i, uint64_t x, int pad) {
+    int i = 15;
+    char buf[] = "0000000000000000";
 
-    if (!x) {
-        kputs(kprint_buf, kprint_buf_i, "0x0");
-        return;
+    if (x) {
+        for ( ; x; i--) {
+            buf[i] = hex_to_ascii_tab[(x % 16)];
+            x /= 16;
+        }
+        i++;
     }
 
-    for (i = 15; x; i--) {
-        buf[i] = hex_to_ascii_tab[(x % 16)];
-        x = x / 16;
-    }
-
-    i++;
     kputs(kprint_buf, kprint_buf_i, "0x");
-    kputs(kprint_buf, kprint_buf_i, buf + i);
-
-    return;
+    kputs(kprint_buf, kprint_buf_i, buf + (pad ? (16 - pad) : i));
 }
 
 static void print_timestamp(char *kprint_buf, size_t *kprint_buf_i, int type) {
@@ -261,6 +254,12 @@ void kvprint(int type, const char *fmt, va_list args) {
             kputchar(kprint_buf, &kprint_buf_i, '\n');
             goto out;
         }
+        int val = 0;
+        while (*fmt >= '0' && *fmt <= '9') {
+            val *= 10;
+            val += *fmt - '0';
+            fmt++;
+        }
         switch (*fmt++) {
             case 's':
                 str = (char *)va_arg(args, const char *);
@@ -287,10 +286,10 @@ void kvprint(int type, const char *fmt, va_list args) {
                 kprn_ui(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, uint64_t));
                 break;
             case 'x':
-                kprn_x(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, unsigned int));
+                kprn_x(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, unsigned int), val);
                 break;
             case 'X':
-                kprn_x(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, uint64_t));
+                kprn_x(kprint_buf, &kprint_buf_i, (uint64_t)va_arg(args, uint64_t), val);
                 break;
             case 'c':
                 c = (char)va_arg(args, int);
