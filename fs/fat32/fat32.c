@@ -5,6 +5,8 @@
 #include <lib/lock.h>
 #include <lib/ht.h>
 #include <lib/errno.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 #define SECTORSHIFT 9
 

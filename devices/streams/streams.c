@@ -1,6 +1,7 @@
 #include <fs/devfs/devfs.h>
 #include <lib/klib.h>
 #include <lib/rand.h>
+#include <lib/cstring.h>
 
 /** /dev/urandom **/
 

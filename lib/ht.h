@@ -6,6 +6,7 @@
 #include <mm/mm.h>
 #include <lib/lock.h>
 #include <lib/rand.h>
+#include <lib/cstring.h>
 
 #define ENTRIES_PER_HASHING_LEVEL 4096
 

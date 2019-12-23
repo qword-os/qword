@@ -5,6 +5,8 @@
 #include <lib/errno.h>
 #include <lib/dynarray.h>
 #include <lib/ht.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 struct vfs_handle_t {
     struct fs_t *fs;

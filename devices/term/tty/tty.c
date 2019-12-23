@@ -7,6 +7,7 @@
 #include <sys/apic.h>
 #include <devices/display/vbe/vbe.h>
 #include <sys/vga_font.h>
+#include <lib/cstring.h>
 
 #define MAX_TTYS 6
 #define KBD_BUF_SIZE 2048

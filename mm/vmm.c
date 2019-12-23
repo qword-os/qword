@@ -6,6 +6,7 @@
 #include <sys/e820.h>
 #include <lib/lock.h>
 #include <sys/panic.h>
+#include <lib/cmem.h>
 
 static struct pagemap_t __kp;
 struct pagemap_t *kernel_pagemap = &__kp;

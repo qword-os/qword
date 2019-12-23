@@ -2,6 +2,7 @@
 #include <fd/fd.h>
 #include <fd/vfs/vfs.h>
 #include <lib/klib.h>
+#include <lib/cstring.h>
 
 #define DEFAULT_HOSTNAME "qword"
 

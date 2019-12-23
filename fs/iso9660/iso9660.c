@@ -4,6 +4,8 @@
 #include <lib/klib.h>
 #include <lib/lock.h>
 #include <lib/errno.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 #define SECTOR_SIZE 2048
 #define FILE_TYPE 0

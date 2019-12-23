@@ -7,6 +7,7 @@
 #include <lib/lock.h>
 #include <sys/panic.h>
 #include <mm/mm.h>
+#include <lib/cstring.h>
 #include "vbe_private.h"
 
 int vbe_available = 0;

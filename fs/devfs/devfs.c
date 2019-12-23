@@ -7,6 +7,7 @@
 #include <lib/lock.h>
 #include <lib/errno.h>
 #include <sys/panic.h>
+#include <lib/cstring.h>
 
 dynarray_new(struct device_t, devices);
 

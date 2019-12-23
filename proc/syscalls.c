@@ -15,6 +15,8 @@
 #include <sys/urm.h>
 #include <net/hostname.h>
 #include <sys/hpet.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 static inline int privilege_check(size_t base, size_t len) {
     if ( base & (size_t)0x800000000000

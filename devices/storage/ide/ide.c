@@ -7,6 +7,8 @@
 #include <mm/mm.h>
 #include <lib/errno.h>
 #include <lib/part.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 #define DEVICE_COUNT 4
 #define BYTES_PER_SECT 512

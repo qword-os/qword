@@ -7,6 +7,7 @@
 #include <mm/mm.h>
 #include <sys/idt.h>
 #include <sys/panic.h>
+#include <lib/cstring.h>
 
 static int use_xsdt = 0;
 

@@ -7,6 +7,7 @@
 #include <acpi/acpi.h>
 #include <stdarg.h>
 #include <sys/pci.h>
+#include <lib/cstring.h>
 
 void laihost_log(int level, const char *str) {
     switch (level) {

@@ -28,6 +28,7 @@
 #include <sys/urm.h>
 #include <net/hostname.h>
 #include <net/e1000.h>
+#include <lib/cstring.h>
 
 #include <lai/core.h>
 #include <lai/helpers/sci.h>
@@ -173,7 +174,7 @@ void kmain(void) {
     /* Init Symmetric Multiprocessing */
     asm volatile ("sti");
     init_smp();
-    
+
     /* LAI */
     char *cmdline_val = cmdline_get_value("acpi");
     if (!cmdline_val || !strcmp(cmdline_val, "enabled")) {

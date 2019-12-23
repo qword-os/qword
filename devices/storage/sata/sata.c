@@ -6,6 +6,8 @@
 #include <fs/devfs/devfs.h>
 #include <lib/errno.h>
 #include <lib/part.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);

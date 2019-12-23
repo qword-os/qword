@@ -6,6 +6,7 @@
 #include <sys/panic.h>
 #include <fd/fd.h>
 #include <sys/urm.h>
+#include <lib/cstring.h>
 
 // Macros from mlibc: options/posix/include/sys/wait.h
 #define WAITPID_IFCONTINUED 0x00000100

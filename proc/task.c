@@ -15,6 +15,8 @@
 #include <lib/signal.h>
 #include <sys/hpet.h>
 #include <sys/urm.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 #define SCHED_TIMESLICE_MS 5
 

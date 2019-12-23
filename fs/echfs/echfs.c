@@ -6,6 +6,8 @@
 #include <lib/errno.h>
 #include <lib/ht.h>
 #include <sys/panic.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 #define SEARCH_FAILURE          0xffffffffffffffff
 #define ROOT_ID                 0xffffffffffffffff

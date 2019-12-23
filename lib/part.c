@@ -5,6 +5,7 @@
 #include <fd/fd.h>
 #include <fd/vfs/vfs.h>
 #include <fs/devfs/devfs.h>
+#include <lib/cstring.h>
 
 struct partinfo_t {
     int fd;

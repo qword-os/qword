@@ -2,6 +2,7 @@
 #include <lib/alloc.h>
 #include <lib/klib.h>
 #include <mm/mm.h>
+#include <lib/cmem.h>
 
 typedef struct {
     size_t pages;

@@ -6,6 +6,7 @@
 #include <proc/task.h>
 #include <fd/fd.h>
 #include <lib/event.h>
+#include <lib/cmem.h>
 
 #define PIPE_BUFFER_STEP    32768
 

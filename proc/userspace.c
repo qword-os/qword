@@ -9,6 +9,8 @@
 #include <lib/event.h>
 #include <sys/panic.h>
 #include <lib/signal.h>
+#include <lib/cstring.h>
+#include <lib/cmem.h>
 
 extern void *signal_trampoline[];
 extern void *signal_trampoline_size[];
