@@ -158,12 +158,14 @@ static void add_to_buf(int tty, const char *s, size_t cnt) {
     for (size_t i = 0; i < cnt; i++) {
         if (ttys[tty].termios.c_lflag & ISIG) {
             // accept signal characters
+/*
             if (s[i] == ttys[tty].termios.c_cc[VINTR]) {
                 // sigint
                 // XXX fix hardcoded PID number
                 kill(7, SIGINT);
                 continue;
             }
+*/
         }
         add_to_buf_char(tty, s[i]);
     }
