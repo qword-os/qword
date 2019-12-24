@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
 #include <proc/task.h>
 #include <sys/cpu.h>
 #include <lib/klib.h>
@@ -19,6 +20,7 @@
               __FILE__ ":" expand_stringify(__LINE__), 0, 0, NULL); \
 })
 
-void panic(const char *, uint64_t, uint64_t, struct regs_t *);
+void panic(const char *msg, size_t debug_info, size_t error_code, struct regs_t *regs);
+void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...);
 
 #endif

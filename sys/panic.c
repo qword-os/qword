@@ -1,5 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <sys/panic.h>
 #include <lib/klib.h>
 #include <lib/lock.h>
@@ -11,6 +12,11 @@
 static int panic_lock = 0;
 
 void panic(const char *msg, size_t debug_info, size_t error_code, struct regs_t *regs) {
+    asm volatile ("cli");
+    panic2(regs, 1, "%s\nDebug info: %16X\nError code: %16X", msg, debug_info, error_code);
+}
+
+void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...) {
     asm volatile ("cli");
 
     // Be the only one to panic no matter what, no double panics!
@@ -34,44 +40,54 @@ void panic(const char *msg, size_t debug_info, size_t error_code, struct regs_t 
         }
     }
 
+    va_list args;
+    va_start(args, fmt);
     if (smp_ready)
         kprint(KPRN_PANIC, "KERNEL PANIC ON CPU #%d", _current_cpu);
     else
         kprint(KPRN_PANIC, "KERNEL PANIC ON THE BSP");
-
-    kprint(KPRN_PANIC, "%s", msg);
-    kprint(KPRN_PANIC, "Debug info: %X", debug_info);
-    kprint(KPRN_PANIC, "Error code: %X", error_code);
+    kvprint(KPRN_PANIC, fmt, args);
+    va_end(args);
 
     if (regs) {
         kprint(KPRN_PANIC, "CPU status at fault:");
-        kprint(KPRN_PANIC, "RAX:    %X", regs->rax);
-        kprint(KPRN_PANIC, "RBX:    %X", regs->rbx);
-        kprint(KPRN_PANIC, "RCX:    %X", regs->rcx);
-        kprint(KPRN_PANIC, "RDX:    %X", regs->rdx);
-        kprint(KPRN_PANIC, "RSI:    %X", regs->rsi);
-        kprint(KPRN_PANIC, "RDI:    %X", regs->rdi);
-        kprint(KPRN_PANIC, "RBP:    %X", regs->rbp);
-        kprint(KPRN_PANIC, "RSP:    %X", regs->rsp);
-        kprint(KPRN_PANIC, "R8:     %X", regs->r8);
-        kprint(KPRN_PANIC, "R9:     %X", regs->r9);
-        kprint(KPRN_PANIC, "R10:    %X", regs->r10);
-        kprint(KPRN_PANIC, "R11:    %X", regs->r11);
-        kprint(KPRN_PANIC, "R12:    %X", regs->r12);
-        kprint(KPRN_PANIC, "R13:    %X", regs->r13);
-        kprint(KPRN_PANIC, "R14:    %X", regs->r14);
-        kprint(KPRN_PANIC, "R15:    %X", regs->r15);
-        kprint(KPRN_PANIC, "RFLAGS: %X", regs->rflags);
-        kprint(KPRN_PANIC, "RIP:    %X", regs->rip);
-        kprint(KPRN_PANIC, "CS:     %X", regs->cs);
-        kprint(KPRN_PANIC, "SS:     %X", regs->ss);
-        kprint(KPRN_PANIC, "CR2:    %X", read_cr2());
+        kprint(KPRN_PANIC, "  RAX: %16X  RBX: %16X  RCX: %16X  RDX: %16X",
+                           regs->rax,
+                           regs->rbx,
+                           regs->rcx,
+                           regs->rdx);
+        kprint(KPRN_PANIC, "  RSI: %16X  RDI: %16X  RBP: %16X  RSP: %16X",
+                           regs->rsi,
+                           regs->rdi,
+                           regs->rbp,
+                           regs->rsp);
+        kprint(KPRN_PANIC, "  R8:  %16X  R9:  %16X  R10: %16X  R11: %16X",
+                           regs->r8,
+                           regs->r9,
+                           regs->r10,
+                           regs->r11);
+        kprint(KPRN_PANIC, "  R12: %16X  R13: %16X  R14: %16X  R15: %16X",
+                           regs->r12,
+                           regs->r13,
+                           regs->r14,
+                           regs->r15);
+        kprint(KPRN_PANIC, "  RFLAGS: %16X", regs->rflags);
+        kprint(KPRN_PANIC, "  RIP:    %16X", regs->rip);
+        kprint(KPRN_PANIC, "  CS:  %4X    SS:  %4X",
+                           regs->cs,
+                           regs->ss);
+        kprint(KPRN_PANIC, "  CR2: %16X", read_cr2());
     }
 
+/*
+    if (print_trace)
+        print_stacktrace(KPRN_PANIC);
+*/
+
     if (smp_ready) {
-        kprint(KPRN_PANIC, "Current task: %d", cpu_local->current_task);
+        kprint(KPRN_PANIC, "Current task:    %d", cpu_local->current_task);
         kprint(KPRN_PANIC, "Current process: %d", cpu_local->current_process);
-        kprint(KPRN_PANIC, "Current thread: %d", cpu_local->current_thread);
+        kprint(KPRN_PANIC, "Current thread:  %d", cpu_local->current_thread);
     } else {
         kprint(KPRN_PANIC, "SMP and scheduler were NOT initialiased at panic.");
     }
