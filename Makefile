@@ -79,10 +79,9 @@ build: $(BINS) $(OBJ)
 install: all
 	install -d $(DESTDIR)$(PREFIX)/boot
 	install $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
-	install $(KERNELELF) $(DESTDIR)$(PREFIX)/boot/
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/$(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/$(KERNELELF)
+	rm -f $(DESTDIR)$(PREFIX)/boot/$(KERNELBIN)
 
 %.o: %.c
 	$(CC) $(CHARDFLAGS) -c $< -o $@
@@ -95,5 +94,6 @@ uninstall:
 
 clean:
 	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)
+
 run:
 	$(QEMU) $(QEMUHARDFLAGS)
