@@ -4,7 +4,9 @@
 
 The qword-OS kernel, a fully featured, capable x86_64 sex machine!
 
-Get a prebuilt qword distro at: https://ci.oogacraft.com/job/qword/lastSuccessfulBuild/artifact/qword.hdd
+Get a prebuilt qword distro at: https://ci.oogacraft.com/job/qword/lastSuccessfulBuild/artifact/qword.xz
+
+Note: the default username/password is root/root.
 
 As said, this is just the kernel. To build the whole system, follow the
 instructions at <https://github.com/qword-os/build>.
