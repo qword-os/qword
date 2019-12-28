@@ -37,4 +37,19 @@ struct cpu_local_t {
 
 extern struct cpu_local_t cpu_locals[MAX_CPUS];
 
+extern unsigned int cpu_simd_region_size;
+
+extern void (*cpu_save_simd)(uint8_t *);
+extern void (*cpu_restore_simd)(uint8_t *);
+
+void init_cpu_features();
+
+void wrxcr(uint32_t index, uint64_t value);
+
+void xsave(uint8_t *region);
+void xrstor(uint8_t *region);
+
+void fxsave(uint8_t *region);
+void fxrstor(uint8_t *region);
+
 #endif

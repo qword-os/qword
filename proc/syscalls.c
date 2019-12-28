@@ -602,7 +602,9 @@ found_new_task_id:
     new_thread->fs_base = calling_thread->fs_base;
     new_thread->ctx.regs = *regs;
     new_thread->ctx.regs.rax = 0;
-    fxsave(&new_thread->ctx.fxstate);
+    new_thread->ctx.fxstate = kalloc(cpu_simd_region_size);
+
+    cpu_save_simd(new_thread->ctx.fxstate);
 
     task_count++;
 

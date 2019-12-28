@@ -18,21 +18,6 @@
 #define CURRENT_THREAD cpu_locals[current_cpu].current_thread
 #define CURRENT_TASK cpu_locals[current_cpu].current_task
 
-#define fxsave(ptr) ({ \
-    asm volatile ( \
-                "fxsave %0;" \
-                : \
-                : "m" (*(ptr)) \
-    ); \
-})
-
-#define fxrstor(ptr) ({ \
-    asm volatile ( \
-                "fxrstor %0;" \
-                : \
-                : "m" (*(ptr)) \
-    ); \
-})
 
 #define load_fs_base(base) ({ \
     asm volatile ( \
@@ -71,7 +56,7 @@ struct regs_t {
 
 struct ctx_t {
     struct regs_t regs;
-    uint8_t fxstate[512] __attribute__((aligned(16)));
+    uint8_t *fxstate;
 };
 
 struct thread_t {

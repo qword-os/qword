@@ -56,6 +56,7 @@ static void ap_kernel_entry(void) {
 
     /* Enable this AP's local APIC */
     lapic_enable();
+    init_cpu_features();
 
     /* Enable interrupts */
     asm volatile ("sti");
