@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 struct pci_device_t {
-    struct pci_device_t *parent;
+    long parent;
 
     uint8_t bus;
     uint8_t func;
@@ -17,12 +17,11 @@ struct pci_device_t {
     uint8_t device_class;
     uint8_t prog_if;
     int multifunction;
-    int available;
 };
 
 uint32_t pci_read_bar0(struct pci_device_t *);
 void pci_enable_busmastering(struct pci_device_t *);
-void pci_probe(struct pci_device_t *, uint8_t, uint8_t, uint8_t, struct pci_device_t *);
+void pci_check_function(uint8_t, uint8_t, uint8_t, long);
 uint32_t pci_read_config(uint8_t, uint8_t, uint8_t, uint8_t);
 uint32_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset);
 void pci_write_device_byte(struct pci_device_t *device, uint32_t offset, uint32_t value);
@@ -33,9 +32,7 @@ void pci_write_device_dword(struct pci_device_t *device, uint32_t offset, uint32
 void pci_set_device_flag(struct pci_device_t *, uint32_t, uint32_t, int);
 int pci_get_device(struct pci_device_t *, uint8_t, uint8_t, uint8_t);
 int pci_get_device_by_vendor(struct pci_device_t *, uint16_t, uint16_t);
-void pci_find_function(uint8_t, uint8_t, uint8_t, struct pci_device_t *);
-void pci_init_device(uint8_t, uint8_t, struct pci_device_t *);
-void pci_init_bus(uint8_t, struct pci_device_t *);
+void pci_init_bus(uint8_t, long);
 void init_pci(void);
 
 #endif
