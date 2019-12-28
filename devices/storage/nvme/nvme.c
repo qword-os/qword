@@ -480,7 +480,7 @@ void init_dev_nvme(void) {
     struct pci_device_t ndevice = {0};
     int ret = pci_get_device(&ndevice, NVME_CLASS, NVME_SUBCLASS, NVME_PROG_IF);
     if (ret == -1) {
-        kprint(KPRN_ERR, "nvme: Failed to locate NVME controller");
+        kprint(KPRN_INFO, "nvme: Failed to locate NVME controller");
         return;
     }
     kprint(KPRN_INFO, "nvme: Found NVME controller");
