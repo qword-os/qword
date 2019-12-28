@@ -69,8 +69,15 @@ all:
 	$(MAKE) prepare
 	$(MAKE) build
 
-prepare:
-	git clone $(LAI_URL) $(LAI_DIR) || ( cd $(LAI_DIR) && git pull )
+prepare: $(LAI_DIR)
+ifeq ($(PULLREPOS), true)
+	cd $(LAI_DIR) && git pull
+else
+	true # -- NOT PULLING LAI REPO -- #
+endif
+
+$(LAI_DIR):
+	git clone $(LAI_URL) $(LAI_DIR)
 
 build: $(BINS) $(OBJ)
 	$(CC) $(OBJ) $(LDHARDFLAGS) -o $(KERNELELF)
