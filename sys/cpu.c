@@ -62,7 +62,7 @@ void xsave(uint8_t *region) {
     if((uintptr_t)region & 0x3F)
         panic("Xsave region is not aligned correctly!", 0, 0, NULL);
 
-    asm volatile("xsave %0" : : "m"(*(uint8_t(*)[cpu_simd_region_size])region), "a"(0xFFFFFFFF), "d"(0xFFFFFFFF) : "memory");
+    asm volatile("xsave %0" : "=m"(*(uint8_t(*)[cpu_simd_region_size])region) : "a"(0xFFFFFFFF), "d"(0xFFFFFFFF) : "memory");
 }
 
 void xrstor(uint8_t *region) {
@@ -73,7 +73,7 @@ void xrstor(uint8_t *region) {
 }
 
 void fxsave(uint8_t *region) {
-    asm volatile ("fxsave %0" : : "m" (*(uint8_t(*)[512])(region)) : "memory");
+    asm volatile ("fxsave %0" : "=m" (*(uint8_t(*)[512])(region)) : : "memory");
 }
 
 void fxrstor(uint8_t *region) {
