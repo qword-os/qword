@@ -10,6 +10,7 @@
 #include <lib/bit.h>
 #include <mm/mm.h>
 #include <lib/part.h>
+#include <sys/panic.h>
 
 #define CACHE_NOT_READY 0
 #define CACHE_READY 1
@@ -385,11 +386,14 @@ static int nvme_read(int device, void *buf, uint64_t loc, size_t count) {
 int nvme_init_device(struct pci_device_t *ndevice, int num) {
     nvme_device_t device = {0};
     device.nvme_lock = new_lock;
+    struct pci_bar_t bar = {0};
 
-    size_t bar0 = pci_read_bar0(ndevice);
-    size_t bar1 = pci_read_device_dword(ndevice, 0x14);
+    panic_if(pci_read_bar(ndevice, 0, &bar));
+    panic_unless(bar.is_mmio);
 
-    volatile struct nvme_bar *nvme_base = (struct nvme_bar*)((size_t)(((uint64_t)bar0 & -8) | bar1 << 32) + MEM_PHYS_OFFSET);
+    panic_unless((pci_read_device_dword(ndevice, 0x10) & 0b111) == 0b100);
+
+    volatile struct nvme_bar *nvme_base = (struct nvme_bar*)(bar.base + MEM_PHYS_OFFSET);
     device.nvme_base = nvme_base;
     pci_enable_busmastering(ndevice);
 
@@ -477,13 +481,12 @@ int nvme_init_device(struct pci_device_t *ndevice, int num) {
 }
 
 void init_dev_nvme(void) {
-    struct pci_device_t ndevice = {0};
-    int ret = pci_get_device(&ndevice, NVME_CLASS, NVME_SUBCLASS, NVME_PROG_IF);
-    if (ret == -1) {
+    struct pci_device_t *ndevice = pci_get_device(NVME_CLASS, NVME_SUBCLASS, NVME_PROG_IF);
+    if (!ndevice) {
         kprint(KPRN_INFO, "nvme: Failed to locate NVME controller");
         return;
     }
     kprint(KPRN_INFO, "nvme: Found NVME controller");
     nvme_devices = kalloc(sizeof(nvme_device_t));
-    nvme_init_device(&ndevice, 0);
+    nvme_init_device(ndevice, 0);
 }

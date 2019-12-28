@@ -3,6 +3,7 @@
 #include <lib/cio.h>
 #include <lib/alloc.h>
 #include <sys/pci.h>
+#include <sys/panic.h>
 
 #define INTEL_VEND 0x8086  // Vendor ID for Intel.
 
@@ -251,24 +252,27 @@ void init_e1000(void) {
     kprint(KPRN_INFO, "e1000: Initialising E1000 device driver...");
 
     // First, get the PCI device, searching for all the models.
-    struct pci_device_t device = {0};
+    struct pci_device_t *device = NULL;
 
-    int ret = -1;
-    for (int i = 0; i8254x_devices[i] != 0xffff && ret; i++) {
-        ret = pci_get_device_by_vendor(&device, INTEL_VEND, i8254x_devices[i]);
+    for (int i = 0; i8254x_devices[i] != 0xffff && !device; i++) {
+        device = pci_get_device_by_vendor(INTEL_VEND, i8254x_devices[i]);
     }
 
-    if (ret) {
+    if (!device) {
         kprint(KPRN_INFO, "e1000: Could not find pci device, aborted!");
         return;
     }
 
     // Enable bus mastering for this device.
-    pci_enable_busmastering(&device);
+    pci_enable_busmastering(device);
 
     // Find IO addresses and other useful info.
-    uint32_t bar = pci_read_bar0(&device);
-    e1000.mem_base = (bar & 0xFFFFFFF0) + MEM_PHYS_OFFSET;
+    
+    struct pci_bar_t bar = {0};
+    panic_if(pci_read_bar(device, 0, &bar));
+    panic_unless(bar.is_mmio);
+
+    e1000.mem_base = bar.base + MEM_PHYS_OFFSET;
     e1000_detect_eeprom();
     e1000_read_mac();
     kprint(KPRN_INFO, "e1000: MAC address: %x:%x:%x:%x:%x:%x", e1000.mac[0],
