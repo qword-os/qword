@@ -1,4 +1,5 @@
 #include <devices/dev.h>
+#include <devices/storage/nvme/nvme.h>
 #include <fs/devfs/devfs.h>
 #include <proc/task.h>
 
@@ -12,6 +13,7 @@ void init_dev(void) {
     init_dev_streams();
     init_dev_tty();
     init_dev_ide();
+    init_dev_nvme();
     init_dev_sata();
     init_dev_vesafb();
 
