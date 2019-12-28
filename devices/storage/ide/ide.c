@@ -228,10 +228,10 @@ static int ide_flush1(int device) {
 void init_dev_ide(void) {
     kprint(KPRN_INFO, "ide: Initialising ide device driver...");
 
-    struct pci_device_t pci_device = {0};
+    struct pci_device_t *pci_device;
     // TODO figure out correct prog if and define these values elsewhere
-    int ret = pci_get_device(&pci_device, 0x1, 0x1, 0x85);
-    if (ret) {
+    pci_device = pci_get_device( 0x1, 0x1, 0x85);
+    if (!pci_device) {
         kprint(KPRN_INFO, "ide: could not find pci device!");
         return;
     }
@@ -241,7 +241,7 @@ void init_dev_ide(void) {
     for (int i = 0; i < DEVICE_COUNT; i++) {
         if (j >= max_ports) return;
         while (!(ide_devices[i] = init_ide_device(ide_ports[j], master,
-                        &pci_device)).exists) {
+                        pci_device)).exists) {
             j++;
             if (j >= max_ports) return;
             if (j % 2) master = 0;

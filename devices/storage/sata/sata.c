@@ -8,6 +8,7 @@
 #include <lib/part.h>
 #include <lib/cstring.h>
 #include <lib/cmem.h>
+#include <sys/panic.h>
 
 static int ahci_read(int drive, void *buf, uint64_t loc, size_t count);
 static int ahci_write(int drive, const void *buf, uint64_t loc, size_t count);
@@ -104,21 +105,24 @@ static void stop_cmd(volatile struct hba_port_t *port) {
 }
 
 void init_dev_sata(void) {
-    struct pci_device_t device = {0};
+    struct pci_device_t *device;
     ahci_devices = kalloc(MAX_AHCI_DEVICES * sizeof(struct ahci_device_t));
 
-    int ret = pci_get_device(&device, AHCI_CLASS, AHCI_SUBCLASS, AHCI_PROG_IF);
-    if (ret == -1) {
+    device = pci_get_device(AHCI_CLASS, AHCI_SUBCLASS, AHCI_PROG_IF);
+    if (!device) {
         kprint(KPRN_INFO, "ahci: Failed to find AHCI controller. SATA support unavailable");
         return;
     }
 
-    pci_enable_busmastering(&device);
+    pci_enable_busmastering(device);
 
     kprint(KPRN_INFO, "ahci: Found AHCI controller");
 
-    volatile struct hba_mem_t *ahci_base =
-      (volatile struct hba_mem_t *)((size_t)pci_read_device_dword(&device, 0x24) + MEM_PHYS_OFFSET);
+    struct pci_bar_t bar = {0};
+    panic_if(pci_read_bar(device, 5, &bar));
+    panic_unless(bar.is_mmio);
+
+    volatile struct hba_mem_t *ahci_base = (volatile struct hba_mem_t *)(bar.base + MEM_PHYS_OFFSET);
     kprint(KPRN_INFO, "ahci: ABAR at %X", ahci_base);
 
     for (size_t i = 0; i < MAX_AHCI_DEVICES; i++) {
