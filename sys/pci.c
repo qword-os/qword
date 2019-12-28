@@ -31,7 +31,7 @@ uint32_t pci_read_config(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset
 }
 
 /* Probe address space for information about a device */
-void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t func) {
+void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t func, struct pci_device_t *parent) {
     uint32_t config_0 = pci_read_config(bus, slot, func, 0);
 
     if (config_0 == 0xffffffff) {
@@ -43,6 +43,7 @@ void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t f
     uint32_t config_c = pci_read_config(bus, slot, func, 0xc);
 
     device->available = 1;
+    device->parent = parent;
     device->bus = bus;
     device->func = func;
     device->device = slot;
@@ -58,6 +59,12 @@ void pci_probe(struct pci_device_t *device, uint8_t bus, uint8_t slot, uint8_t f
         device->multifunction = 0;
     device->available = 1;
     available_count++;
+
+    if ((config_c & 0x7f) == 1) {
+        // pci to pci bridge
+        uint32_t config_18 = pci_read_config(bus, slot, func, 0x18);
+        pci_init_bus((config_18 >> 8) & 0xFF, device);
+    }
 }
 
 uint32_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset) {
@@ -142,15 +149,15 @@ int pci_get_device_by_vendor(struct pci_device_t *device, uint16_t vendor, uint1
     return -1;
 }
 
-void pci_init_device(uint8_t bus, uint8_t dev) {
+void pci_init_device(uint8_t bus, uint8_t dev, struct pci_device_t *parent) {
     for (size_t func = 0; func < MAX_FUNCTION; func++) {
-        pci_find_function(bus, dev, func);
+        pci_find_function(bus, dev, func, parent);
     }
 }
 
-void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
+void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func, struct pci_device_t *parent) {
     struct pci_device_t device = {0};
-    pci_probe(&device, bus, dev, func);
+    pci_probe(&device, bus, dev, func, parent);
     if (device.available) {
         for (size_t i = 0; i < device_count; i++) {
             if (!pci_devices[i].available) {
@@ -161,15 +168,34 @@ void pci_find_function(uint8_t bus, uint8_t dev, uint8_t func) {
 
         pci_devices = krealloc(pci_devices, (device_count + 1) * sizeof(struct pci_device_t));
         pci_devices[device_count] = device;
-        pci_devices++;
+        device_count++;
+
+        kprint(KPRN_WARN, "pci: FIXME: parent pointers are broken after krealloc");
 
         return;
     }
 }
 
-void pci_init_bus(uint8_t bus) {
+void pci_init_bus(uint8_t bus, struct pci_device_t *parent) {
     for (size_t dev = 0; dev < MAX_DEVICE; dev++) {
-        pci_init_device(bus, dev);
+        pci_init_device(bus, dev, parent);
+    }
+}
+
+void pci_init_root_bus(void) {
+    uint32_t config_c = pci_read_config(0, 0, 0, 0xc);
+    uint32_t config_0;
+
+    if (!(config_c & 0x800000)) {
+        pci_init_bus(0, NULL);
+    } else {
+        for (size_t func = 0; func < 8; func++) {
+            config_0 = pci_read_config(0, 0, func, 0);
+            if (config_0 == 0xffffffff)
+                continue;
+
+            pci_init_bus(func, NULL);
+        }
     }
 }
 
@@ -179,12 +205,17 @@ void init_pci(void) {
     available_count = 0;
 
     for (size_t i = 0; i < device_count; i++) {
-        pci_devices[i].available = 1;
+        pci_devices[i].available = 0;
     }
 
-    for (size_t bus = 0; bus < MAX_BUS; bus++) {
-        pci_init_bus(bus);
-    }
+    pci_init_root_bus();
 
     kprint(KPRN_INFO, "pci: Full recursive device scan done, %u devices found", available_count);
+    kprint(KPRN_INFO, "pci: List of found devices:");
+
+    for (size_t i = 0; i < available_count; i++) {
+        struct pci_device_t *dev = &pci_devices[i];
+        kprint(KPRN_INFO, "pci:\t%2x:%2x.%1x - %4x:%4x", dev->bus, dev->device, dev->func, dev->vendor_id, dev->device_id);
+    }
+
 }
