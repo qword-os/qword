@@ -2,7 +2,6 @@
 #include <lib/klib.h>
 #include <lib/cio.h>
 #include <lib/alloc.h>
-#include <lib/mmio.h>
 #include <sys/pci.h>
 
 #define INTEL_VEND 0x8086  // Vendor ID for Intel.
@@ -139,11 +138,11 @@ static uint32_t e1000_read_command(uint16_t address) {
 
 static void e1000_detect_eeprom(void) {
     uint32_t val = 0;
-    e1000_write_command(REG_EEPROM, 0x1); 
- 
+    e1000_write_command(REG_EEPROM, 0x1);
+
     for(int i = 0; i < 1000 && !e1000.has_eeprom; i++) {
         val = e1000_read_command(REG_EEPROM);
-        
+
         if (val & 0x10) {
             e1000.has_eeprom = 1;
         } else {
@@ -154,7 +153,7 @@ static void e1000_detect_eeprom(void) {
 
 static uint32_t e1000_eeprom_read(uint8_t address) {
 	uint32_t tmp = 0;
-    
+
     if (e1000.has_eeprom) {
         e1000_write_command(REG_EEPROM, 1 | (address << 8));
 
@@ -181,7 +180,7 @@ static void e1000_read_mac(void) {
         e1000.mac[5] = temp >> 8;
     } else {
         uint8_t *mem_base_mac = (uint8_t *)(e1000.mem_base + 0x5400);
-        
+
         for(int i = 0; i < 6; i++) {
             e1000.mac[i] = mem_base_mac[i];
         }
@@ -196,19 +195,19 @@ static void e1000_start_receive(void) {
         e1000.receives[i]->address = (uint64_t)(kalloc(8192 + 16));
         e1000.receives[i]->status = 0;
     }
- 
+
     e1000_write_command(REG_TXDESCLO, (uint64_t)e1000.receives >> 32);
     e1000_write_command(REG_TXDESCHI, (uint64_t)e1000.receives & 0xffffffff);
- 
+
     e1000_write_command(REG_RXDESCLO, (uint64_t)e1000.receives);
     e1000_write_command(REG_RXDESCHI, 0);
- 
+
     e1000_write_command(REG_RXDESCLEN, E1000_RECEIVE_COUNT * 16);
- 
+
     e1000_write_command(REG_RXDESCHEAD, 0);
     e1000_write_command(REG_RXDESCTAIL, E1000_RECEIVE_COUNT - 1);
     e1000.current_receive = 0;
-    
+
     e1000_write_command(REG_RCTRL, RCTL_EN | RCTL_SBP | RCTL_UPE | RCTL_MPE | RCTL_LBM_NONE
         | RTCL_RDMTS_HALF | RCTL_BAM | RCTL_SECRC | RCTL_BSIZE_8192);
 }
@@ -236,9 +235,9 @@ static void e1000_start_transmit(void) {
 
     e1000_write_command(REG_TCTRL, TCTL_EN | TCTL_PSP | (15 << TCTL_CT_SHIFT)
         | (64 << TCTL_COLD_SHIFT) | TCTL_RTLC);
- 
+
     // This line of code overrides the one before it but I left both to highlight
-    // that the previous one works with e1000 cards, but for the e1000e cards 
+    // that the previous one works with e1000 cards, but for the e1000e cards
     // you should set the TCTRL register as follows. For detailed description of
     // each bit, please refer to the Intel Manual.
     // In the case of I217 and 82577LM packets will not be sent if the TCTRL is
