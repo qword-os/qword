@@ -37,10 +37,12 @@ int64_t task_count = 0;
 static struct regs_t default_krnl_regs = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x08,0x202,0,0x10};
 static struct regs_t default_usr_regs = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0x23,0x202,0,0x1b};
 
-static uint8_t default_fxstate[512] __attribute__((aligned(16)));
+static uint8_t* default_fxstate;
 
 void init_sched(void) {
-    fxsave(&default_fxstate);
+    default_fxstate = kalloc(cpu_simd_region_size);
+
+    cpu_save_simd(default_fxstate);
 
     kprint(KPRN_INFO, "sched: Initialising process table...");
 
@@ -271,7 +273,7 @@ void task_resched(struct regs_t *regs) {
         current_thread->ctx.regs = *regs;
         if (current_process) {
             /* Save FPU context */
-            fxsave(&current_thread->ctx.fxstate);
+            cpu_save_simd(current_thread->ctx.fxstate);
             /* Save user rsp */
             current_thread->ustack = cpu_locals[current_cpu].thread_ustack;
             /* Save errno */
@@ -298,13 +300,13 @@ skip_invalid_thread_context_save:
     cpu_local->current_process = thread->process;
 
     if (thread->process) {
-       cpu_local->thread_kstack = thread->kstack;
-       cpu_local->thread_ustack = thread->ustack;
-       cpu_local->thread_errno = thread->thread_errno;
-       /* Restore FPU context */
-       fxrstor(&thread->ctx.fxstate);
-       /* Restore thread FS base */
-       load_fs_base(thread->fs_base);
+        cpu_local->thread_kstack = thread->kstack;
+        cpu_local->thread_ustack = thread->ustack;
+        cpu_local->thread_errno = thread->thread_errno;
+        /* Restore FPU context */
+        cpu_restore_simd(thread->ctx.fxstate);
+        /* Restore thread FS base */
+        load_fs_base(thread->fs_base);
     }
 
     thread->active_on_cpu = _current_cpu;
@@ -627,6 +629,8 @@ found_new_task_id:;
     else
         new_thread->ctx.regs = default_krnl_regs;
 
+    new_thread->ctx.fxstate = kalloc(cpu_simd_region_size);
+
     /* Set up a user stack for the thread */
     if (pid) {
         /* Virtual addresses of the stack. */
@@ -737,7 +741,7 @@ found_new_task_id:;
         new_thread->ctx.regs.rip = (size_t)data->entry;
     }
 
-    memcpy(new_thread->ctx.fxstate, default_fxstate, 512);
+    memcpy(new_thread->ctx.fxstate, default_fxstate, cpu_simd_region_size);
 
     new_thread->tid = new_tid;
     new_thread->task_id = new_task_id;

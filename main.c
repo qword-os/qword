@@ -140,6 +140,7 @@ void kmain(void) {
     kprint(KPRN_INFO, "Command line: %s", cmdline);
 
     init_idt();
+    init_cpu_features();
 
     /* Memory-related stuff */
     init_e820();
