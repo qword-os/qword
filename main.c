@@ -56,41 +56,26 @@ void kmain_thread(void *arg) {
 
     int tty = open("/dev/tty0", O_RDWR);
 
-    char *root = cmdline_get_value("root");
-    char new_root[64];
-    if (!root) {
+    char root[64];
+    if (!cmdline_get_value(root, 64, "root")) {
         kprint(KPRN_WARN, "kmain: Command line argument \"root\" not specified.");
-        readline(tty, "Select root device: ", new_root, 64);
-        root = new_root;
-    } else {
-        strcpy(new_root, root);
-        root = new_root;
+        readline(tty, "Select root device: ", root, 64);
     }
-    kprint(KPRN_INFO, "kmain: root=%s", new_root);
+    kprint(KPRN_INFO, "kmain: root=%s", root);
 
-    char *rootfs = cmdline_get_value("rootfs");
-    char new_rootfs[64];
-    if (!rootfs) {
+    char rootfs[64];
+    if (!cmdline_get_value(rootfs, 64, "rootfs")) {
         kprint(KPRN_WARN, "kmain: Command line argument \"rootfs\" not specified.");
-        readline(tty, "Root filesystem to use: ", new_rootfs, 64);
-        rootfs = new_rootfs;
-    } else {
-        strcpy(new_rootfs, rootfs);
-        rootfs = new_rootfs;
+        readline(tty, "Root filesystem to use: ", rootfs, 64);
     }
-    kprint(KPRN_INFO, "kmain: rootfs=%s", new_rootfs);
+    kprint(KPRN_INFO, "kmain: rootfs=%s", rootfs);
 
-    char *init = cmdline_get_value("init");
-    char new_init[64];
-    if (!init) {
+    char init[64];
+    if (!cmdline_get_value(init, 64, "init")) {
         kprint(KPRN_WARN, "kmain: Command line argument \"init\" not specified.");
-        readline(tty, "Location of init: ", new_init, 64);
-        init = new_init;
-    } else {
-        strcpy(new_init, init);
-        init = new_init;
+        readline(tty, "Location of init: ", init, 64);
     }
-    kprint(KPRN_INFO, "kmain: init=%s", new_init);
+    kprint(KPRN_INFO, "kmain: init=%s", init);
 
     close(tty);
 
@@ -135,6 +120,8 @@ void kmain_thread(void *arg) {
 
 /* Main kernel entry point, only initialise essential services and scheduler */
 void kmain(void) {
+    char cmdline_val[64];
+
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
@@ -177,8 +164,7 @@ void kmain(void) {
     init_smp();
 
     /* LAI */
-    char *cmdline_val = cmdline_get_value("acpi");
-    if (!cmdline_val || !strcmp(cmdline_val, "enabled")) {
+    if (!cmdline_get_value(cmdline_val, 64, "acpi") || !strcmp(cmdline_val, "enabled")) {
         lai_set_acpi_revision(rsdp->rev);
         lai_create_namespace();
         // lai_enable_acpi(1);

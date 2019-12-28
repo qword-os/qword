@@ -3,9 +3,10 @@
 #include <lib/cmdline.h>
 #include <lib/cstring.h>
 
-static char value[256];
+char *cmdline_get_value(char *buf, size_t limit, const char *key) {
+    if (!limit || !buf)
+        return NULL;
 
-char *cmdline_get_value(const char *key) {
     size_t key_len = strlen(key);
 
     for (size_t i = 0; cmdline[i]; i++) {
@@ -15,10 +16,12 @@ char *cmdline_get_value(const char *key) {
             i += key_len + 1;
             size_t j;
             for (j = 0; cmdline[i + j] != ' ' && cmdline[i + j]; j++) {
-                value[j] = cmdline[i + j];
+                if (j == limit - 1)
+                    break;
+                buf[j] = cmdline[i + j];
             }
-            value[j] = 0;
-            return value;
+            buf[j] = 0;
+            return buf;
         }
     }
 

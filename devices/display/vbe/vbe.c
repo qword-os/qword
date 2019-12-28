@@ -66,15 +66,15 @@ void init_vbe(void) {
     kprint(KPRN_INFO, "vbe: Product name: %s", (char *)((size_t)vbe_info_struct.prod_name + MEM_PHYS_OFFSET));
     kprint(KPRN_INFO, "vbe: Product revision: %s", (char *)((size_t)vbe_info_struct.prod_rev + MEM_PHYS_OFFSET));
 
-    char *cmdline_val;
-    if ((cmdline_val = cmdline_get_value("edid"))) {
+    char cmdline_val[64];
+    if (cmdline_get_value(cmdline_val, 64, "edid")) {
         if (!strcmp(cmdline_val, "enabled")) {
             edid_call();
             goto modeset;
         }
     }
 
-    if ((cmdline_val = cmdline_get_value("vbe_res"))) {
+    if (cmdline_get_value(cmdline_val, 64, "vbe_res")) {
         if (!strcmp(cmdline_val, "1024x768")) {
             vbe_width = 1024;
             vbe_height = 768;

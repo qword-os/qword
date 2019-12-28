@@ -3,6 +3,6 @@
 
 extern char cmdline[];
 
-char *cmdline_get_value(const char *);
+char *cmdline_get_value(char *buf, size_t limit, const char *key);
 
 #endif
