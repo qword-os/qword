@@ -243,7 +243,7 @@ int nvme_rw_lba(int device, void *buf, size_t lba_start, size_t lba_count, int w
     }
     uint16_t status = nvme_submit_cmd_wait(&nvme_devices[device].queues[1], command);
     if (status != 0) {
-        kprint("nvme: read/write operation failed with status %x", status);
+        kprint(KPRN_ERR, "nvme: read/write operation failed with status %x", status);
         return -1;
     }
     return 0;
