@@ -11,7 +11,7 @@ ASMFILES  := $(shell find . -type f -name '*.asm')
 REALFILES := $(shell find . -type f -name '*.real')
 BINS      := $(REALFILES:.real=.bin)
 OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.o)
-DEPS      := $(OBJ:.o=.d)
+DEPS      := $(CFILES:.c=.d)
 
 # User options.
 DBGOUT = no
