@@ -1224,11 +1224,6 @@ int syscall_mount(struct regs_t *regs) {
     // rdx: type
     // r10: flags
     // r8: data
-
-    if (privilege_check(regs->rsi, regs->rdx)) {
-        return -1;
-    }
-
     return mount((char*)regs->rdi, (char *)regs->rsi, (char *)regs->rdx,
         regs->r10, (void *)regs->r8);
 }
