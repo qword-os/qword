@@ -26,7 +26,7 @@
 #include <lib/rand.h>
 #include <sys/urm.h>
 #include <net/hostname.h>
-#include <net/e1000.h>
+#include <net/nic.h>
 #include <lib/cstring.h>
 
 #include <lai/core.h>
@@ -50,8 +50,8 @@ void kmain_thread(void *arg) {
     /* Initialise device drivers */
     init_dev();
 
-    /* Initialise E1000 based cards. */
-    init_e1000();
+    /* Initialise NICs. */
+    init_nic();
 
     int tty = open("/dev/tty0", O_RDWR);
 

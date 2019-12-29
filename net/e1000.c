@@ -247,6 +247,20 @@ static void e1000_start_transmit(void) {
     e1000_write_command(REG_TIPG, 0x0060200a);
 }
 
+static struct pci_device_t *device = NULL;
+
+int probe_e1000(void) {
+    for (int i = 0; i8254x_devices[i] != 0xffff && !device; i++) {
+        device = pci_get_device_by_vendor(INTEL_VEND, i8254x_devices[i], 0);
+    }
+
+    if (!device) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
 void init_e1000(void) {
     e1000_enabled = 0;
     kprint(KPRN_INFO, "e1000: Initialising E1000 device driver...");

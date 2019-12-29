@@ -31,15 +31,15 @@ QEMUFLAGS = -m 2G -enable-kvm -smp 4
 # Flags for compilation.
 BUILD_TIME := $(shell date)
 
-CHARDFLAGS := $(CFLAGS) \
+CHARDFLAGS := $(CFLAGS)            \
 	-DBUILD_TIME='"$(BUILD_TIME)"' \
 	-std=gnu99                     \
 	-masm=intel                    \
 	-fno-pic                       \
 	-mno-sse                       \
 	-mno-sse2                      \
-    -mno-mmx                        \
-    -mno-80387                      \
+	-mno-mmx                       \
+	-mno-80387                     \
 	-mno-red-zone                  \
 	-mcmodel=kernel                \
 	-ffreestanding                 \
@@ -64,7 +64,7 @@ LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld
 QEMUHARDFLAGS := $(QEMUFLAGS)          \
 	-kernel $(KERNELBIN)               \
 	-debugcon stdio                    \
-	-net nic,macaddr=00:00:00:11:11:11 \
+	# -netdev tap,id=mynet0,ifname=tap0,script=no,downscript=no -device rtl8139,netdev=mynet0
 
 .PHONY: all prepare build install uninstall clean run
 
