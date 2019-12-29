@@ -108,7 +108,7 @@ void init_dev_sata(void) {
     struct pci_device_t *device;
     ahci_devices = kalloc(MAX_AHCI_DEVICES * sizeof(struct ahci_device_t));
 
-    device = pci_get_device(AHCI_CLASS, AHCI_SUBCLASS, AHCI_PROG_IF);
+    device = pci_get_device(AHCI_CLASS, AHCI_SUBCLASS, AHCI_PROG_IF, 0);
     if (!device) {
         kprint(KPRN_INFO, "ahci: Failed to find AHCI controller. SATA support unavailable");
         return;

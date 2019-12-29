@@ -37,8 +37,8 @@ void pci_write_device_dword(struct pci_device_t *device, uint32_t offset, uint32
 int pci_read_bar(struct pci_device_t *device, int bar, struct pci_bar_t *out);
 void pci_enable_busmastering(struct pci_device_t *device);
 
-struct pci_device_t *pci_get_device(uint8_t class, uint8_t subclass, uint8_t prog_if);
-struct pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t id);
+struct pci_device_t *pci_get_device(uint8_t class, uint8_t subclass, uint8_t prog_if, size_t index);
+struct pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t id, size_t index);
 
 void init_pci(void);
 

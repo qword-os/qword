@@ -102,7 +102,7 @@ out: \
     ret; \
 })
 
-#define dynarray_search(type, dynarray, cond) ({ \
+#define dynarray_search(type, dynarray, i_ptr, cond, index) ({ \
     __label__ fnd; \
     __label__ out; \
     type *ret = NULL; \
@@ -110,11 +110,12 @@ out: \
     spinlock_acquire(&dynarray##_lock); \
         \
     size_t i; \
+    size_t j = 0; \
     for (i = 0; i < dynarray##_i; i++) { \
         if (!dynarray[i] || !dynarray[i]->present) \
             continue; \
         type *elem = &dynarray[i]->data; \
-        if (cond) \
+        if ((cond) && j++ == (index)) \
             goto fnd; \
     } \
     goto out; \
@@ -122,6 +123,7 @@ out: \
 fnd: \
     ret = &dynarray[i]->data; \
     locked_inc(&dynarray[i]->refcount); \
+    *(i_ptr) = i; \
         \
 out: \
     spinlock_release(&dynarray##_lock); \

@@ -230,7 +230,7 @@ void init_dev_ide(void) {
 
     struct pci_device_t *pci_device;
     // TODO figure out correct prog if and define these values elsewhere
-    pci_device = pci_get_device( 0x1, 0x1, 0x85);
+    pci_device = pci_get_device(0x1, 0x1, 0x85, 0);
     if (!pci_device) {
         kprint(KPRN_INFO, "ide: could not find pci device!");
         return;

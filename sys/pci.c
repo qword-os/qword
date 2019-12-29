@@ -109,14 +109,20 @@ void pci_enable_busmastering(struct pci_device_t *device) {
     }
 }
 
-struct pci_device_t *pci_get_device(uint8_t class, uint8_t subclass, uint8_t prog_if) {
-    return dynarray_search(struct pci_device_t, pci_devices, elem->device_class == class
-                            && elem->subclass == subclass && elem->prog_if == prog_if);
+struct pci_device_t *pci_get_device(uint8_t class, uint8_t subclass, uint8_t prog_if, size_t index) {
+    size_t i;
+    struct pci_device_t *ret = dynarray_search(struct pci_device_t, pci_devices, &i, elem->device_class == class
+                            && elem->subclass == subclass && elem->prog_if == prog_if, index);
+    dynarray_unref(pci_devices, i);
+    return ret;
 }
 
-struct pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t id) {
-    return dynarray_search(struct pci_device_t, pci_devices,
-            elem->vendor_id == vendor && elem->device_id == id);
+struct pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t id, size_t index) {
+    size_t i;
+    struct pci_device_t *ret = dynarray_search(struct pci_device_t, pci_devices, &i,
+            elem->vendor_id == vendor && elem->device_id == id, index);
+    dynarray_unref(pci_devices, i);
+    return ret;
 }
 
 static void pci_check_bus(uint8_t, int64_t);
@@ -199,7 +205,7 @@ void init_pci(void) {
 
         if (dev->parent != -1) {
             struct pci_device_t *parent_dev = dynarray_getelem(struct pci_device_t, pci_devices, dev->parent);
-            kprint(KPRN_INFO, "pci:\t\tparent: %2x:%2x.%1x - %4x:%4x", 
+            kprint(KPRN_INFO, "pci:\t\tparent: %2x:%2x.%1x - %4x:%4x",
                     parent_dev->bus, parent_dev->device, parent_dev->func, parent_dev->vendor_id, parent_dev->device_id);
             dynarray_unref(pci_devices, dev->parent);
         } else {

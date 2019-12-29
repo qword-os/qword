@@ -255,7 +255,7 @@ void init_e1000(void) {
     struct pci_device_t *device = NULL;
 
     for (int i = 0; i8254x_devices[i] != 0xffff && !device; i++) {
-        device = pci_get_device_by_vendor(INTEL_VEND, i8254x_devices[i]);
+        device = pci_get_device_by_vendor(INTEL_VEND, i8254x_devices[i], 0);
     }
 
     if (!device) {
@@ -267,7 +267,7 @@ void init_e1000(void) {
     pci_enable_busmastering(device);
 
     // Find IO addresses and other useful info.
-    
+
     struct pci_bar_t bar = {0};
     panic_if(pci_read_bar(device, 0, &bar));
     panic_unless(bar.is_mmio);
