@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include <lai/core.h>
+
 struct pci_device_t {
     int64_t parent;
 
@@ -17,6 +19,14 @@ struct pci_device_t {
     uint8_t device_class;
     uint8_t prog_if;
     int multifunction;
+    uint8_t irq_pin;
+
+    lai_nsnode_t *acpi_node;
+
+    int has_prt;
+    lai_variable_t acpi_prt;
+
+    uint32_t gsi;
 };
 
 struct pci_bar_t {

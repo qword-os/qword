@@ -156,6 +156,13 @@ void kmain(void) {
     /* Init the HPET */
     init_hpet();
 
+    /* LAI */
+    if (!cmdline_get_value(cmdline_val, 64, "acpi") || !strcmp(cmdline_val, "enabled")) {
+        lai_set_acpi_revision(rsdp->rev);
+        lai_create_namespace();
+        // lai_enable_acpi(1);
+    }
+
     /* Initialise PCI */
     init_pci();
 
@@ -163,12 +170,6 @@ void kmain(void) {
     asm volatile ("sti");
     init_smp();
 
-    /* LAI */
-    if (!cmdline_get_value(cmdline_val, 64, "acpi") || !strcmp(cmdline_val, "enabled")) {
-        lai_set_acpi_revision(rsdp->rev);
-        lai_create_namespace();
-        // lai_enable_acpi(1);
-    }
     asm volatile ("cli");
 
     /* Initialise scheduler */

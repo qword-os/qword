@@ -4,6 +4,8 @@
 #include <lib/klib.h>
 #include <lib/alloc.h>
 #include <lib/dynarray.h>
+#include <sys/panic.h>
+#include <lai/helpers/pci.h>
 
 #define MAX_FUNCTION 8
 #define MAX_DEVICE 32
@@ -125,6 +127,70 @@ struct pci_device_t *pci_get_device_by_vendor(uint16_t vendor, uint16_t id, size
     return ret;
 }
 
+#define PCI_PNP_ID  "PNP0A03"
+#define PCIE_PNP_ID "PNP0A08"
+
+static lai_nsnode_t *pci_determine_root_bus_node(uint8_t bus, lai_state_t *state) {
+    LAI_CLEANUP_VAR lai_variable_t pci_pnp_id = LAI_VAR_INITIALIZER;
+    LAI_CLEANUP_VAR lai_variable_t pcie_pnp_id = LAI_VAR_INITIALIZER;
+    lai_eisaid(&pci_pnp_id, PCI_PNP_ID);
+    lai_eisaid(&pcie_pnp_id, PCIE_PNP_ID);
+
+    lai_nsnode_t *sb_handle = lai_resolve_path(NULL, "\\_SB_");
+    panic_unless(sb_handle);
+
+    struct lai_ns_child_iterator iter = LAI_NS_CHILD_ITERATOR_INITIALIZER(sb_handle);
+    lai_nsnode_t *node;
+
+    while ((node = lai_ns_child_iterate(&iter))) {
+        if (lai_check_device_pnp_id(node, &pci_pnp_id, state) &&
+            lai_check_device_pnp_id(node, &pcie_pnp_id, state)) {
+                continue;
+        }
+
+        // this is a root bus
+        LAI_CLEANUP_VAR lai_variable_t bus_number = LAI_VAR_INITIALIZER;
+        uint64_t bbn_result = 0;
+        lai_nsnode_t *bbn_handle = lai_resolve_path(node, "_BBN");
+        if (bbn_handle) {
+            if (lai_eval(&bus_number, bbn_handle, state)) {
+                continue;
+            }
+            lai_obj_get_integer(&bus_number, &bbn_result);
+        }
+
+        if (bbn_result == bus)
+            return node;
+    }
+
+    return NULL;
+}
+
+static void pci_determine_acpi_node_for(struct pci_device_t *device, lai_state_t *state) {
+    if (device->acpi_node)
+        return;
+
+    lai_nsnode_t *node = NULL;
+
+    if (device->parent != -1) {
+        struct pci_device_t *parent = dynarray_getelem(struct pci_device_t, pci_devices, device->parent);
+        if (!parent)
+            return;
+
+        if(!parent->acpi_node)
+            pci_determine_acpi_node_for(parent, state);
+
+        node = parent->acpi_node;
+    } else {
+        node = pci_determine_root_bus_node(device->bus, state);
+    }
+
+    if (!node)
+        return;
+
+    device->acpi_node = lai_pci_find_device(node, device->device, device->func, state);
+}
+
 static void pci_check_bus(uint8_t, int64_t);
 
 static void pci_check_function(uint8_t bus, uint8_t slot, uint8_t func, int64_t parent) {
@@ -141,6 +207,7 @@ static void pci_check_function(uint8_t bus, uint8_t slot, uint8_t func, int64_t 
 
     uint32_t config_8 = pci_read_device_dword(&device, 0x8);
     uint32_t config_c = pci_read_device_dword(&device, 0xc);
+    uint32_t config_3c = pci_read_device_dword(&device, 0x3c);
 
     device.parent = parent;
     device.device_id = (uint16_t)(config_0 >> 16);
@@ -149,6 +216,7 @@ static void pci_check_function(uint8_t bus, uint8_t slot, uint8_t func, int64_t 
     device.subclass = (uint8_t)(config_8 >> 16);
     device.device_class = (uint8_t)(config_8 >> 24);
     device.prog_if = (uint8_t)(config_8 >> 8);
+    device.irq_pin = (uint8_t)(config_3c >> 8);
 
     if (config_c & 0x800000)
         device.multifunction = 1;
@@ -158,9 +226,28 @@ static void pci_check_function(uint8_t bus, uint8_t slot, uint8_t func, int64_t 
     size_t id = dynarray_add(struct pci_device_t, pci_devices, &device);
     available_devices++;
 
-    if ((config_c & 0x7f) == 1) {
+    if (device.device_class == 0x06 && device.subclass == 0x04) {
         // pci to pci bridge
-        uint32_t config_18 = pci_read_device_dword(&device, 0x18);
+        struct pci_device_t *device = dynarray_getelem(struct pci_device_t, pci_devices, id);
+
+        LAI_CLEANUP_STATE lai_state_t state;
+        lai_init_state(&state);
+
+        // attempt to find PRT for this bridge
+        pci_determine_acpi_node_for(device, &state);
+
+        if (device->acpi_node) {
+            lai_nsnode_t *prt_handle = lai_resolve_path(device->acpi_node, "_PRT");
+
+            if (prt_handle) {
+                device->has_prt = !lai_eval(&device->acpi_prt, prt_handle, &state);
+            }
+        }
+
+        dynarray_unref(pci_devices, id);
+
+        // find devices attached to this bridge
+        uint32_t config_18 = pci_read_device_dword(device, 0x18);
         pci_check_bus((config_18 >> 8) & 0xFF, id);
     }
 }
@@ -192,6 +279,72 @@ static void pci_init_root_bus(void) {
     }
 }
 
+static void pci_route_interrupts(void) {
+    LAI_CLEANUP_STATE lai_state_t state;
+    lai_init_state(&state);
+
+    for (size_t i = 0; i < available_devices; i++) {
+        struct pci_device_t *dev = dynarray_getelem(struct pci_device_t, pci_devices, i);
+        dynarray_unref(pci_devices, i);
+
+        if (!dev->irq_pin)
+            continue;
+
+        uint8_t irq_pin = dev->irq_pin;
+        struct pci_device_t *tmp = dev;
+        LAI_CLEANUP_VAR lai_variable_t root_prt = LAI_VAR_INITIALIZER;
+        lai_variable_t *prt = NULL;
+
+        while(1) {
+            if (tmp->parent != -1) {
+                struct pci_device_t *parent = dynarray_getelem(struct pci_device_t, pci_devices, tmp->parent);
+                dynarray_unref(pci_devices, tmp->parent);
+
+                if (!parent->has_prt) {
+                    irq_pin = (((irq_pin - 1) + (tmp->device % 4)) % 4) + 1;
+                } else {
+                    prt = &parent->acpi_prt;
+                    break;
+                }
+                tmp = parent;
+            } else {
+                lai_nsnode_t *node = pci_determine_root_bus_node(tmp->bus, &state);
+
+                lai_nsnode_t *prt_handle = lai_resolve_path(node, "_PRT");
+                if (prt_handle) {
+                    if (lai_eval(&root_prt, prt_handle, &state))
+                        break;
+                }
+
+                prt = &root_prt;
+                break;
+            }
+        }
+
+        if (!prt) {
+            kprint(KPRN_WARN, "failed to get prt for device");
+            continue;
+        }
+
+        struct lai_prt_iterator iter = LAI_PRT_ITERATOR_INITIALIZER(prt);
+        lai_api_error_t err;
+
+        while (!(err = lai_pci_parse_prt(&iter))) {
+            if (iter.slot == tmp->device &&
+                    (iter.function == tmp->func || iter.function == -1) &&
+                    iter.pin == (irq_pin - 1)) {
+                // TODO: care about flags for the IRQ
+
+                dev->gsi = iter.gsi;
+
+                kprint(KPRN_INFO, "pci: device %2x:%2x.%1x routed to gsi %u",
+                        dev->bus, dev->device, dev->func, iter.gsi);
+                break;
+            }
+        }
+    }
+}
+
 void init_pci(void) {
     pci_init_root_bus();
 
@@ -203,16 +356,8 @@ void init_pci(void) {
 
         kprint(KPRN_INFO, "pci:\t%2x:%2x.%1x - %4x:%4x", dev->bus, dev->device, dev->func, dev->vendor_id, dev->device_id);
 
-        if (dev->parent != -1) {
-            struct pci_device_t *parent_dev = dynarray_getelem(struct pci_device_t, pci_devices, dev->parent);
-            kprint(KPRN_INFO, "pci:\t\tparent: %2x:%2x.%1x - %4x:%4x",
-                    parent_dev->bus, parent_dev->device, parent_dev->func, parent_dev->vendor_id, parent_dev->device_id);
-            dynarray_unref(pci_devices, dev->parent);
-        } else {
-            kprint(KPRN_INFO, "pci:\t\ton root bus");
-        }
-
         dynarray_unref(pci_devices, i);
     }
 
+    pci_route_interrupts();
 }
