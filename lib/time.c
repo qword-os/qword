@@ -7,6 +7,13 @@ volatile uint64_t uptime_raw = 0;
 volatile uint64_t uptime_sec = 0;
 volatile uint64_t unix_epoch = 0;
 
+void tick_handler(void) {
+    if (!(++uptime_raw % HPET_FREQUENCY_HZ)) {
+        uptime_sec++;
+        unix_epoch++;
+    }
+}
+
 void ksleep(uint64_t time) {
     /* implements sleep in milliseconds */
 

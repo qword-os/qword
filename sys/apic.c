@@ -56,8 +56,7 @@ void lapic_set_nmi(uint8_t vec, uint16_t flags, uint8_t lint) {
 
 void lapic_install_nmis(void) {
     for (size_t i = 0; i < madt_nmi_i; i++)
-        /* Reserve vectors 0x90 .. lengthof(madt_nmi_ptr) for NMIs. */
-        lapic_set_nmi(0x90 + i, madt_nmis[i]->flags, madt_nmis[i]->lint);
+        lapic_set_nmi(0xf0, madt_nmis[i]->flags, madt_nmis[i]->lint);
 }
 
 void lapic_enable(void) {

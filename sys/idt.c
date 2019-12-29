@@ -1,16 +1,61 @@
 #include <sys/idt.h>
-#include <lib/klib.h>
-#include <lib/cio.h>
 #include <sys/exceptions.h>
-#include <sys/irq.h>
+#include <sys/isrs.h>
 #include <sys/ipi.h>
+#include <lib/lock.h>
+
+static lock_t get_empty_int_lock = new_lock;
+static int free_int_vect_base = 0x80;
+static const int free_int_vect_limit = 0xa0;
+
+int get_empty_int_vector(void) {
+    spinlock_acquire(&get_empty_int_lock);
+    int ret;
+    if (free_int_vect_base == free_int_vect_limit)
+        ret = -1;
+    else
+        ret = free_int_vect_base++;
+    spinlock_release(&get_empty_int_lock);
+    return ret;
+}
+
+struct idt_entry_t {
+    uint16_t offset_lo;
+    uint16_t selector;
+    uint8_t ist;
+    uint8_t type_attr;
+    uint16_t offset_mid;
+    uint32_t offset_hi;
+    uint32_t zero;
+};
+
+struct idt_ptr_t {
+    uint16_t size;
+    /* Start address */
+    uint64_t address;
+} __attribute((packed));
 
 static struct idt_entry_t idt[256];
+extern void *int_thunks[];
+
+static int register_interrupt_handler(size_t vec, void (*handler)(void *), uint8_t ist, uint8_t type) {
+    uint64_t p = (uint64_t)handler;
+
+    idt[vec].offset_lo = (uint16_t)p;
+    idt[vec].selector = 0x08;
+    idt[vec].ist = ist;
+    idt[vec].type_attr = type;
+    idt[vec].offset_mid = (uint16_t)(p >> 16);
+    idt[vec].offset_hi = (uint32_t)(p >> 32);
+    idt[vec].zero = 0;
+
+    return 0;
+}
 
 void init_idt(void) {
     /* Register all interrupts */
     for (size_t i = 0; i < 256; i++)
-        register_interrupt_handler(i, isr_handler_addresses[i], 0, 0x8e);
+        register_interrupt_handler(i, int_thunks[i], 0, 0x8e);
 
     /* Exception handlers */
     register_interrupt_handler(0x0, exc_div0_handler, 0, 0x8e);
@@ -36,24 +81,22 @@ void init_idt(void) {
     register_interrupt_handler(0x1e, exc_security_handler, 0, 0x8e);
 
     register_interrupt_handler(0x20, irq0_handler, 0, 0x8e);
-    register_interrupt_handler(0x21, irq1_handler, 0, 0x8e);
 
     /* Inter-processor interrupts */
     register_interrupt_handler(IPI_ABORT, ipi_abort, 1, 0x8e);
     register_interrupt_handler(IPI_RESCHED, ipi_resched, 1, 0x8e);
     register_interrupt_handler(IPI_ABORTEXEC, ipi_abortexec, 1, 0x8e);
 
-    /* Register a bunch of Local APIC NMI handlers */
-    for (size_t i = 0; i < 16; i++)
-        register_interrupt_handler(0x90 + i, apic_nmi, 1, 0x8e);
-
     /* Register dummy legacy PIC handlers */
     for (size_t i = 0; i < 8; i++)
-        register_interrupt_handler(0xa0 + i, pic0_generic, 1, 0x8e);
+        register_interrupt_handler(0xa0 + i, pic0_generic_handler, 1, 0x8e);
     for (size_t i = 0; i < 8; i++)
-        register_interrupt_handler(0xa8 + i, pic1_generic, 1, 0x8e);
+        register_interrupt_handler(0xa8 + i, pic1_generic_handler, 1, 0x8e);
 
-    register_interrupt_handler(0xff, apic_spurious, 1, 0x8e);
+    /* Register local APIC NMI handler */
+    register_interrupt_handler(0xf0, apic_nmi_handler, 1, 0x8e);
+
+    register_interrupt_handler(0xff, apic_spurious_handler, 1, 0x8e);
 
     struct idt_ptr_t idt_ptr = {
         sizeof(idt) - 1,
@@ -65,31 +108,4 @@ void init_idt(void) {
         :
         : "m" (idt_ptr)
     );
-}
-
-int register_isr(size_t vec, void (**functions)(int, struct regs_t *),
-                 size_t count, uint8_t ist, uint8_t type) {
-    if (!isr_function_addresses[vec][0])
-        isr_function_addresses[vec][0] = (void *)1;
-    size_t current_available_vector = (size_t)isr_function_addresses[vec][0];
-    for (size_t i = 0; i < count; i++)
-        isr_function_addresses[vec][current_available_vector++] = (void *)functions[i];
-    isr_function_addresses[vec][0] = (void *)current_available_vector;
-    idt[vec].ist = ist;
-    idt[vec].type_attr = type;
-    return 0;
-}
-
-int register_interrupt_handler(size_t vec, void (*handler)(void), uint8_t ist, uint8_t type) {
-    uint64_t p = (uint64_t)handler;
-
-    idt[vec].offset_lo = (uint16_t)p;
-    idt[vec].selector = 0x08;
-    idt[vec].ist = ist;
-    idt[vec].type_attr = type;
-    idt[vec].offset_mid = (uint16_t)(p >> 16);
-    idt[vec].offset_hi = (uint32_t)(p >> 32);
-    idt[vec].zero = 0;
-
-    return 0;
 }

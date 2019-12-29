@@ -5,10 +5,10 @@
 #include <devices/term/tty/tty.h>
 #include <lib/lock.h>
 #include <lib/event.h>
-#include <sys/irq.h>
 #include <lib/cio.h>
 #include <proc/task.h>
 #include <lib/signal.h>
+#include <sys/idt.h>
 
 #define MAX_CODE 0x57
 #define CAPSLOCK 0x3a
@@ -177,7 +177,7 @@ static void kbd_handler(void *unused) {
     (void)unused;
 
 await:
-    event_await(&irq[1]);
+    event_await(&int_event[0x21]);
     uint8_t input_byte = port_in_b(0x60);
 
     char c = '\0';

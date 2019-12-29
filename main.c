@@ -18,7 +18,6 @@
 #include <proc/elf.h>
 #include <sys/pci.h>
 #include <lib/time.h>
-#include <sys/irq.h>
 #include <sys/panic.h>
 #include <fs/fs.h>
 #include <fd/fd.h>

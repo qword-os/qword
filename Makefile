@@ -38,6 +38,8 @@ CHARDFLAGS := $(CFLAGS) \
 	-fno-pic                       \
 	-mno-sse                       \
 	-mno-sse2                      \
+    -mno-mmx                        \
+    -mno-80387                      \
 	-mno-red-zone                  \
 	-mcmodel=kernel                \
 	-ffreestanding                 \
