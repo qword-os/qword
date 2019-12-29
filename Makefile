@@ -11,6 +11,7 @@ ASMFILES  := $(shell find . -type f -name '*.asm')
 REALFILES := $(shell find . -type f -name '*.real')
 BINS      := $(REALFILES:.real=.bin)
 OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.o)
+DEPS      := $(OBJ:.o=.d)
 
 # User options.
 DBGOUT = no
@@ -65,16 +66,13 @@ QEMUHARDFLAGS := $(QEMUFLAGS)          \
 
 .PHONY: all prepare build install uninstall clean run
 
-all:
-	$(MAKE) prepare
-	$(MAKE) build
-
-prepare: $(LAI_DIR)
+all: $(LAI_DIR)
 ifeq ($(PULLREPOS), true)
 	cd $(LAI_DIR) && git pull
 else
 	true # -- NOT PULLING LAI REPO -- #
 endif
+	$(MAKE) build
 
 $(LAI_DIR):
 	git clone $(LAI_URL) $(LAI_DIR)
@@ -90,8 +88,10 @@ install: all
 uninstall:
 	rm -f $(DESTDIR)$(PREFIX)/boot/$(KERNELBIN)
 
+-include $(DEPS)
+
 %.o: %.c
-	$(CC) $(CHARDFLAGS) -c $< -o $@
+	$(CC) $(CHARDFLAGS) -MMD -c $< -o $@
 
 %.bin: %.real
 	$(AS) $< -f bin -o $@
@@ -100,7 +100,7 @@ uninstall:
 	$(AS) $< -f elf64 -o $@
 
 clean:
-	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF)
+	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF) $(DEPS)
 
 run:
 	$(QEMU) $(QEMUHARDFLAGS)
