@@ -336,6 +336,8 @@ static void pci_route_interrupts(void) {
                 // TODO: care about flags for the IRQ
 
                 dev->gsi = iter.gsi;
+                dev->gsi_flags |= (!!iter.active_low) << 2;
+                dev->gsi_flags |= (!!iter.level_triggered) << 8;
 
                 kprint(KPRN_INFO, "pci: device %2x:%2x.%1x routed to gsi %u",
                         dev->bus, dev->device, dev->func, iter.gsi);

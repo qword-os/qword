@@ -102,16 +102,18 @@ uint32_t io_apic_get_max_redirect(size_t io_apic_num) {
     return (io_apic_read(io_apic_num, 1) & 0xff0000) >> 16;
 }
 
-void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t apic, int status) {
+static void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, int cpu, int status) {
     size_t io_apic = io_apic_from_redirect(gsi);
 
     /* Map APIC irqs to vectors beginning after exceptions */
     uint64_t redirect = irq + 0x20;
 
+    // Active high(0) or low(1)
     if (flags & 2) {
         redirect |= (1 << 13);
     }
 
+    // Edge(0) or level(1) triggered
     if (flags & 8) {
         redirect |= (1 << 15);
     }
@@ -122,27 +124,28 @@ void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, uint8_t api
     }
 
     /* Set target APIC ID */
-    redirect |= ((uint64_t)apic) << 56;
+    redirect |= ((uint64_t)cpu_locals[cpu].lapic_id) << 56;
     uint32_t ioredtbl = (gsi - madt_io_apics[io_apic]->gsib) * 2 + 16;
 
     io_apic_write(io_apic, ioredtbl + 0, (uint32_t)redirect);
     io_apic_write(io_apic, ioredtbl + 1, (uint32_t)(redirect >> 32));
 }
 
-void io_apic_set_mask(int cpu, int irq, int status) {
-    uint8_t apic = cpu_locals[cpu].lapic_id;
-
+void io_apic_connect_gsi_to_irq(int cpu, uint8_t irq, int64_t gsi, uint16_t flags, int status) {
     /* Redirect will handle whether the IRQ is masked or not, we just need to search the
      * MADT ISOs for a corresponding IRQ */
-    for (size_t i = 0; i < madt_iso_i; i++) {
-        if (madt_isos[i]->irq_source == irq) {
-            io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
-                            madt_isos[i]->flags, apic, status);
-            return;
+    if (gsi == -1) {
+        // Default redirection
+        for (size_t i = 0; i < madt_iso_i; i++) {
+            if (madt_isos[i]->irq_source == irq) {
+                io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
+                                madt_isos[i]->flags, cpu, status);
+                return;
+            }
         }
+    } else {
+        io_apic_set_redirect(irq, gsi, flags, cpu, status);
     }
-
-    io_apic_set_redirect(irq, irq, 0, apic, status);
 }
 
 uint32_t *lapic_eoi_ptr;

@@ -27,6 +27,7 @@ struct pci_device_t {
     lai_variable_t acpi_prt;
 
     uint32_t gsi;
+    uint16_t gsi_flags;
 };
 
 struct pci_bar_t {
