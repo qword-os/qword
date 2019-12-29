@@ -143,6 +143,7 @@ void io_apic_connect_gsi_to_irq(int cpu, uint8_t irq, int64_t gsi, uint16_t flag
                 return;
             }
         }
+        io_apic_set_redirect(irq, irq, flags, cpu, status);
     } else {
         io_apic_set_redirect(irq, gsi, flags, cpu, status);
     }
