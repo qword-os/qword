@@ -406,6 +406,8 @@ syscall_table:
     dq syscall_setuid ;39
     extern syscall_sleep
     dq syscall_sleep ;40
+    extern syscall_mount
+    dq syscall_mount ;41
   .end:
 
 section .text
