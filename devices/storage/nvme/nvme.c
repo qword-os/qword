@@ -15,7 +15,7 @@
 #define CACHE_NOT_READY 0
 #define CACHE_READY 1
 #define CACHE_DIRTY 2
-#define MAX_CACHED_BLOCKS 8192
+#define MAX_CACHED_BLOCKS 512
 
 struct nvme_queue {
     volatile struct nvme_command *submit;
@@ -53,6 +53,7 @@ typedef struct {
     size_t overwritten_slot;
     size_t num_lbas;
     size_t cache_block_size;
+    size_t max_transfer_shift;
 } nvme_device_t;
 
 nvme_device_t *nvme_devices;
@@ -135,9 +136,15 @@ int nvme_identify(int device, struct nvme_id_ctrl *id) {
     if (status != 0) {
         return -1;
     }
-    //maximum data transfer in units of minimum page size.
-    nvme_devices[device].max_prps = ((id->mdts != 0) ? (id->mdts - 1) : 15);
-    nvme_devices[device].cache_block_size = PAGE_SIZE * nvme_devices[device].max_prps;
+
+    int shift = 12 + NVME_CAP_MPSMIN(nvme_devices[device].nvme_base->cap);
+    size_t max_transf_shift;
+    if(id->mdts) {
+        max_transf_shift = shift + id->mdts;
+    } else {
+        max_transf_shift = 20;
+    }
+    nvme_devices[device].max_transfer_shift = max_transf_shift;
     return 0;
 }
 
@@ -152,6 +159,7 @@ int nvme_get_ns_info(int device, int ns_num, struct nvme_id_ns *id_ns) {
     if (status != 0) {
         return -1;
     }
+
     return 0;
 }
 
@@ -445,21 +453,29 @@ int nvme_init_device(struct pci_device_t *ndevice, int num) {
         kprint(KPRN_ERR, "nvme: Failed to identify NVME device");
         return -1;
     }
-    status = nvme_create_queue_pair(num, 1);
-    if (status != 0) {
-        kprint(KPRN_ERR, "nvme: Failed to create i/o queues");
-        return -1;
-    }
-    struct nvme_id_ns *id_ns = kalloc(sizeof(struct nvme_id_ns));
+
+	struct nvme_id_ns *id_ns = kalloc(sizeof(struct nvme_id_ns));
     nvme_get_ns_info(num, 1, id_ns);
     if (status != 0) {
         kprint(KPRN_ERR, "nvme: Failed to get namespace info for namespace 1");
         return -1;
     }
 
+    //The maximum transfer size is in units of 2^(min page size)
+    size_t lba_shift = id_ns->lbaf[id_ns->flbas & NVME_NS_FLBAS_LBA_MASK].ds;
+    size_t max_lbas = 1 << (nvme_devices[num].max_transfer_shift - lba_shift);
+    nvme_devices[num].max_prps = (max_lbas * (1 << lba_shift)) / PAGE_SIZE;
+    nvme_devices[num].cache_block_size = (max_lbas * (1 << lba_shift));
+
+    status = nvme_create_queue_pair(num, 1);
+    if (status != 0) {
+        kprint(KPRN_ERR, "nvme: Failed to create i/o queues");
+        return -1;
+    }
+
     size_t formatted_lba = id_ns->flbas & NVME_NS_FLBAS_LBA_MASK;
     nvme_devices[num].lba_size = 1 << id_ns->lbaf[formatted_lba].ds;
-    kprint(KPRN_INFO, "nvme: namspace 1 size %X lbas, lba size: %X bytes", id_ns->nsze, nvme_devices[num].lba_size);
+    kprint(KPRN_INFO, "nvme: namespace 1 size %X lbas, lba size: %X bytes", id_ns->nsze, nvme_devices[num].lba_size);
     nvme_devices[num].num_lbas = id_ns->nsze;
     nvme_devices[num].cache = kalloc(sizeof(cached_block_t) * MAX_CACHED_BLOCKS);
 
