@@ -14,6 +14,7 @@
 #define MAC_07_REG           0X04
 #define RECEIVE_BUFFER_START 0x30 // Didnt find a name so gave one of my own.
 #define COMMAND_REG          0x37
+#define CAPR                 0x38 // CAPR - isun xdddd
 #define RCR_REG              0x44
 #define CONFIG_1_REG         0x52
 #define IMR_REG              0x3c
@@ -25,6 +26,7 @@
 // Important values.
 #define ROK (1 << 0)
 #define TOK (1 << 2)
+#define RECEIVE_READ_POINTER_MASK (~3)
 
 // PCI device for the card.
 static struct pci_device_t *device = NULL;
@@ -37,7 +39,26 @@ static size_t current_packet;
 static uint8_t *receive_buffer;
 
 static void rtl8139_receive_packet(void) {
-    return;
+    uint16_t *t = (uint16_t *)(receive_buffer + MEM_PHYS_OFFSET + current_packet);
+    // Skip packet header, get packet length
+    uint16_t packet_length = *(t + 1);
+
+    // Skip, packet header and packet length, now t points to the packet data
+    t = t + 2;
+
+    // Now, ethernet layer starts to handle the packet(be sure to make a copy of the packet, insteading of using the buffer)
+    // and probabbly this should be done in a separate thread...
+    // void *packet = kmalloc(packet_length);
+    // memcpy(packet, t, packet_length);
+    // ethernet_handle_packet(packet, packet_length);
+
+    current_packet = (current_packet + packet_length + 4 + 3) & RECEIVE_READ_POINTER_MASK;
+
+    if (current_packet > RECEIVE_SIZE) {
+        current_packet -= RECEIVE_SIZE;
+    }
+
+    port_out_w(io_address + CAPR, current_packet - 0x10);
 }
 
 static void rtl8139_handler(void) {
