@@ -24,7 +24,8 @@ uint32_t io_apic_read(size_t, uint32_t);
 void io_apic_write(size_t, uint32_t, uint32_t);
 size_t io_apic_from_redirect(uint32_t);
 uint32_t io_apic_get_max_redirect(size_t);
-void io_apic_connect_gsi_to_irq(int cpu, uint8_t irq, int64_t gsi, uint16_t flags, int status);
+void io_apic_set_up_legacy_irq(int cpu, uint8_t irq, int status);
+void io_apic_connect_gsi_to_vec(int cpu, uint8_t vec, uint32_t gsi, uint16_t flags, int status);
 
 void init_apic(void);
 

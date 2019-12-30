@@ -38,7 +38,7 @@ struct idt_ptr_t {
 static struct idt_entry_t idt[256];
 extern void *int_thunks[];
 
-static int register_interrupt_handler(size_t vec, void (*handler)(void *), uint8_t ist, uint8_t type) {
+static int register_interrupt_handler(size_t vec, void *handler, uint8_t ist, uint8_t type) {
     uint64_t p = (uint64_t)handler;
 
     idt[vec].offset_lo = (uint16_t)p;

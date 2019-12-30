@@ -239,6 +239,6 @@ void init_dev_tty(void) {
         device_add(&device);
     }
 
-    io_apic_connect_gsi_to_irq(0, 1, -1, 0, 1);
+    io_apic_set_up_legacy_irq(0, 1, 1);
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, kbd_handler, 0));
 }

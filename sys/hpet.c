@@ -90,5 +90,5 @@ void init_hpet(void) {
     hpet->general_configuration = tmp;
 
     kprint(KPRN_INFO, "hpet: Unmasking IRQ #0");
-    io_apic_connect_gsi_to_irq(0, 0, -1, 0, 1);
+    io_apic_set_up_legacy_irq(0, 0, 1);
 }

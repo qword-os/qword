@@ -1,5 +1,6 @@
 #include <sys/pci.h>
 #include <sys/idt.h>
+#include <sys/apic.h>
 #include <lib/klib.h>
 #include <lib/cio.h>
 #include <mm/mm.h>
@@ -63,7 +64,7 @@ static void rtl8139_receive_packet(void) {
 
 static void rtl8139_handler(void) {
     for (;;) {
-        event_await(&int_event[irq_line + 0x20]);
+        event_await(&int_event[irq_line]);
         uint16_t status = port_in_w(io_address + REQUEST_REG);
 
         if (status & TOK) {
@@ -101,7 +102,7 @@ void init_rtl8139(void) {
 
     // Get information required for accessing the card and busmaster.
     io_address = pci_read_device_dword(device, 0x10) & ~0x3;
-    irq_line = get_empty_int_vector() - 0x20;
+    irq_line = get_empty_int_vector();
     pci_enable_busmastering(device);
     kprint(KPRN_INFO, "rtl8139: Addressing in IO %x and IRQ line %x", io_address, irq_line);
 
@@ -133,6 +134,6 @@ void init_rtl8139(void) {
         rtl8139_mac[5]);
 
     // Register the interrupt with its handler.
-    io_apic_connect_gsi_to_irq(0, irq_line, device->gsi, device->gsi_flags, 1);
+    io_apic_connect_gsi_to_vec(0, irq_line, device->gsi, device->gsi_flags, 1);
     task_tcreate(0, tcreate_fn_call, tcreate_fn_call_data(0, rtl8139_handler, 0));
 }

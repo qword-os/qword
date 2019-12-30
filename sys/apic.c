@@ -101,11 +101,10 @@ uint32_t io_apic_get_max_redirect(size_t io_apic_num) {
     return (io_apic_read(io_apic_num, 1) & 0xff0000) >> 16;
 }
 
-static void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, int cpu, int status) {
+static void io_apic_set_redirect(uint8_t vec, uint32_t gsi, uint16_t flags, int cpu, int status) {
     size_t io_apic = io_apic_from_redirect(gsi);
 
-    /* Map APIC irqs to vectors beginning after exceptions */
-    uint64_t redirect = irq + 0x20;
+    uint64_t redirect = vec;
 
     // Active high(0) or low(1)
     if (flags & 2) {
@@ -130,22 +129,21 @@ static void io_apic_set_redirect(uint8_t irq, uint32_t gsi, uint16_t flags, int 
     io_apic_write(io_apic, ioredtbl + 1, (uint32_t)(redirect >> 32));
 }
 
-void io_apic_connect_gsi_to_irq(int cpu, uint8_t irq, int64_t gsi, uint16_t flags, int status) {
+void io_apic_set_up_legacy_irq(int cpu, uint8_t irq, int status) {
     /* Redirect will handle whether the IRQ is masked or not, we just need to search the
      * MADT ISOs for a corresponding IRQ */
-    if (gsi == -1) {
-        // Default redirection
-        for (size_t i = 0; i < madt_iso_i; i++) {
-            if (madt_isos[i]->irq_source == irq) {
-                io_apic_set_redirect(madt_isos[i]->irq_source, madt_isos[i]->gsi,
-                                madt_isos[i]->flags, cpu, status);
-                return;
-            }
+    for (size_t i = 0; i < madt_iso_i; i++) {
+        if (madt_isos[i]->irq_source == irq) {
+            io_apic_set_redirect(madt_isos[i]->irq_source + 0x20, madt_isos[i]->gsi,
+                            madt_isos[i]->flags, cpu, status);
+            return;
         }
-        io_apic_set_redirect(irq, irq, flags, cpu, status);
-    } else {
-        io_apic_set_redirect(irq, gsi, flags, cpu, status);
     }
+    io_apic_set_redirect(irq + 0x20, irq, 0, cpu, status);
+}
+
+void io_apic_connect_gsi_to_vec(int cpu, uint8_t vec, uint32_t gsi, uint16_t flags, int status) {
+    io_apic_set_redirect(vec, gsi, flags, cpu, status);
 }
 
 uint32_t *lapic_eoi_ptr;
