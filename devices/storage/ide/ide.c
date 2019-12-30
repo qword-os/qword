@@ -13,7 +13,10 @@
 #define DEVICE_COUNT 4
 #define BYTES_PER_SECT 512
 
-#define MAX_CACHED_SECTORS 8192
+#define SECTORS_PER_BLOCK 100
+#define BYTES_PER_BLOCK (SECTORS_PER_BLOCK * BYTES_PER_SECT)
+
+#define MAX_CACHED_BLOCKS 8192
 
 #define CACHE_NOT_READY 0
 #define CACHE_READY 1
@@ -21,7 +24,7 @@
 
 typedef struct {
     uint8_t *cache;
-    uint64_t sector;
+    uint64_t block;
     int status;
 } cached_sector_t;
 
@@ -49,7 +52,6 @@ typedef struct {
     uint16_t control_port;
 
     uint64_t sector_count;
-    uint16_t bytes_per_sector;
 
     uint32_t bar4;
     uint32_t bmr_command;
@@ -60,6 +62,7 @@ typedef struct {
     uint8_t *prdt_cache;
 
     cached_sector_t *cache;
+    int overwritten_slot;
 } ide_device;
 
 static const char *ide_basename = "ide";
@@ -67,25 +70,19 @@ static const char *ide_basename = "ide";
 static const uint16_t ide_ports[] = { 0x1f0, 0x1f0, 0x170, 0x170 };
 static const int max_ports = 4;
 
-static int ide_read(int drive, void *buf, uint64_t loc, size_t count);
-static int ide_write(int drive, const void *buf, uint64_t loc, size_t count);
 static ide_device init_ide_device(uint16_t port_base, int master,
         struct pci_device_t *pci);
 static void ide_identify(ide_device* dev, struct pci_device_t *pci);
-static int ide_read28(int disk, uint32_t sector, uint8_t *buffer);
-static int ide_read48(int disk, uint64_t sector, uint8_t *buffer);
-static int ide_write28(int disk, uint32_t sector, uint8_t *buffer);
-static int ide_write48(int disk, uint64_t sector, uint8_t *buffer);
-static int ide_flush(int disk);
-static int ide_flush_ext(int disk);
+static int ide_read48(int disk, uint64_t sector, uint16_t count, uint8_t *buffer);
+static int ide_write48(int disk, uint64_t sector, uint16_t count, uint8_t *buffer);
 
 static ide_device ide_devices[DEVICE_COUNT];
 
 static lock_t ide_lock = new_lock;
 
-static int find_sect(int drive, uint64_t sect) {
-    for (size_t i = 0; i < MAX_CACHED_SECTORS; i++)
-        if ((ide_devices[drive].cache[i].sector == sect)
+static int find_block(int drive, uint64_t block) {
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++)
+        if ((ide_devices[drive].cache[i].block == block)
             && (ide_devices[drive].cache[i].status))
             return i;
 
@@ -93,28 +90,23 @@ static int find_sect(int drive, uint64_t sect) {
 
 }
 
-static int overwritten_slot = 0;
-
-static int cache_sect(int drive, int sect) {
+static int cache_block(int drive, uint64_t block) {
     int targ;
     int ret;
 
     /* Find empty sector */
-    for (targ = 0; targ < MAX_CACHED_SECTORS; targ++)
+    for (targ = 0; targ < MAX_CACHED_BLOCKS; targ++)
         if (!ide_devices[drive].cache[targ].status) goto fnd;
 
     /* Slot not find, overwrite another */
-    if (overwritten_slot == MAX_CACHED_SECTORS)
-        overwritten_slot = 0;
+    if (ide_devices[drive].overwritten_slot == MAX_CACHED_BLOCKS)
+        ide_devices[drive].overwritten_slot = 0;
 
-    targ = overwritten_slot++;
+    targ = ide_devices[drive].overwritten_slot++;
 
     /* Flush device cache */
     if (ide_devices[drive].cache[targ].status == CACHE_DIRTY) {
-        if (sect <= 0x0fffffff)
-            ret = ide_write28(drive, (uint32_t)ide_devices[drive].cache[targ].sector, ide_devices[drive].cache[targ].cache);
-        else
-            ret = ide_write48(drive, ide_devices[drive].cache[targ].sector, ide_devices[drive].cache[targ].cache);
+        ret = ide_write48(drive, ide_devices[drive].cache[targ].block * SECTORS_PER_BLOCK, SECTORS_PER_BLOCK, ide_devices[drive].cache[targ].cache);
 
         if (ret == -1) return -1;
     }
@@ -123,19 +115,16 @@ static int cache_sect(int drive, int sect) {
 
 fnd:
     /* Allocate some cache for this device */
-    ide_devices[drive].cache[targ].cache = kalloc(BYTES_PER_SECT);
+    ide_devices[drive].cache[targ].cache = kalloc(BYTES_PER_BLOCK);
 
 notfnd:
 
     /* Load sector into cache */
-    if (sect <= 0x0fffffff)
-        ret = ide_read28(drive, (uint32_t)sect, ide_devices[drive].cache[targ].cache);
-    else
-        ret = ide_read48(drive, sect, ide_devices[drive].cache[targ].cache);
+    ret = ide_read48(drive, block * SECTORS_PER_BLOCK, SECTORS_PER_BLOCK, ide_devices[drive].cache[targ].cache);
 
     if (ret == -1) return -1;
 
-    ide_devices[drive].cache[targ].sector = sect;
+    ide_devices[drive].cache[targ].block = block;
     ide_devices[drive].cache[targ].status = CACHE_READY;
 
     return targ;
@@ -147,10 +136,10 @@ static int ide_read(int drive, void *buf, uint64_t loc, size_t count) {
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the sector */
-        uint64_t sect = (loc + progress) / BYTES_PER_SECT;
-        int slot = find_sect(drive, sect);
+        uint64_t block = (loc + progress) / BYTES_PER_BLOCK;
+        int slot = find_block(drive, block);
         if (slot == -1) {
-            slot = cache_sect(drive, sect);
+            slot = cache_block(drive, block);
             if (slot == -1) {
                 spinlock_release(&ide_lock);
                 return -1;
@@ -158,9 +147,9 @@ static int ide_read(int drive, void *buf, uint64_t loc, size_t count) {
         }
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (loc + progress) % BYTES_PER_SECT;
-        if (chunk > BYTES_PER_SECT - offset)
-            chunk = BYTES_PER_SECT - offset;
+        uint64_t offset = (loc + progress) % BYTES_PER_BLOCK;
+        if (chunk > BYTES_PER_BLOCK - offset)
+            chunk = BYTES_PER_BLOCK - offset;
 
         memcpy(buf + progress, &ide_devices[drive].cache[slot].cache[offset], chunk);
         progress += chunk;
@@ -176,10 +165,10 @@ static int ide_write(int drive, const void *buf, uint64_t loc, size_t count) {
     uint64_t progress = 0;
     while (progress < count) {
         /* cache the sector */
-        uint64_t sect = (loc + progress) / BYTES_PER_SECT;
-        int slot = find_sect(drive, sect);
+        uint64_t block = (loc + progress) / BYTES_PER_BLOCK;
+        int slot = find_block(drive, block);
         if (slot == -1) {
-            slot = cache_sect(drive, sect);
+            slot = cache_block(drive, block);
             if (slot == -1) {
                 spinlock_release(&ide_lock);
                 return -1;
@@ -187,9 +176,9 @@ static int ide_write(int drive, const void *buf, uint64_t loc, size_t count) {
         }
 
         uint64_t chunk = count - progress;
-        uint64_t offset = (loc + progress) % BYTES_PER_SECT;
-        if (chunk > BYTES_PER_SECT - offset)
-            chunk = BYTES_PER_SECT - offset;
+        uint64_t offset = (loc + progress) % BYTES_PER_BLOCK;
+        if (chunk > BYTES_PER_BLOCK - offset)
+            chunk = BYTES_PER_BLOCK - offset;
 
         memcpy(&ide_devices[drive].cache[slot].cache[offset], buf + progress, chunk);
         ide_devices[drive].cache[slot].status = CACHE_DIRTY;
@@ -200,17 +189,14 @@ static int ide_write(int drive, const void *buf, uint64_t loc, size_t count) {
     return (int)count;
 }
 
-static int ide_flush1(int device) {
+static int ide_flush(int device) {
     spinlock_acquire(&ide_lock);
 
-    for (size_t i = 0; i < MAX_CACHED_SECTORS; i++) {
+    for (size_t i = 0; i < MAX_CACHED_BLOCKS; i++) {
         if (ide_devices[device].cache[i].status == CACHE_DIRTY) {
             int ret;
 
-            if (ide_devices[device].cache[i].sector <= 0x0fffffff)
-                ret = ide_write28(device, (uint32_t)ide_devices[device].cache[i].sector, ide_devices[device].cache[i].cache);
-            else
-                ret = ide_write48(device, ide_devices[device].cache[i].sector, ide_devices[device].cache[i].cache);
+            ret = ide_write48(device, ide_devices[device].cache[i].block * SECTORS_PER_BLOCK, SECTORS_PER_BLOCK, ide_devices[device].cache[i].cache);
 
             if (ret == -1) {
                 spinlock_release(&ide_lock);
@@ -230,7 +216,7 @@ void init_dev_ide(void) {
 
     struct pci_device_t *pci_device;
     // TODO figure out correct prog if and define these values elsewhere
-    pci_device = pci_get_device(0x1, 0x1, 0x85, 0);
+    pci_device = pci_get_device(0x1, 0x1, 0x80, 0);
     if (!pci_device) {
         kprint(KPRN_INFO, "ide: could not find pci device!");
         return;
@@ -260,7 +246,7 @@ void init_dev_ide(void) {
         device.size = ide_devices[i].sector_count * 512;
         device.calls.read = ide_read;
         device.calls.write = ide_write;
-        device.calls.flush = ide_flush1;
+        device.calls.flush = ide_flush;
         device_add(&device);
         enum_partitions(dev_name, &device);
     }
@@ -289,15 +275,12 @@ static ide_device init_ide_device(uint16_t port_base, int master,
     dev.bmr_status = dev.bar4 + 0x2;
     dev.bmr_prdt = dev.bar4 + 0x4;
 
-    dev.bytes_per_sector = 512;
-
     ide_identify(&dev, pci);
 
     return dev;
 }
 
 static void ide_identify(ide_device* dev, struct pci_device_t *pci) {
-    uint32_t cmd_register = 0;
     if (dev->master)
         port_out_b(dev->device_port, 0xa0);
     else
@@ -354,13 +337,13 @@ success:
 
     dev->prdt_phys = (uint32_t)(size_t)pmm_allocz(1);
     dev->prdt = (struct prdt_t *)((size_t)dev->prdt_phys + MEM_PHYS_OFFSET);
-    dev->prdt->buffer_phys = (uint32_t)(size_t)pmm_allocz(1);
+    dev->prdt->buffer_phys = (uint32_t)(size_t)pmm_allocz(DIV_ROUNDUP(BYTES_PER_BLOCK, PAGE_SIZE));
     dev->prdt_cache = (uint8_t *)((size_t)dev->prdt->buffer_phys + MEM_PHYS_OFFSET);
-    dev->prdt->transfer_size = BYTES_PER_SECT;
+    dev->prdt->transfer_size = BYTES_PER_BLOCK;
     dev->prdt->mark_end = 0x8000;
-    dev->cache = kalloc(MAX_CACHED_SECTORS * sizeof(cached_sector_t));
+    dev->cache = kalloc(MAX_CACHED_BLOCKS * sizeof(cached_sector_t));
 
-    cmd_register = pci_read_device_dword(pci, 0x4);
+    uint32_t cmd_register = pci_read_device_dword(pci, 0x4);
     if (!(cmd_register & (1 << 2))) {
         cmd_register |= (1 << 2);
         pci_write_device_dword(pci, 0x4, cmd_register);
@@ -373,41 +356,7 @@ success:
     dev->exists = 1;
 }
 
-static int ide_read28(int disk, uint32_t sector, uint8_t *buffer) {
-    ide_device *dev = &ide_devices[disk];
-    port_out_b(dev->bmr_command, 0);
-    port_out_d(dev->bmr_prdt, dev->prdt_phys);
-    uint8_t bmr_status = port_in_b(dev->bmr_status);
-    port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
-    if (ide_devices[disk].master)
-        port_out_b(ide_devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
-    else
-        port_out_b(ide_devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
-
-    port_out_b(ide_devices[disk].sector_count_port, 1);
-    port_out_b(ide_devices[disk].lba_low_port, sector & 0x000000FF);
-    port_out_b(ide_devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
-    port_out_b(ide_devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
-
-    port_out_b(ide_devices[disk].command_port, 0xC8); // READ_DMA command
-    port_out_b(dev->bmr_command, 0x8 | 0x1);
-
-    uint8_t status = port_in_b(ide_devices[disk].command_port);
-    while (((status & 0x80) == 0x80)
-        && ((status & 0x01) != 0x01))
-        status = port_in_b(ide_devices[disk].command_port);
-    port_out_b(dev->bmr_command, 0);
-
-    if (status & 0x01) {
-        kprint(KPRN_ERR, "ide: Error reading sector %u on drive %u", sector, disk);
-        return -1;
-    }
-
-    memcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
-    return 0;
-}
-
-static int ide_read48(int disk, uint64_t sector, uint8_t *buffer) {
+static int ide_read48(int disk, uint64_t sector, uint16_t count, uint8_t *buffer) {
     ide_device *dev = &ide_devices[disk];
     port_out_b(dev->bmr_command, 0);
     port_out_d(dev->bmr_prdt, dev->prdt_phys);
@@ -418,11 +367,11 @@ static int ide_read48(int disk, uint64_t sector, uint8_t *buffer) {
     else
         port_out_b(ide_devices[disk].device_port, 0x50);
 
-    port_out_b(ide_devices[disk].sector_count_port, 0);   // sector count high byte
+    port_out_b(ide_devices[disk].sector_count_port, (uint8_t)(count >> 8));   // sector count high byte
     port_out_b(ide_devices[disk].lba_low_port, (uint8_t)((sector & 0x000000FF000000) >> 24));
     port_out_b(ide_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000FF00000000) >> 32));
     port_out_b(ide_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00FF0000000000) >> 40));
-    port_out_b(ide_devices[disk].sector_count_port, 1);   // sector count low byte
+    port_out_b(ide_devices[disk].sector_count_port, (uint8_t)(count & 0xff));   // sector count low byte
     port_out_b(ide_devices[disk].lba_low_port, (uint8_t)(sector & 0x000000000000FF));
     port_out_b(ide_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
     port_out_b(ide_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
@@ -441,49 +390,11 @@ static int ide_read48(int disk, uint64_t sector, uint8_t *buffer) {
         return -1;
     }
 
-    memcpy(buffer, dev->prdt_cache, BYTES_PER_SECT);
+    memcpy(buffer, dev->prdt_cache, BYTES_PER_BLOCK);
     return 0;
 }
 
-static int ide_write28(int disk, uint32_t sector, uint8_t *buffer) {
-    ide_device *dev = &ide_devices[disk];
-    port_out_b(dev->bmr_command, 0);
-    port_out_d(dev->bmr_prdt, dev->prdt_phys);
-    uint8_t bmr_status = port_in_b(dev->bmr_status);
-    port_out_b(dev->bmr_status, bmr_status | 0x4 | 0x2);
-    if (ide_devices[disk].master)
-        port_out_b(ide_devices[disk].device_port, 0xE0 | ((sector & 0x0F000000) >> 24));
-    else
-        port_out_b(ide_devices[disk].device_port, 0xF0 | ((sector & 0x0F000000) >> 24));
-
-    /* copy buffer to dma area */
-    memcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
-
-    port_out_b(ide_devices[disk].sector_count_port, 1);
-    port_out_b(ide_devices[disk].lba_low_port, sector & 0x000000FF);
-    port_out_b(ide_devices[disk].lba_mid_port, (sector & 0x0000FF00) >> 8);
-    port_out_b(ide_devices[disk].lba_hi_port, (sector & 0x00FF0000) >> 16);
-
-    port_out_b(ide_devices[disk].command_port, 0xCA); // WRITE_DMA command
-    port_out_b(dev->bmr_command, 0x1);
-
-    uint8_t status = port_in_b(ide_devices[disk].command_port);
-    while (((status & 0x80) == 0x80)
-        && ((status & 0x01) != 0x01))
-        status = port_in_b(ide_devices[disk].command_port);
-    port_out_b(dev->bmr_command, 0);
-
-    if (status & 0x01) {
-        kprint(KPRN_ERR, "ide: Error writing sector %u on drive %u", sector, disk);
-        return -1;
-    }
-
-    ide_flush(disk);
-
-    return 0;
-}
-
-static int ide_write48(int disk, uint64_t sector, uint8_t *buffer) {
+static int ide_write48(int disk, uint64_t sector, uint16_t count, uint8_t *buffer) {
     ide_device *dev = &ide_devices[disk];
     port_out_b(dev->bmr_command, 0);
     port_out_d(dev->bmr_prdt, dev->prdt_phys);
@@ -495,15 +406,15 @@ static int ide_write48(int disk, uint64_t sector, uint8_t *buffer) {
         port_out_b(ide_devices[disk].device_port, 0x50);
 
     /* copy buffer to dma area */
-    memcpy(dev->prdt_cache, buffer, BYTES_PER_SECT);
+    memcpy(dev->prdt_cache, buffer, BYTES_PER_BLOCK);
 
     /* Sector count high byte */
-    port_out_b(ide_devices[disk].sector_count_port, 0);
+    port_out_b(ide_devices[disk].sector_count_port, (uint8_t)(count >> 8));
     port_out_b(ide_devices[disk].lba_low_port, (uint8_t)((sector & 0x000000FF000000) >> 24));
     port_out_b(ide_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000FF00000000) >> 32));
     port_out_b(ide_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00FF0000000000) >> 40));
     /* Sector count lo byte */
-    port_out_b(ide_devices[disk].sector_count_port, 1);
+    port_out_b(ide_devices[disk].sector_count_port, (uint8_t)(count & 0xff));
     port_out_b(ide_devices[disk].lba_low_port, (uint8_t)(sector & 0x000000000000FF));
     port_out_b(ide_devices[disk].lba_mid_port, (uint8_t)((sector & 0x0000000000FF00) >> 8));
     port_out_b(ide_devices[disk].lba_hi_port, (uint8_t)((sector & 0x00000000FF0000) >> 16));
@@ -523,36 +434,6 @@ static int ide_write48(int disk, uint64_t sector, uint8_t *buffer) {
         return -1;
     }
 
-    ide_flush_ext(disk);
-
-    return 0;
-}
-
-static int ide_flush(int disk) {
-    if (ide_devices[disk].master)
-        port_out_b(ide_devices[disk].device_port, 0xE0);
-    else
-        port_out_b(ide_devices[disk].device_port, 0xF0);
-
-    /* Cache flush command */
-    port_out_b(ide_devices[disk].command_port, 0xE7);
-
-    uint8_t status = port_in_b(ide_devices[disk].command_port);
-
-    while (((status & 0x80) == 0x80)
-        && ((status & 0x01) != 0x01))
-        status = port_in_b(ide_devices[disk].command_port);
-
-    if (status & 0x01) {
-        kprint(KPRN_ERR, "ide: Error occured while flushing cache.");
-        return -1;
-    }
-
-    return 0;
-
-}
-
-static int ide_flush_ext(int disk) {
     if (ide_devices[disk].master)
         port_out_b(ide_devices[disk].device_port, 0x40);
     else
@@ -561,7 +442,7 @@ static int ide_flush_ext(int disk) {
     /* Cache flush EXT command */
     port_out_b(ide_devices[disk].command_port, 0xEA);
 
-    uint8_t status = port_in_b(ide_devices[disk].command_port);
+    status = port_in_b(ide_devices[disk].command_port);
 
     while (((status & 0x80) == 0x80)
         && ((status & 0x01) != 0x01))
