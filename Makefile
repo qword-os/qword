@@ -44,6 +44,7 @@ CHARDFLAGS := $(CFLAGS)            \
 	-mcmodel=kernel                \
 	-ffreestanding                 \
 	-fno-stack-protector           \
+	-fno-omit-frame-pointer        \
 	-I.                            \
 	-I$(LAI_DIR)/include
 
@@ -66,7 +67,7 @@ QEMUHARDFLAGS := $(QEMUFLAGS)          \
 	-debugcon stdio                    \
 	# -netdev tap,id=mynet0,ifname=tap0,script=no,downscript=no -device rtl8139,netdev=mynet0
 
-.PHONY: all prepare build install uninstall clean run
+.PHONY: symlist all prepare build install uninstall clean run
 
 all: $(LAI_DIR)
 ifeq ($(PULLREPOS), true)
@@ -79,9 +80,20 @@ endif
 $(LAI_DIR):
 	git clone $(LAI_URL) $(LAI_DIR)
 
-build: $(BINS) $(OBJ)
-	$(CC) $(OBJ) $(LDHARDFLAGS) -o $(KERNELELF)
-	$(OBJCOPY) -O binary $(KERNELELF) $(KERNELBIN)
+$(KERNELBIN): $(KERNELELF)
+	OBJDUMP=$(CC:-gcc:-objdump) ./gensyms.sh
+	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
+	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -Wl,--oformat=binary -o $@
+
+$(KERNELELF): $(BINS) $(OBJ) symlist
+	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -o $@
+
+symlist:
+	echo '#include <symlist.h>' > symlist.gen
+	echo 'struct symlist_t symlist[] = {{0xffffffffffffffff,""}};' >> symlist.gen
+	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
+
+build: $(KERNELBIN)
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/boot

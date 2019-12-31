@@ -6,6 +6,7 @@
 #include <lib/lock.h>
 #include <sys/smp.h>
 #include <sys/cpu.h>
+#include <sys/trace.h>
 #include <proc/task.h>
 #include <sys/apic.h>
 
@@ -79,11 +80,6 @@ void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...) {
         kprint(KPRN_PANIC, "  CR2: %16X", read_cr2());
     }
 
-/*
-    if (print_trace)
-        print_stacktrace(KPRN_PANIC);
-*/
-
     if (smp_ready) {
         kprint(KPRN_PANIC, "Current task:    %d", cpu_local->current_task);
         kprint(KPRN_PANIC, "Current process: %d", cpu_local->current_process);
@@ -91,6 +87,9 @@ void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...) {
     } else {
         kprint(KPRN_PANIC, "SMP and scheduler were NOT initialiased at panic.");
     }
+
+    if (print_trace)
+        print_stacktrace(KPRN_PANIC);
 
     kprint(KPRN_PANIC, "System halted");
 

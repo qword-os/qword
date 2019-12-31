@@ -131,6 +131,12 @@ extern exception_handler
     mov rdi, %1
     mov rsi, rsp
     mov rdx, qword [rsp+20*8]
+    ; Only reset rbp to limit trace if coming from userland
+    mov rax, [rsp+16*8]
+    cmp rax, 0x08
+    je .nozerorbp
+    xor rbp, rbp
+  .nozerorbp:
     call exception_handler
     popam
     iretq
@@ -141,6 +147,12 @@ extern exception_handler
     mov rdi, %1
     mov rsi, rsp
     xor rdx, rdx
+    ; Only reset rbp to limit trace if coming from userland
+    mov rax, [rsp+16*8]
+    cmp rax, 0x08
+    je .nozerorbp
+    xor rbp, rbp
+  .nozerorbp:
     call exception_handler
     popam
     iretq
@@ -221,6 +233,7 @@ ipi_abortexec:
     mov rdi, qword [rsp]
     mov rsp, qword [gs:0008]
     extern abort_thread_exec
+    xor rbp, rbp
     call abort_thread_exec
   .wait:
     hlt
@@ -236,6 +249,7 @@ ipi_resched:
     mov rdi, rsp
 
     extern task_resched_ap
+    xor rbp, rbp
     call task_resched_ap
 
     popam
@@ -370,10 +384,13 @@ syscall_entry:
 
     mov rbx, rax ; move to callee-saved register
     mov rdi, rax
+    xor rbp, rbp
     call enter_syscall
     mov rdi, rsp
+    xor rbp, rbp
     call [syscall_table + rbx * 8]
     mov rbx, rax ; save syscall result
+    xor rbp, rbp
     call leave_syscall
     mov rax, rbx
 
@@ -401,6 +418,7 @@ irq0_handler:
     pusham
 
     extern tick_handler
+    xor rbp, rbp
     call tick_handler
 
     mov rax, qword [lapic_eoi_ptr]
@@ -409,6 +427,7 @@ irq0_handler:
     mov rdi, rsp
 
     extern task_resched_bsp
+    xor rbp, rbp
     call task_resched_bsp
 
     popam

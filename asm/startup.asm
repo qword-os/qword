@@ -77,6 +77,7 @@ _start:
 
     lgdt [gdt_ptr]
 
+    xor rbp, rbp
     call kmain
 
 .halt:

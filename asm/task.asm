@@ -90,6 +90,7 @@ force_resched:
 
     mov rdi, rsp
   .retry:
+    xor rbp, rbp
     call task_resched
     jmp .retry
 

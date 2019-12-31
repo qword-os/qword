@@ -620,6 +620,8 @@ found_new_task_id:;
         spinlock_release(&scheduler_lock);
         return -1;
     }
+    new_thread->kstack -= sizeof(uint64_t);
+    *((size_t *)new_thread->kstack) = 0;
 
     new_thread->active_on_cpu = -1;
 
