@@ -65,7 +65,7 @@ LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld
 QEMUHARDFLAGS := $(QEMUFLAGS)          \
 	-kernel $(KERNELBIN)               \
 	-debugcon stdio                    \
-	-netdev tap,id=mynet0,ifname=tap0,script=no,downscript=no -device rtl8139,netdev=mynet0
+	# -netdev tap,id=mynet0,ifname=tap0,script=no,downscript=no -device rtl8139,netdev=mynet0
 
 .PHONY: symlist all prepare build install uninstall clean run
 
