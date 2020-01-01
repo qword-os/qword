@@ -2,6 +2,7 @@
 #include <sys/idt.h>
 #include <sys/apic.h>
 #include <lib/klib.h>
+#include <lib/alloc.h>
 #include <lib/cio.h>
 #include <mm/mm.h>
 #include <proc/task.h>
@@ -35,7 +36,7 @@ static struct pci_device_t *device = NULL;
 // Internal state of the card.
 static int io_address;
 static int irq_line;
-static uint8_t rtl8139_mac[6];
+uint8_t rtl8139_mac[6];
 static size_t current_packet;
 static uint8_t *receive_buffer;
 
@@ -47,11 +48,11 @@ static void rtl8139_receive_packet(void) {
     // Skip, packet header and packet length, now t points to the packet data
     t = t + 2;
 
-    // Now, ethernet layer starts to handle the packet(be sure to make a copy of the packet, insteading of using the buffer)
-    // and probabbly this should be done in a separate thread...
-    // void *packet = kmalloc(packet_length);
-    // memcpy(packet, t, packet_length);
-    // ethernet_handle_packet(packet, packet_length);
+    // Now, ethernet layer starts to handle the packet.
+    void *packet = kalloc(packet_length);
+    memcpy(packet, t, packet_length);
+    ethernet_handle_packet(packet, packet_length);
+    kfree(packet);
 
     current_packet = (current_packet + packet_length + 4 + 3) & RECEIVE_READ_POINTER_MASK;
 
@@ -62,7 +63,9 @@ static void rtl8139_receive_packet(void) {
     port_out_w(io_address + CAPR, current_packet - 0x10);
 }
 
-static void rtl8139_handler(void) {
+static void rtl8139_handler(void *arg) {
+    (void)arg;
+
     for (;;) {
         event_await(&int_event[irq_line]);
         uint16_t status = port_in_w(io_address + REQUEST_REG);
