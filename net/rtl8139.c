@@ -36,7 +36,7 @@ static struct pci_device_t *device = NULL;
 // Internal state of the card.
 static int io_address;
 static int irq_line;
-uint8_t rtl8139_mac[6];
+static uint8_t rtl8139_mac[6];
 static size_t current_packet;
 static uint8_t *receive_buffer;
 
@@ -48,10 +48,17 @@ static void rtl8139_receive_packet(void) {
     // Skip, packet header and packet length, now t points to the packet data
     t = t + 2;
 
+    // TODO: Sometimes there are 0 length packages for some reason.
+    // As a quick fix, we will ignore those.
+    if (packet_length == 0) {
+        kprint(KPRN_WARN, "rtl8139: 0 length packet ignored");
+        return;
+    }
+
     // Now, ethernet layer starts to handle the packet.
     void *packet = kalloc(packet_length);
     memcpy(packet, t, packet_length);
-    ethernet_handle_packet(packet, packet_length);
+    ethernet_handle_packet(rtl8139_mac, packet, packet_length);
     kfree(packet);
 
     current_packet = (current_packet + packet_length + 4 + 3) & RECEIVE_READ_POINTER_MASK;

@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <net/mac.h>
+#include <net/net.h>
 
 struct ethernet_header {
     mac_t destination_mac;
@@ -12,6 +12,6 @@ struct ethernet_header {
     uint8_t payload[];
 } __attribute__((packed));
 
-void ethernet_handle_packet(struct ethernet_header *packet, size_t length);
+void ethernet_handle_packet(mac_t nic_mac, struct ethernet_header *packet, size_t length);
 
 #endif

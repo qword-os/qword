@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include <net/mac.h>
+#include <net/net.h>
 
 struct arp_header {
     uint16_t hardware_type;
@@ -16,6 +16,12 @@ struct arp_header {
     mac_t target_hardware_address;
     mac_t target_protocol_address;
 } __attribute__((packed));
-void arp_handle_packet(void *packet, size_t length);
+
+struct arp_table_entry {
+    mac_t mac_address;
+    ipv4_t ip_address;
+};
+
+void arp_handle_packet(struct arp_header *packet, size_t length);
 
 #endif

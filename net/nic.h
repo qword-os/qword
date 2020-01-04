@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 
-extern uint8_t *nic_mac;
 void init_nic(void);
 
 #endif
