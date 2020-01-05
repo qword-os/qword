@@ -844,6 +844,22 @@ int syscall_open(struct regs_t *regs) {
     return local_fd;
 }
 
+static int get_fd_sys(int fd) {
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    if (fd < 0 || fd >= MAX_FILE_HANDLES)
+        return -1;
+
+    spinlock_acquire(&process->file_handles_lock);
+    int fd_sys = process->file_handles[fd];
+    spinlock_release(&process->file_handles_lock);
+
+    return fd_sys;
+}
+
 // constants from mlibc: options/posix/include/fcntl.h
 #define F_DUPFD 1
 #define F_DUPFD_CLOEXEC 2
@@ -856,6 +872,9 @@ int syscall_open(struct regs_t *regs) {
 #define F_SETLKW 9
 #define F_GETOWN 10
 #define F_SETOWN 11
+
+// qword-specific constants
+#define F_GETPATH 100
 
 static int fcntl_dupfd(int fd, int lowest_fd, int cloexec) {
     spinlock_acquire(&scheduler_lock);
@@ -964,6 +983,17 @@ static int fcntl_setfl(int fd, int flflags) {
     return setflflags(fd_sys, flflags);
 }
 
+static int fcntl_getpath(int fd, char *buf) {
+    int fd_sys = get_fd_sys(fd);
+
+    if (fd_sys == -1) {
+        errno = EBADF;
+        return -1;
+    }
+
+    return getpath(fd_sys, buf);
+}
+
 int syscall_fcntl(struct regs_t *regs) {
     int fd = (int)regs->rdi;
     int cmd = (int)regs->rsi;
@@ -1013,6 +1043,10 @@ int syscall_fcntl(struct regs_t *regs) {
             kprint(KPRN_DBG, "fcntl(%d, F_SETOWN, %d);",
                     fd, (int)regs->rdx);
             break;
+        case F_GETPATH:
+            kprint(KPRN_DBG, "fcntl(%d, F_GETPATH, %X);",
+                    fd, (int)regs->rdx);
+            return fcntl_getpath(fd, (char *)regs->rdx);
         default:
             break;
     }

@@ -5,6 +5,8 @@
 #include <fd/fd.h>
 #include <lib/klib.h>
 
+/* FIXME: Inherit struct fd_t */
+
 /* A filesystem, defined by the function pointers that allow us to access it */
 struct fs_t {
     char name[256];
@@ -25,6 +27,7 @@ struct fs_t {
     int (*isatty)(int);
     int (*unlink)(int);
     int (*mkdir)(const char *, int);
+    int (*getpath)(int, char *);
 };
 
 __attribute__((unused)) static int bogus_mount() {
@@ -70,7 +73,8 @@ __attribute__((unused)) static struct fs_t default_fs_handler = {
     (void *)bogus_tcflow,
     (void *)bogus_isatty,
     (void *)bogus_unlink,
-    (void *)bogus_mkdir
+    (void *)bogus_mkdir,
+    (void *)bogus_getpath
 };
 
 /* VFS calls */

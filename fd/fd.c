@@ -32,6 +32,14 @@ int dup(int fd) {
     return fd_create(&new_fd);
 }
 
+int getpath(int fd, char *buf) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.getpath(intern_fd, buf);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
+}
+
 int getfdflags(int fd) {
     struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
     int ret = fd_ptr->fdflags;

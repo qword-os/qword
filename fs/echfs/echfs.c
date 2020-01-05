@@ -185,7 +185,7 @@ static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {
 }
 
 // free on disk allocated space for this file and flush its cache
-static int erase_file(struct cached_file_t *cached_file) {
+static int erase_file(struct cached_file_t *cached_file, int update_entry) {
     struct mount_t *mnt = cached_file->mnt;
     // erase block chain first
     uint64_t empty = 0;
@@ -215,7 +215,8 @@ static int erase_file(struct cached_file_t *cached_file) {
     cached_file->total_blocks = 0;
     kfree(cached_file->alloc_map);
     cached_file->alloc_map = kalloc(sizeof(uint64_t));
-    wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
+    if (update_entry)
+        wr_entry(mnt, cached_file->path_res.target_entry, &cached_file->path_res.target);
 
     return 0;
 }
@@ -413,7 +414,7 @@ static int echfs_write(int handle, const void *buf, size_t count) {
 }
 
 static int actually_delete_file(struct cached_file_t *cached_file) {
-    erase_file(cached_file);
+    erase_file(cached_file, 0);
 
     kfree(cached_file->alloc_map);
     kfree(cached_file->cached_blocks);
@@ -455,6 +456,7 @@ static int echfs_unlink(int handle) {
         ret = actually_delete_file(cached_file);
 
     spinlock_release(&mnt->lock);
+    dynarray_unref(handles, handle);
     return ret;
 }
 
@@ -747,7 +749,7 @@ static int echfs_open(const char *path, int flags, int m) {
     }
 
     if (!path_result->not_found && flags & O_TRUNC)
-        erase_file(cached_file);
+        erase_file(cached_file, 1);
 
     if (path_result->not_found && flags & O_CREAT) {
         // create new entry
@@ -884,6 +886,21 @@ static int echfs_dup(int handle) {
 
     echfs_handle->refcount++;
     echfs_handle->cached_file->refcount++;
+
+    dynarray_unref(handles, handle);
+    return 0;
+}
+
+static int echfs_getpath(int handle, char *buf) {
+    struct echfs_handle_t *echfs_handle =
+                dynarray_getelem(struct echfs_handle_t, handles, handle);
+
+    if (!echfs_handle) {
+        errno = EBADF;
+        return -1;
+    }
+
+    strcpy(buf, echfs_handle->path);
 
     dynarray_unref(handles, handle);
     return 0;
@@ -1057,6 +1074,7 @@ void init_fs_echfs(void) {
     echfs.sync = echfs_sync;
     echfs.unlink = echfs_unlink;
     echfs.mkdir = echfs_mkdir;
+    echfs.getpath = echfs_getpath;
 
     vfs_install_fs(&echfs);
 }

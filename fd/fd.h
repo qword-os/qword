@@ -102,6 +102,7 @@ struct fd_handler_t {
     int (*setflflags)(int, int);
     int (*perfmon_attach)(int);
     int (*unlink)(int);
+    int (*getpath)(int, char *);
 };
 
 struct file_descriptor_t {
@@ -130,6 +131,8 @@ int perfmon_attach(int);
 void init_fd(void);
 int getfdflags(int);
 int setfdflags(int, int);
+
+int getpath(int, char *);
 
 __attribute__((unused)) static int bogus_fstat() {
     errno = EINVAL;
@@ -209,6 +212,11 @@ __attribute__((unused)) static int bogus_unlink() {
     return -1;
 }
 
+__attribute__((unused)) static int bogus_getpath() {
+    errno = EINVAL;
+    return -1;
+}
+
 __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_close,
     (void *)bogus_fstat,
@@ -224,7 +232,8 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_getflflags,
     (void *)bogus_setflflags,
     (void *)bogus_perfmon_attach,
-    (void *)bogus_unlink
+    (void *)bogus_unlink,
+    (void *)bogus_getpath
 };
 
 #endif

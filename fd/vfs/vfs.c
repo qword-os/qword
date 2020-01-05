@@ -295,6 +295,14 @@ static int vfs_unlink(int fd) {
     return ret;
 }
 
+static int vfs_getpath(int fd, char *buf) {
+    struct vfs_handle_t *fd_ptr = dynarray_getelem(struct vfs_handle_t, vfs_handles, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fs->getpath(intern_fd, buf);
+    dynarray_unref(vfs_handles, fd);
+    return ret;
+}
+
 int mkdir(const char *path) {
     char *loc_path;
 
