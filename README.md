@@ -7,6 +7,9 @@
 As the name implies, this is just the kernel. To build the whole system, follow the
 instructions at <https://github.com/qword-os/build>.
 
+## Discord
+Join our Discord! Invite: https://discord.gg/z6b3qZC
+
 ## Prebuilt image
 Get a prebuilt image today at: https://ci.oogacraft.com/job/qword/lastSuccessfulBuild/artifact/qword.hdd.xz
 
