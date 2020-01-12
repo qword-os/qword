@@ -37,7 +37,7 @@ void lapic_write(uint32_t reg, uint32_t data) {
 }
 
 void lapic_set_nmi(uint8_t vec, uint16_t flags, uint8_t lint) {
-    uint32_t nmi = 800 | vec;
+    uint32_t nmi = 0x400 | vec;
 
     if (flags & 2) {
         nmi |= (1 << 13);
@@ -54,9 +54,8 @@ void lapic_set_nmi(uint8_t vec, uint16_t flags, uint8_t lint) {
     }
 }
 
-void lapic_install_nmis(void) {
-    for (size_t i = 0; i < madt_nmi_i; i++)
-        lapic_set_nmi(0xf0, madt_nmis[i]->flags, madt_nmis[i]->lint);
+void lapic_install_nmi(int vec, int nmi) {
+    lapic_set_nmi(vec, madt_nmis[nmi]->flags, madt_nmis[nmi]->lint);
 }
 
 void lapic_enable(void) {
@@ -149,9 +148,6 @@ void io_apic_connect_gsi_to_vec(int cpu, uint8_t vec, uint32_t gsi, uint16_t fla
 uint32_t *lapic_eoi_ptr;
 
 void init_apic(void) {
-    kprint(KPRN_INFO, "apic: Installing non-maskable interrupts...");
-    lapic_install_nmis();
-    kprint(KPRN_INFO, "apic: Enabling local APIC...");
     lapic_enable();
     size_t lapic_base = (size_t)madt->local_controller_addr + MEM_PHYS_OFFSET;
     lapic_eoi_ptr = (uint32_t *)(lapic_base + 0xb0);
