@@ -10,7 +10,7 @@
 #include <sys/pic.h>
 #include <acpi/acpi.h>
 #include <lib/cmdline.h>
-#include <sys/hpet.h>
+#include <sys/pit.h>
 #include <sys/smp.h>
 #include <proc/task.h>
 #include <devices/dev.h>
@@ -152,8 +152,8 @@ void kmain(void) {
     init_acpi();
     init_pic();
 
-    /* Init the HPET */
-    init_hpet();
+    /* Init the PIT */
+    init_pit();
 
     /* LAI */
     if (!cmdline_get_value(cmdline_val, 64, "acpi") || !strcmp(cmdline_val, "enabled")) {

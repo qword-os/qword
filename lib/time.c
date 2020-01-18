@@ -1,14 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <lib/time.h>
-#include <sys/hpet.h>
+#include <sys/pit.h>
 
 volatile uint64_t uptime_raw = 0;
 volatile uint64_t uptime_sec = 0;
 volatile uint64_t unix_epoch = 0;
 
 void tick_handler(void) {
-    if (!(++uptime_raw % HPET_FREQUENCY_HZ)) {
+    if (!(++uptime_raw % PIT_FREQUENCY_HZ)) {
         uptime_sec++;
         unix_epoch++;
     }
@@ -17,7 +17,7 @@ void tick_handler(void) {
 void ksleep(uint64_t time) {
     /* implements sleep in milliseconds */
 
-    uint64_t final_time = uptime_raw + (time * (HPET_FREQUENCY_HZ / 1000));
+    uint64_t final_time = uptime_raw + (time * (PIT_FREQUENCY_HZ / 1000));
 
     final_time++;
 
