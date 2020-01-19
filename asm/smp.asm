@@ -64,48 +64,10 @@ smp_init_cpu0_local:
     mov edx, edi
     wrmsr
 
-    ; enable SSE
-    mov rax, cr0
-    and al, 0xfb
-    or al, 0x02
-    mov cr0, rax
-    mov rax, cr4
-    or ax, 3 << 9
-    mov cr4, rax
-
-    ; set up the PAT properly
-    mov rcx, 0x277
-    rdmsr
-    mov edx, 0x0105     ; write-protect and write-combining
-    wrmsr
-
     mov rdi, rsi
     call load_tss
 
     mov ax, 0x38
     ltr ax
-
-    ; enable syscall in EFER
-    mov rcx, 0xc0000080
-    rdmsr
-    or al, 1
-    wrmsr
-
-    ; setup syscall MSRs
-    mov rcx, 0xc0000081
-    mov rdx, 0x00130008
-    mov rax, 0x00000000
-    wrmsr
-    mov rcx, 0xc0000082
-    mov rax, syscall_entry
-    mov rdx, rax
-    shr rdx, 32
-    mov eax, eax
-    wrmsr
-    mov rcx, 0xc0000084
-    mov rax, ~(0x002)
-    xor rdx, rdx
-    not rdx
-    wrmsr
 
     ret

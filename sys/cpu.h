@@ -46,6 +46,9 @@ void init_cpu_features();
 
 void wrxcr(uint32_t index, uint64_t value);
 
+uint64_t rdmsr(uint32_t msr);
+void wrmsr(uint32_t msr, uint64_t value);
+
 void xsave(uint8_t *region);
 void xrstor(uint8_t *region);
 

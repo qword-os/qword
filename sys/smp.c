@@ -55,8 +55,8 @@ static void ap_kernel_entry(void) {
     kprint(KPRN_INFO, "smp: Started up AP #%u", current_cpu);
 
     /* Enable this AP's local APIC */
-    lapic_enable();
     init_cpu_features();
+    lapic_enable();
 
     /* Enable interrupts */
     asm volatile ("sti");
