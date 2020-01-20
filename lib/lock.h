@@ -20,15 +20,8 @@ typedef struct {
     struct last_acquirer_t last_acquirer;
 } lock_t;
 
-__attribute__((unused)) static const lock_t new_lock = {
-    1,
-    { "N/A", "N/A", 0 }
-};
-
-__attribute__((unused)) static const lock_t new_lock_acquired = {
-    0,
-    { "N/A", "N/A", 0 }
-};
+#define new_lock          (lock_t){ 1, { "N/A", "N/A", 0 } }
+#define new_lock_acquired (lock_t){ 0, { "N/A", "N/A", 0 } }
 
 #else /* _DEBUG_ */
 
@@ -36,13 +29,8 @@ typedef struct {
     int lock;
 } lock_t;
 
-__attribute__((unused)) static const lock_t new_lock = {
-    1
-};
-
-__attribute__((unused)) static const lock_t new_lock_acquired = {
-    0
-};
+#define new_lock          (lock_t){ 1 }
+#define new_lock_acquired (lock_t){ 0 }
 
 #endif /* _DEBUG_ */
 
