@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include <sys/apic.h>
 #include <lib/klib.h>
-#include <cpuid.h>
 #include <acpi/madt.h>
 #include <mm/mm.h>
 #include <sys/cpu.h>
@@ -14,7 +13,7 @@ int apic_supported(void) {
 
     kprint(KPRN_INFO, "apic: Checking for support...");
 
-    __get_cpuid(1, &eax, &ebx, &ecx, &edx);
+    cpuid(1, 0, &eax, &ebx, &ecx, &edx);
 
     /* Check if the apic bit is set */
     if ((edx & APIC_CPUID_BIT)) {

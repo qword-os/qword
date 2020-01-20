@@ -38,7 +38,7 @@ check_cpuid:
     hlt
     jmp near .halt
 
-.msg db "CPUID not supported", 0
+.msg db "CPUID not supported, system halted.", 0
 
 check_long_mode:
     mov eax, 0x80000000
@@ -58,4 +58,5 @@ check_long_mode:
     cli
     hlt
     jmp near .halt
-.no_lm_msg db "Long mode not available, system halted", 0
+
+.no_lm_msg db "Long mode not available (CPU is not 64-bit), system halted.", 0
