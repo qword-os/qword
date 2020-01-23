@@ -347,6 +347,66 @@ static void pci_route_interrupts(void) {
     }
 }
 
+int pci_register_msi(struct pci_device_t *device, uint8_t vector) {
+    uint8_t off = 0;
+
+    uint32_t config_4 = pci_read_device_dword(device, 0x4);
+    uint8_t  config_34 = pci_read_device_byte(device, 0x34);
+
+    if((config_4 >> 16) & (1 << 4)) {
+        uint8_t cap_off = config_34;
+
+        while(cap_off) {
+            uint8_t cap_id = pci_read_device_byte(device, cap_off);
+            uint8_t cap_next = pci_read_device_byte(device, cap_off + 1);
+
+            switch(cap_id) {
+                case 0x05: {
+                    kprint(KPRN_INFO, "pci: device has msi support");
+                    off = cap_off;
+                    break;
+                }
+            }
+            cap_off = cap_next;
+        }
+    }
+
+    if(off == 0) {
+        kprint(KPRN_INFO, "pci: device does not support msi");
+        return 0;
+    }
+
+    uint16_t msi_opts = pci_read_device_word(device, off + MSI_OPT);
+    if(msi_opts & MSI_64BIT_SUPPORTED) {
+        union msi_data_t data = {0};
+        union msi_address_t addr = {0};
+        addr.raw = pci_read_device_word(device, off + MSI_ADDR_LOW);
+        data.raw = pci_read_device_word(device, off + MSI_DATA_64);
+        data.vector = vector;
+        //Fixed delivery mode
+        data.delivery_mode = 0;
+        addr.base_address = 0xFEE;
+        addr.destination_id = cpu_locals[current_cpu].lapic_id;
+        pci_write_device_dword(device, off + MSI_ADDR_LOW, addr.raw);
+        pci_write_device_dword(device, off + MSI_DATA_64, data.raw);
+    } else {
+        union msi_data_t data = {0};
+        union msi_address_t addr = {0};
+        addr.raw = pci_read_device_word(device, off + MSI_ADDR_LOW);
+        data.raw = pci_read_device_word(device, off + MSI_DATA_32);
+        data.vector = vector;
+        //Fixed delivery mode
+        data.delivery_mode = 0;
+        addr.base_address = 0xFEE;
+        addr.destination_id = cpu_locals[current_cpu].lapic_id;
+        pci_write_device_dword(device, off + MSI_ADDR_LOW, addr.raw);
+        pci_write_device_dword(device, off + MSI_DATA_32, data.raw);
+    }
+    msi_opts |= 1;
+    pci_write_device_word(device, off + MSI_OPT, msi_opts);
+    return 1;
+}
+
 void init_pci(void) {
     pci_init_root_bus();
 
