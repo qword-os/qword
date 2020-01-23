@@ -38,10 +38,10 @@ struct pci_bar_t {
     int is_prefetchable;
 };
 
-uint32_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset);
-void pci_write_device_byte(struct pci_device_t *device, uint32_t offset, uint32_t value);
-uint32_t pci_read_device_word(struct pci_device_t *device, uint32_t offset);
-void pci_write_device_word(struct pci_device_t *device, uint32_t offset, uint32_t value);
+uint8_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset);
+void pci_write_device_byte(struct pci_device_t *device, uint32_t offset, uint8_t value);
+uint16_t pci_read_device_word(struct pci_device_t *device, uint32_t offset);
+void pci_write_device_word(struct pci_device_t *device, uint32_t offset, uint16_t value);
 uint32_t pci_read_device_dword(struct pci_device_t *device, uint32_t offset);
 void pci_write_device_dword(struct pci_device_t *device, uint32_t offset, uint32_t value);
 
