@@ -99,6 +99,12 @@ void pci_enable_busmastering(struct pci_device_t *device) {
     }
 }
 
+void pci_enable_interrupts(struct pci_device_t *device) {
+    if (pci_read_device_dword(device, 0x4) & (1 << 10)) {
+        pci_write_device_dword(device, 0x4, pci_read_device_dword(device, 0x4) & ~(1 << 10));
+    }
+}
+
 struct pci_device_t *pci_get_device(uint8_t class, uint8_t subclass, uint8_t prog_if, size_t index) {
     size_t i;
     struct pci_device_t *ret = dynarray_search(struct pci_device_t, pci_devices, &i, elem->device_class == class
@@ -205,6 +211,7 @@ static void pci_check_function(uint8_t bus, uint8_t slot, uint8_t func, int64_t 
     device.device_class = (uint8_t)(config_8 >> 24);
     device.prog_if = (uint8_t)(config_8 >> 8);
     device.irq_pin = (uint8_t)(config_3c >> 8);
+    device.gsi = UINT32_MAX; // for when the gsi is invalid
 
     if (config_c & 0x800000)
         device.multifunction = 1;
