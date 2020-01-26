@@ -9,7 +9,7 @@
  *
  * will not assume ownership over the packet buffer and copy it if needed
  */
-void netstack_process_frame(struct nic_t* nic, void* packet, size_t len);
+void netstack_process_frame(struct packet_t* pkt);
 
 /**
  * Will send a single frame to the network

@@ -37,7 +37,7 @@ typedef union {
 #define NTOH_IPV4(ip) ((ipv4_addr_t){ .raw = NTOHL((ip).raw) })
 
 struct nic_calls_t {
-    int (*send_packet)(int fd, void* packet, size_t length);
+    int (*send_packet)(int fd, void* packet, size_t length, uint64_t flags);
 };
 
 struct nic_t {
@@ -49,6 +49,14 @@ struct nic_t {
     int subnet;
 
     ipv4_addr_t ipv4_gateway;
+
+    uint64_t flags;
+#define NIC_RX_IP_CS   (1u << 0u)
+#define NIC_RX_UDP_CS  (1u << 1u)
+#define NIC_RX_TCP_CS  (1u << 2u)
+#define NIC_TX_IP_CS   (1u << 3u)
+#define NIC_TX_UDP_CS  (1u << 4u)
+#define NIC_TX_TCP_CS  (1u << 5u)
 };
 
 // packet descriptor
@@ -57,6 +65,12 @@ struct packet_t {
     size_t data_len;
 
     struct nic_t* nic;
+
+    // flags passed from the nic
+    uint64_t nic_flags;
+#define PKT_FLAG_IP_CS   (1u << 0u)
+#define PKT_FLAG_UDP_CS  (1u << 1u)
+#define PKT_FLAG_TCP_CS  (1u << 2u)
 
     // Datalink layer abstraction
     //  - ether

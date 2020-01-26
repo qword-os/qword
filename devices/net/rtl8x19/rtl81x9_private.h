@@ -55,7 +55,7 @@
 #define     FOVW            (1u << 6u) /* Rx Fifo Overflow */
 #define     TDU             (1u << 7u) /* Tx Descriptor Unavailable */
 #define     SWInt           (1u << 8u) /* Software Interrupt */
-#define     LenChg          (1u << 13u) /* Cable Length Change */
+#define     LenChg_8139     (1u << 13u) /* Cable Length Change */
 #define     TimeOut         (1u << 14u) /* Time out */
 #define     SERR            (1u << 15u) /* System Error */
 
@@ -105,6 +105,20 @@ struct __attribute((packed)) pkt_desc_t {
 #define EOR     (1u << 30u)
 #define FS      (1u << 29u)
 #define LS      (1u << 28u)
+    // RX ONLY
+    // for rtl8139
+    #define IPF_RTL8139     (1u << 15u)
+    #define UDPF_RTL8139    (1u << 14u)
+    #define TCPF_RTL8139    (1u << 13u)
+    #define IPF             (1u << 16u)
+    #define UDPF            (1u << 15u)
+    #define TCPF            (1u << 14u)
+
+    // TX ONLY
+    #define IPCS    (1u << 18u)
+    #define UDPCS   (1u << 17u)
+    #define TCPCS   (1u << 16u)
+
     uint32_t opts2;
     uint64_t buff;
 };

@@ -68,14 +68,14 @@ static int send_arp_request(struct nic_t* nic, ipv4_addr_t addr, mac_addr_t* mac
             .sender_ip = nic->ipv4_addr,
             .sender_mac = nic->mac_addr,
             .target_ip = addr,
-            .target_mac = {0}
+            .target_mac = { {0} }
         }
     };
 
     // form a proper packet request
     struct packet_t pkt_req = {
         .nic = nic,
-        .data = &arp_request,
+        .data = (char *) &arp_request,
         .data_len = sizeof(arp_request),
         .datalink.type = ETHER_ARP,
         .datalink.src = nic->mac_addr,
@@ -162,7 +162,7 @@ void arp_process_packet(struct packet_t* pkt) {
                 // form a proper packet request
                 struct packet_t pkt_req = {
                     .nic = pkt->nic,
-                    .data = &arp_request,
+                    .data = (char *) &arp_request,
                     .data_len = sizeof(arp_request),
                     .datalink.type = ETHER_ARP,
                     .datalink.src = pkt->nic->mac_addr,

@@ -6,6 +6,10 @@ public_dynarray_new(struct socket_t, sockets);
 int socket_close(int fd) {
     // get and remove it so no one can find it
     struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, fd);
+    if(sock == NULL) {
+        errno = EBADF;
+        return -1;
+    }
     dynarray_remove(sockets, fd);
 
     spinlock_acquire(&sock->buffers_lock);
@@ -28,6 +32,7 @@ int socket_close(int fd) {
 
     // remove it once we done
     dynarray_unref(sockets, fd);
+    return 0;
 }
 
 int socket(int domain, int type, int protocol) {
@@ -66,7 +71,8 @@ int socket(int domain, int type, int protocol) {
         .domain = domain,
         .type = type,
         .proto = protocol,
-        .buffers_lock = new_lock
+        .buffers_lock = new_lock,
+        .buffer_offset = 0
     };
     int i = dynarray_add(struct socket_t, sockets, &new_socket);
 

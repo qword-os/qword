@@ -15,8 +15,8 @@ enum socket_type {
 };
 
 enum socket_proto {
-    PROTO_TCP = 6,
-    PROTO_UDP = 17
+    PROTO_TCP = HTONS(6),
+    PROTO_UDP = HTONS(17)
 };
 
 struct socket_buffer_t {

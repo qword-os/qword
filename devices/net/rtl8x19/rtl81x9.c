@@ -28,6 +28,9 @@ struct r81x9_device_t {
     uintptr_t base;
     int irq_line;
     int poll_reg;
+    unsigned ipf;
+    unsigned udpf;
+    unsigned tcpf;
 
     // rings
     volatile struct pkt_desc_t* rx_ring;
@@ -55,7 +58,7 @@ dynarray_new(struct r81x9_device_t, devices);
  * This is called on ROK interrupt. It will go through the
  */
 static void process_received_packets(struct r81x9_device_t* dev) {
-    for (int left = RX_RING_SIZE; left > 0; left--, dev->rxi = (dev->rxi + 1) % RX_RING_SIZE) {
+    for (size_t left = RX_RING_SIZE; left > 0; left--, dev->rxi = (dev->rxi + 1) % RX_RING_SIZE) {
         volatile struct pkt_desc_t* desc = &dev->rx_ring[dev->rxi];
 
         // make sure the nic does not own the desc
@@ -77,8 +80,27 @@ static void process_received_packets(struct r81x9_device_t* dev) {
         uint16_t len = (desc->opts1 & FRAME_LENGTH_MASK) - 4; // ignore the fcs
         uintptr_t buf = desc->buff + MEM_PHYS_OFFSET;
 
+        // get packet flags
+        uint64_t flags = 0;
+        if (!(desc->opts1 & dev->ipf)) {
+            flags |= PKT_FLAG_IP_CS;
+        }
+        if (!(desc->opts1 & dev->udpf)) {
+            flags |= PKT_FLAG_UDP_CS;
+        }
+        if (!(desc->opts1 & dev->tcpf)) {
+            flags |= PKT_FLAG_TCP_CS;
+        }
+
+        struct packet_t pkt = {
+            .nic = &dev->nic,
+            .data = (char *) buf,
+            .data_len = len,
+            .nic_flags = flags
+        };
+
         // let the network stack handle it
-        netstack_process_frame(&dev->nic, buf, len);
+        netstack_process_frame(&pkt);
 
         // reset the descriptor
         uint16_t eor = desc->opts1 * EOR;
@@ -96,7 +118,7 @@ static void process_sent_packets(struct r81x9_device_t* dev) {
 
     // iterate over the sent packets
     for (; dev->prev_txi != dev->txi; dev->prev_txi = (dev->prev_txi + 1) % TX_RING_SIZE) {
-        struct pkt_desc_t* desc = &dev->tx_ring[dev->prev_txi];
+        volatile struct pkt_desc_t* desc = &dev->tx_ring[dev->prev_txi];
 
         // only touch it if it was sent, we can assume
         // the following ones were not sent as well
@@ -150,7 +172,7 @@ static void rtl81x9_int_handler(struct r81x9_device_t* dev) {
 }
 
 // TODO: maybe a write should be a raw write?
-static int send_packet(int internal_fd, void* pkt, size_t len) {
+static int send_packet(int internal_fd, void* pkt, size_t len, uint64_t flags) {
     panic_unless(len == (len & FRAME_LENGTH_MASK));
 
     // get the card
@@ -159,7 +181,7 @@ static int send_packet(int internal_fd, void* pkt, size_t len) {
     spinlock_acquire(&dev->tx_lock);
 
     // check if we have a free descriptor
-    struct pkt_desc_t* desc = &dev->tx_ring[dev->txi];
+    volatile struct pkt_desc_t* desc = &dev->tx_ring[dev->txi];
     if (desc->opts1 & OWN) {
         // no space for more packets try and trigger the
         // nic to send some packets
@@ -179,10 +201,23 @@ static int send_packet(int internal_fd, void* pkt, size_t len) {
     desc->opts2 = 0;
     desc->buff = (uintptr_t)pkt - MEM_PHYS_OFFSET;
 
+    // set flags
+    if (flags & PKT_FLAG_IP_CS) {
+        desc->opts1 |= IPCS;
+    }
+    if (flags & PKT_FLAG_UDP_CS) {
+        desc->opts1 |= UDPCS;
+    }
+    if (flags & PKT_FLAG_TCP_CS) {
+        desc->opts1 |= TCPCS;
+    }
+
     // increment to the next packet
     dev->txi++;
 
     // tell the nic to send it
+    // TODO: instead of nqp on every packet maybe have a locked count so we know how
+    //       many more want to send
     memory_barrier();
     mmio_write8(dev->base + dev->poll_reg, NPQ);
 
@@ -226,7 +261,7 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
     panic_unless(pkt_buffs_base);
 
     // setup the rx descriptors
-    for (int i = 0; i < RX_RING_SIZE; i++, pkt_buffs_base += RX_BUFFER_SIZE) {
+    for (size_t i = 0; i < RX_RING_SIZE; i++, pkt_buffs_base += RX_BUFFER_SIZE) {
         // setup the rx entry
         volatile struct pkt_desc_t* desc = &nic.rx_ring[i];
         desc->opts1 = (OWN | RX_BUFFER_SIZE);
@@ -258,9 +293,15 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
     // also on the 8139 the poll register is at a different offset
     if (device->device_id == 0x8139) {
         nic.poll_reg = TPPoll_8139;
+        nic.ipf = IPF_RTL8139;
+        nic.udpf = UDPF_RTL8139;
+        nic.tcpf = TCPF_RTL8139;
         mmio_write16(nic.base + CPCR, RxChkSum | CPRx | CPTx);
     } else {
         nic.poll_reg = TPPoll;
+        nic.ipf = IPF;
+        nic.udpf = UDPF;
+        nic.tcpf = TCPF;
         mmio_write16(nic.base + CPCR, RxChkSum);
     }
 
@@ -290,6 +331,7 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
 
     // create nic and add to network stack
     dev->nic.internal_fd = i;
+    dev->nic.flags = NIC_RX_IP_CS | NIC_RX_UDP_CS |NIC_RX_TCP_CS | NIC_TX_IP_CS | NIC_TX_UDP_CS | NIC_TX_TCP_CS;
     dev->nic.calls.send_packet = send_packet;
     dev->nic.mac_addr.raw[0] = mmio_read8(dev->base + IDR0);
     dev->nic.mac_addr.raw[1] = mmio_read8(dev->base + IDR1);
