@@ -8,6 +8,10 @@
 
 static int process_network(struct packet_t* pkt, char* buf, size_t len) {
     switch (pkt->datalink.type) {
+        case ETHER_ARP: {
+
+        } break;
+
         // TODO: IPv4
 
         // by default just copy the data and call it a day
