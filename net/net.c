@@ -68,7 +68,7 @@ int net_query_mac(ipv4_addr_t addr, mac_addr_t* mac) {
         return arp_query_ipv4(nic, addr, mac);
     } else {
         // search for the first gateway we have
-        if(default_nic == NULL) {
+        if (default_nic == NULL) {
             errno = EHOSTUNREACH;
             return -1;
         }

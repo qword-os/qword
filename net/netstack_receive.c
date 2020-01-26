@@ -115,9 +115,9 @@ void netstack_process_frame(struct nic_t* nic, void* packet, size_t len) {
     //       only for packet sockets
     size_t i = 0;
     struct socket_t* sock = NULL;
-    while(1) {
+    while (1) {
         sock = dynarray_search(struct socket_t, sockets, &i, elem->domain == AF_PACKET, i);
-        if(sock == NULL) {
+        if (sock == NULL) {
             break;
         }
 

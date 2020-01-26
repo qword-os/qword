@@ -36,7 +36,7 @@ struct r81x9_device_t {
     // index in ring
     size_t rxi;
 
-    // previous txi (so we can free sent buffers)
+    // Tx related stuff
     size_t txi;
     size_t prev_txi;
     lock_t tx_lock;
@@ -55,20 +55,20 @@ dynarray_new(struct r81x9_device_t, devices);
  * This is called on ROK interrupt. It will go through the
  */
 static void process_received_packets(struct r81x9_device_t* dev) {
-    for(int left = RX_RING_SIZE; left > 0; left--, dev->rxi = (dev->rxi + 1) % RX_RING_SIZE) {
+    for (int left = RX_RING_SIZE; left > 0; left--, dev->rxi = (dev->rxi + 1) % RX_RING_SIZE) {
         volatile struct pkt_desc_t* desc = &dev->rx_ring[dev->rxi];
 
         // make sure the nic does not own the desc
-        if(desc->opts1 & OWN) {
+        if (desc->opts1 & OWN) {
             break;
         }
 
         // make sure we do not touch descriptor
         // which is not ours
-        asm("" ::: "memory");
+        memory_barrier();
 
         // TODO: support packet split
-        if(!(desc->opts1 & (LS | FS))) {
+        if (!(desc->opts1 & (LS | FS))) {
             kprint(KPRN_WARN, "rtl81x9: split packets are not supported currently");
             continue;
         }
@@ -98,14 +98,15 @@ static void process_sent_packets(struct r81x9_device_t* dev) {
     for (; dev->prev_txi != dev->txi; dev->prev_txi = (dev->prev_txi + 1) % TX_RING_SIZE) {
         struct pkt_desc_t* desc = &dev->tx_ring[dev->prev_txi];
 
-        // make sure this was not sent already
-        if(desc->opts1 & OWN) {
+        // only touch it if it was sent, we can assume
+        // the following ones were not sent as well
+        if (desc->opts1 & OWN) {
             break;
         }
 
         // make sure we do not touch descriptor
         // which is not ours
-        asm("" ::: "memory");
+        memory_barrier();
 
         // simply free the buffer
         kfree((void *) (desc->buff + MEM_PHYS_OFFSET));
@@ -127,12 +128,12 @@ static void rtl81x9_int_handler(struct r81x9_device_t* dev) {
         uint16_t isr = mmio_read16(dev->base + ISR);
 
         // got a packet
-        if(isr & ROK) {
+        if (isr & ROK) {
             process_received_packets(dev);
         }
 
         // sent packets
-        if(isr & TOK) {
+        if (isr & TOK) {
             process_sent_packets(dev);
         }
 
@@ -159,7 +160,7 @@ static int send_packet(int internal_fd, void* pkt, size_t len) {
 
     // check if we have a free descriptor
     struct pkt_desc_t* desc = &dev->tx_ring[dev->txi];
-    if(desc->opts1 & OWN) {
+    if (desc->opts1 & OWN) {
         // no space for more packets try and trigger the
         // nic to send some packets
         mmio_write8(dev->poll_reg, NPQ);
@@ -182,7 +183,7 @@ static int send_packet(int internal_fd, void* pkt, size_t len) {
     dev->txi++;
 
     // tell the nic to send it
-    asm("":::"memory");
+    memory_barrier();
     mmio_write8(dev->base + dev->poll_reg, NPQ);
 
     // don't forget to unlock the device tx
@@ -207,8 +208,8 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
     // reset the device
     mmio_write8(nic.base + CR, RST);
     int timeout = 0;
-    while(mmio_read8(nic.base + CR) & RST) {
-        if(timeout++ == 100000) {
+    while (mmio_read8(nic.base + CR) & RST) {
+        if (timeout++ == 100000) {
             kprint(KPRN_WARN, "rtl81x9: reset timeout, skipping device");
             return;
         }
@@ -301,7 +302,7 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
     // set interrupt handler
     dev->irq_line = get_empty_int_vector();
     panic_if(dev->irq_line < 0);
-    if(!pci_register_msi(device, dev->irq_line)) {
+    if (!pci_register_msi(device, dev->irq_line)) {
         panic_if(device->gsi == UINT32_MAX);
         io_apic_connect_gsi_to_vec(0, dev->irq_line, device->gsi, device->gsi_flags, 1);
     }
@@ -318,13 +319,13 @@ void probe_rtl81x9() {
     kprint(KPRN_INFO, "rtl81x9: probing realtek devices");
 
     struct pci_device_t* cur_dev;
-    for(size_t i = 0; i < sizeof(supported_devices) / sizeof(uint16_t); i++) {
+    for (size_t i = 0; i < sizeof(supported_devices) / sizeof(uint16_t); i++) {
         size_t j = 0;
-        while((cur_dev = pci_get_device_by_vendor(RTL_VENDOR_ID, supported_devices[i], j++))) {
+        while ((cur_dev = pci_get_device_by_vendor(RTL_VENDOR_ID, supported_devices[i], j++))) {
 
             // make sure the device supports C+ mode
             // TODO: for non-C+ mode devices we need a separate driver
-            if(cur_dev->device_id == 0x8139 && cur_dev->rev_id < 0x20) {
+            if (cur_dev->device_id == 0x8139 && cur_dev->rev_id < 0x20) {
                 continue;
             }
 

@@ -125,7 +125,7 @@ void arp_process_packet(struct packet_t* pkt) {
                 dynarray_unref(arp_requests, i);
                 dynarray_remove(arp_requests, i);
 
-            } while(1);
+            } while (1);
         } break;
 
         case ARP_OPCODE_REQUEST: {
@@ -186,7 +186,7 @@ int arp_query_ipv4(struct nic_t* nic, ipv4_addr_t addr, mac_addr_t* mac) {
 
     if (entry) {
         // check the timeout on the entry
-        if(unix_epoch - entry->timestamp > ARP_TIMEOUT) {
+        if (unix_epoch - entry->timestamp > ARP_TIMEOUT) {
             dynarray_unref(arp_cache, i);
             dynarray_remove(arp_cache, i);
         }

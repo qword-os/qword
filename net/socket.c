@@ -12,7 +12,7 @@ int socket_close(int fd) {
 
     // free left buffers
     struct socket_buffer_t* buf = sock->buffers;
-    while(buf != NULL) {
+    while (buf != NULL) {
         kfree(buf->buf);
         kfree(buf);
 
@@ -56,7 +56,7 @@ int socket(int domain, int type, int protocol) {
 
     // TODO: check the protocol type properly
 
-    if(domain != AF_PACKET && protocol == 0) {
+    if (domain != AF_PACKET && protocol == 0) {
         errno = EINVAL;
         return -1;
     }

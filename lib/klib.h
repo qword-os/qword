@@ -21,6 +21,10 @@
 
 #define DIV_ROUNDUP(a, b) (((a) + ((b) - 1)) / (b))
 
+__attribute__((always_inline)) inline void memory_barrier() {
+    asm volatile ("" ::: "memory");
+}
+
 __attribute__((always_inline)) inline int is_printable(char c) {
     return (c >= 0x20 && c <= 0x7e);
 }
