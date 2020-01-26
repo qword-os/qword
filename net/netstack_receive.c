@@ -3,8 +3,10 @@
 #include <net/proto/ether.h>
 #include <net/proto/arp.h>
 #include <lib/errno.h>
+#include <lib/cmem.h>
 #include "netstack.h"
 #include "net.h"
+#include "socket.h"
 
 ////////////////////////////////////////////////////////////////////////
 // Network layer processing
@@ -107,6 +109,33 @@ void netstack_process_frame(struct nic_t* nic, void* packet, size_t len) {
         .data = packet,
         .nic = nic
     };
+
+    // process any packet sockets
+    // TODO: this could really benefit from having a separate list
+    //       only for packet sockets
+    size_t i = 0;
+    struct socket_t* sock = NULL;
+    while(1) {
+        sock = dynarray_search(struct socket_t, sockets, &i, elem->domain == AF_PACKET, i);
+        if(sock == NULL) {
+            break;
+        }
+
+        spinlock_acquire(&sock->buffers_lock);
+
+        // copy the packet
+        struct socket_buffer_t* buffer = kalloc(sizeof(struct socket_buffer_t));
+        buffer->buf = kalloc(len);
+        buffer->len = len;
+        memcpy(buffer->buf, packet, len);
+
+        // link it
+        sock->last_buffer->next = buffer;
+        sock->last_buffer = buffer;
+
+        dynarray_unref(sockets, i);
+        spinlock_release(&sock->buffers_lock);
+    }
 
     if (process_datalink(&pkt) < 0) {
         kprint(KPRN_WARN, "netstack: dropped packet");

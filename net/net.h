@@ -1,8 +1,9 @@
-#ifndef __NET_ADDR_H__
-#define __NET_ADDR_H__
+#ifndef __NET__NET_H__
+#define __NET__NET_H__
 
 #include <stdint.h>
 #include <lib/dynarray.h>
+#include <lib/endian.h>
 #include <lib/types.h>
 
 #define HTONS(n) ((uint16_t)(((((uint16_t)(n) & 0xFFu)) << 8u) | (((uint16_t)(n) & 0xFF00u) >> 8u)))
@@ -105,4 +106,4 @@ int net_route_ipv4(ipv4_addr_t addr, struct nic_t** nic);
  */
 int net_query_mac(ipv4_addr_t addr, mac_addr_t* mac);
 
-#endif //__NET_ADDR_H__
+#endif //__NET__NET_H__
