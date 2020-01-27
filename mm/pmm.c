@@ -142,7 +142,8 @@ static void *pmm_alloc_slow(size_t pg_count) {
     }
 
     spinlock_release(&pmm_lock);
-    return NULL;
+
+    panic2(NULL, 1, "Kernel ran out of memory.");
 
 found:;
     size_t start = i - pg_count;
@@ -174,7 +175,8 @@ static void *pmm_alloc_fast(size_t pg_count) {
     }
 
     spinlock_release(&pmm_lock);
-    return NULL;
+
+    panic2(NULL, 1, "Kernel ran out of memory.");
 
 found:;
     size_t start = cur_ptr - pg_count;

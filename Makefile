@@ -21,7 +21,6 @@ PREFIX = $(shell pwd)
 
 CC      = gcc
 AS      = nasm
-OBJCOPY = objcopy
 QEMU    = qemu-system-x86_64
 
 CFLAGS    = -O2 -pipe -Wall -Wextra
