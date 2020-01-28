@@ -235,7 +235,7 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
     // get the bar
     bool found = false;
     for (int i = 0; i < 6; i++) {
-        if (!pci_read_bar(device, 1, &bar) && bar.is_mmio) {
+        if (!pci_read_bar(device, i, &bar) && bar.is_mmio) {
             found = true;
             break;
         }
