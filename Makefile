@@ -117,3 +117,7 @@ clean:
 
 run:
 	$(QEMU) $(QEMUHARDFLAGS)
+
+format:
+	find -not -path "./acpi/lai/*" -type f  -name "*.h" -exec clang-format -style=file -i {} \;
+	find -not -path "./acpi/lai/*" -type f  -name "*.c" -exec clang-format -style=file -i {} \;

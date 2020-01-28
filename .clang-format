@@ -1,0 +1,17 @@
+﻿---
+BasedOnStyle: LLVM
+AccessModifierOffset: '0'
+AlignConsecutiveMacros: 'true'
+AlignEscapedNewlines: Left
+AlignOperands: 'true'
+AlignTrailingComments: 'true'
+IndentCaseLabels: 'true'
+IndentWidth: '4'
+Language: Cpp
+SpaceBeforeParens: ControlStatements
+SpacesInCStyleCastParentheses: 'false'
+SpacesInSquareBrackets: 'false'
+TabWidth: '4'
+UseTab: Never
+
+...
