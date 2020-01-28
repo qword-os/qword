@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <acpi/lai/core/libc.h>
 #include <net/netstack.h>
+#include <stdbool.h>
 
 #include "rtl81x9_private.h"
 
@@ -232,8 +233,20 @@ static void init_rtl81x9_dev(struct pci_device_t* device) {
     struct pci_bar_t bar = {0};
 
     // get the bar
-    panic_if(pci_read_bar(device, 1, &bar));
-    panic_unless(bar.is_mmio);
+    bool found = false;
+    for (int i = 0; i < 6; i++) {
+        if (!pci_read_bar(device, 1, &bar) && bar.is_mmio) {
+            found = true;
+            break;
+        }
+    }
+
+    // make sure we actually found a good device
+    // if so set the correct base
+    if (!found) {
+        kprint(KPRN_WARN, "rtl81x9: could not find mmio bar, ignoring device");
+        return;
+    }
     nic.base = bar.base + MEM_PHYS_OFFSET;
 
     // enable bus mastering and interrupts

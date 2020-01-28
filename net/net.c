@@ -24,8 +24,8 @@ void net_add_nic(struct nic_t* nic) {
     nic->subnet = 16;
     nic->ipv4_addr.addr[0] = 169u;
     nic->ipv4_addr.addr[1] = 254u;
-    nic->ipv4_addr.addr[2] = (rand32() % 254) + 1;
-    nic->ipv4_addr.addr[3] = rand32() % 256;
+    nic->ipv4_addr.addr[2] = 123; // (rand32() % 254) + 1;
+    nic->ipv4_addr.addr[3] = 123; // rand32() % 256;
 
     // log it
     kprint(KPRN_INFO, "net: added device %s [assigned %d.%d.%d.%d/%d]",
