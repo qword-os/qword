@@ -18,19 +18,6 @@
 #define CURRENT_THREAD cpu_locals[current_cpu].current_thread
 #define CURRENT_TASK cpu_locals[current_cpu].current_task
 
-
-#define load_fs_base(base) ({ \
-    asm volatile ( \
-        "mov eax, edx;" \
-        "shr rdx, 32;" \
-        "mov edx, edx;" \
-        "wrmsr;" \
-        : \
-        : "d" (base), "c" (0xc0000100) \
-        : "rax", "cc" \
-    ); \
-})
-
 struct regs_t {
     uint64_t r15;
     uint64_t r14;

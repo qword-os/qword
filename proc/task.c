@@ -17,6 +17,7 @@
 #include <sys/urm.h>
 #include <lib/cstring.h>
 #include <lib/cmem.h>
+#include <sys/cpu.h>
 
 #define SCHED_TIMESLICE_MS 5
 
@@ -435,7 +436,7 @@ found_new_pid:
 }
 
 void abort_thread_exec(size_t scheduler_not_locked) {
-    load_cr3((size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET);
+    write_cr("3", (size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET);
 
     int _current_cpu = current_cpu;
 

@@ -77,7 +77,7 @@ void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...) {
         kprint(KPRN_PANIC, "  CS:  %4X    SS:  %4X",
                            regs->cs,
                            regs->ss);
-        kprint(KPRN_PANIC, "  CR2: %16X", read_cr2());
+        kprint(KPRN_PANIC, "  CR2: %16X", read_cr("2"));
     }
 
     if (smp_ready) {

@@ -45,6 +45,7 @@ __attribute__((always_inline)) inline void atomic_add_uint64_relaxed(uint64_t *p
         "lock xadd qword ptr [%1], %0;"
         : "+r" (x)
         : "r" (p)
+        : "memory"
     );
 }
 

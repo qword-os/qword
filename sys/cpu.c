@@ -16,15 +16,15 @@ void syscall_entry(void);
 void init_cpu_features(void) {
     // First enable SSE/SSE2 as it is baseline for x86_64
     uint64_t cr0 = 0;
-    asm volatile ("mov %0, %%cr0" : "=r" (cr0));
+    cr0 = read_cr("0");
     cr0 &= ~(1 << 2);
     cr0 |=  (1 << 1);
-    asm volatile ("mov %%cr0, %0" : : "r" (cr0));
+    write_cr("0", cr0);
 
     uint64_t cr4 = 0;
-    asm volatile ("mov %0, %%cr4" : "=r" (cr4));
+    cr4 = read_cr("4");
     cr4 |= (3 << 9);
-    asm volatile ("mov %%cr4, %0" : : "r" (cr4));
+    write_cr("4", cr4);
 
     // Initialise the PAT
     uint64_t pat_msr = rdmsr(0x277);
@@ -49,9 +49,9 @@ void init_cpu_features(void) {
     cpuid(1, 0, &a, &b, &c, &d);
 
     if ((c & XSAVE_BIT)) {
-        asm volatile ("mov %0, %%cr4" : "=r" (cr4));
+        cr4 = read_cr("4");
         cr4 |= (1 << 18); // Enable XSAVE and x{get, set}bv
-        asm volatile ("mov %%cr4, %0" : : "r" (cr4));
+        write_cr("4", cr4);
 
         uint64_t xcr0 = 0;
         xcr0 |= (1 << 0); // Save x87 state with xsave

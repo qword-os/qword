@@ -49,30 +49,6 @@ struct pagemap_t *new_address_space(void);
 struct pagemap_t *fork_address_space(struct pagemap_t *);
 void free_address_space(struct pagemap_t *);
 
-#define invlpg(addr) ({ \
-    asm volatile ( \
-        "invlpg [rbx];" \
-        : \
-        : "b" (addr) \
-    ); \
-})
-
-#define load_cr3(NEW_CR3) ({ \
-    asm volatile ("mov cr3, rax;" : : "a" (NEW_CR3)); \
-})
-
-#define read_cr3() ({ \
-    size_t cr3; \
-    asm volatile ("mov rax, cr3;" : "=a" (cr3)); \
-    cr3; \
-})
-
-#define read_cr2() ({ \
-    size_t cr2; \
-    asm volatile ("mov rax, cr2;" : "=a" (cr2)); \
-    cr2; \
-})
-
 struct memstats {
     size_t total;
     size_t used;

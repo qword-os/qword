@@ -7,6 +7,7 @@
 #include <lib/lock.h>
 #include <sys/panic.h>
 #include <lib/cmem.h>
+#include <sys/cpu.h>
 
 static struct pagemap_t __kp;
 struct pagemap_t *kernel_pagemap = &__kp;
@@ -188,7 +189,7 @@ int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size
     /* Also set the specified flags */
     pt[pt_entry] = (pt_entry_t)(phys_addr | flags);
 
-    if ((size_t)pagemap->pml4 == read_cr3()) {
+    if ((size_t)pagemap->pml4 == read_cr("3")) {
         // TODO: TLB shootdown
         invlpg(virt_addr);
     }
@@ -262,7 +263,7 @@ int unmap_page(struct pagemap_t *pagemap, size_t virt_addr) {
     /* Unmap entry */
     pt[pt_entry] = 0;
 
-    if ((size_t)pagemap->pml4 == read_cr3()) {
+    if ((size_t)pagemap->pml4 == read_cr("3")) {
         // TODO: TLB shootdown
         invlpg(virt_addr);
     }
@@ -348,7 +349,7 @@ int remap_page(struct pagemap_t *pagemap, size_t virt_addr, size_t flags) {
     /* Update flags */
     pt[pt_entry] = (pt[pt_entry] & 0xfffffffffffff000) | flags;
 
-    if ((size_t)pagemap->pml4 == read_cr3()) {
+    if ((size_t)pagemap->pml4 == read_cr("3")) {
         // TODO: TLB shootdown
         invlpg(virt_addr);
     }
@@ -383,11 +384,7 @@ void init_vmm(void) {
     }
 
     /* Reload new pagemap */
-    asm volatile (
-        "mov cr3, rax;"
-        :
-        : "a" ((size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET)
-    );
+    write_cr("3", (size_t)kernel_pagemap->pml4 - MEM_PHYS_OFFSET);
 
     /* Forcefully map the first 4 GiB for I/O into the higher half */
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
@@ -399,8 +396,7 @@ void init_vmm(void) {
     /* Map the rest according to e820 into the higher half */
     for (size_t i = 0; e820_map[i].type; i++) {
         size_t aligned_base = e820_map[i].base - (e820_map[i].base % PAGE_SIZE);
-        size_t aligned_length = (e820_map[i].length / PAGE_SIZE) * PAGE_SIZE;
-        if (e820_map[i].length % PAGE_SIZE) aligned_length += PAGE_SIZE;
+        size_t aligned_length = DIV_ROUNDUP(e820_map[i].length, PAGE_SIZE) * PAGE_SIZE;
         if (e820_map[i].base % PAGE_SIZE) aligned_length += PAGE_SIZE;
 
         for (size_t j = 0; j * PAGE_SIZE < aligned_length; j++) {

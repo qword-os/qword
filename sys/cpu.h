@@ -16,6 +16,8 @@
     (int)cpu_number; \
 })
 
+#define load_fs_base(base) wrmsr(0xc0000100, base)
+
 struct cpu_local_t {
     /* DO NOT MOVE THESE MEMBERS FROM THESE LOCATIONS */
     /* DO NOT CHANGE THEIR TYPES */
@@ -43,6 +45,24 @@ extern void (*cpu_save_simd)(void *);
 extern void (*cpu_restore_simd)(void *);
 
 void init_cpu_features();
+
+#define write_cr(reg, val) ({ \
+    asm volatile ("mov cr" reg ", %0" : : "r" (val)); \
+})
+
+#define read_cr(reg) ({ \
+    size_t cr; \
+    asm volatile ("mov %0, cr" reg : "=r" (cr)); \
+    cr; \
+})
+
+#define invlpg(addr) ({ \
+    asm volatile ( \
+        "invlpg [%0];" \
+        : \
+        : "r" (addr) \
+    ); \
+})
 
 static inline int cpuid(uint32_t leaf, uint32_t subleaf,
                         uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {
