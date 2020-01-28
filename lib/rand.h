@@ -10,11 +10,13 @@ void srand(uint32_t);
 
 #define rdrand_supported ({ \
     int ret; \
+    uint32_t a = 1, c = 0; \
     asm volatile ( \
         "cpuid;" \
         "bt ecx, 30;" \
-        : "=@ccc" (ret) \
-        : "a" (1), "c" (0) \
+        : "=@ccc" (ret), "+a" (a), "+c" (c) \
+        :  \
+        : "rbx", "rdx" \
     ); \
     ret; \
 })
