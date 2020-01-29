@@ -5,3 +5,8 @@ qword.bin
 qword.elf
 acpi/lai
 symlist.gen
+
+# IDE related
+.idea
+CMake*
+cmake*
