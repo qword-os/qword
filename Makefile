@@ -10,7 +10,7 @@ CFILES    := $(shell find . -type f -name '*.c')
 ASMFILES  := $(shell find . -type f -name '*.asm')
 REALFILES := $(shell find . -type f -name '*.real')
 BINS      := $(REALFILES:.real=.bin)
-OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.o)
+OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.asm.o)
 DEPS      := $(CFILES:.c=.d)
 
 # User options.
@@ -109,11 +109,11 @@ uninstall:
 %.bin: %.real
 	$(AS) $< -f bin -o $@
 
-%.o: %.asm
+%.asm.o: %.asm
 	$(AS) $< -f elf64 -o $@
 
 clean:
-	rm -f $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF) $(DEPS)
+	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF) $(DEPS)
 
 run:
 	$(QEMU) $(QEMUHARDFLAGS)
