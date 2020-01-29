@@ -7,14 +7,14 @@ bits 32
 textmodeprint:
     pusha
     mov edi, 0xb8000
-.loop:
+  .loop:
     lodsb
     test al, al
     jz .out
     stosb
     inc edi
     jmp .loop
-.out:
+  .out:
     popa
     ret
 

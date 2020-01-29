@@ -14,8 +14,6 @@ smp_trampoline_end:
 
 section .text
 
-bits 64
-
 %define TRAMPOLINE_ADDR     0x1000
 %define PAGE_SIZE           4096
 

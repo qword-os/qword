@@ -1,7 +1,7 @@
+%include "lib/asm_macros.inc"
+
 global paging_init
 global kernel_cr3
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .bss
 

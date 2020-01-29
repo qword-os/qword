@@ -1,9 +1,9 @@
+%include "lib/asm_macros.inc"
+
 extern sections_text
 extern sections_data_end
 extern sections_bss_end
 extern _start
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .multiboot
 

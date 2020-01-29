@@ -1,8 +1,8 @@
+%include "lib/asm_macros.inc"
+
 extern real_routine
 
 global bios_get_time
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .data
 

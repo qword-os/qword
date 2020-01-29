@@ -1,10 +1,10 @@
+%include "lib/asm_macros.inc"
+
 bits 64
 
 global gdt_ptr
 global gdt_ptr_lowerhalf
 global load_tss
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .data
 

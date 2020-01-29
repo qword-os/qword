@@ -1,3 +1,5 @@
+%include "lib/asm_macros.inc"
+
 extern real_routine
 
 global get_vbe_info
@@ -5,24 +7,22 @@ global get_edid_info
 global get_vbe_mode_info
 global set_vbe_mode
 
-%define kernel_phys_offset 0xffffffffc0000000
-
 section .data
 
-%define get_vbe_info_size           get_vbe_info_end - get_vbe_info_bin
-get_vbe_info_bin:                   incbin "real/get_vbe_info.bin"
+%define get_vbe_info_size       get_vbe_info_end - get_vbe_info_bin
+get_vbe_info_bin:               incbin "real/get_vbe_info.bin"
 get_vbe_info_end:
 
-%define get_edid_info_size           get_edid_info_end - get_edid_info_bin
-get_edid_info_bin:                   incbin "real/get_edid_info.bin"
+%define get_edid_info_size      get_edid_info_end - get_edid_info_bin
+get_edid_info_bin:              incbin "real/get_edid_info.bin"
 get_edid_info_end:
 
-%define get_vbe_mode_info_size           get_vbe_mode_info_end - get_vbe_mode_info_bin
-get_vbe_mode_info_bin:                   incbin "real/get_vbe_mode_info.bin"
+%define get_vbe_mode_info_size  get_vbe_mode_info_end - get_vbe_mode_info_bin
+get_vbe_mode_info_bin:          incbin "real/get_vbe_mode_info.bin"
 get_vbe_mode_info_end:
 
-%define set_vbe_mode_size           set_vbe_mode_end - set_vbe_mode_bin
-set_vbe_mode_bin:                   incbin "real/set_vbe_mode.bin"
+%define set_vbe_mode_size       set_vbe_mode_end - set_vbe_mode_bin
+set_vbe_mode_bin:               incbin "real/set_vbe_mode.bin"
 set_vbe_mode_end:
 
 section .text

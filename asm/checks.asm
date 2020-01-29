@@ -1,9 +1,9 @@
+%include "lib/asm_macros.inc"
+
 global check_cpuid
 global check_long_mode
 
 extern textmodeprint
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .text
 bits 32

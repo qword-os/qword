@@ -1,8 +1,8 @@
+%include "lib/asm_macros.inc"
+
 extern real_routine
 
 global get_e820
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .data
 

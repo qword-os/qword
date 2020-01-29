@@ -1,7 +1,4 @@
-; This file contains the code that is going to be linked at the beginning of
-; the kernel binary.
-; It should contain core CPU initialisation routines such as entering
-; long mode.
+%include "lib/asm_macros.inc"
 
 global _start
 global cmdline
@@ -16,8 +13,6 @@ extern gdt_ptr_lowerhalf
 extern kmain
 extern sections_bss
 extern sections_bss_end
-
-%define kernel_phys_offset 0xffffffffc0000000
 
 section .bss
 
