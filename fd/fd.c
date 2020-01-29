@@ -9,7 +9,7 @@ void init_fd(void) {
     init_fd_vfs();
 }
 
-dynarray_new(struct file_descriptor_t, file_descriptors);
+public_dynarray_new(struct file_descriptor_t, file_descriptors);
 
 int fd_create(struct file_descriptor_t *fd) {
     return dynarray_add(struct file_descriptor_t, file_descriptors, fd);

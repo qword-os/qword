@@ -4,6 +4,10 @@
 #include <stdint.h>
 #include <net/net.h>
 
+#define PROTO_ICMP4  HTONS(1)
+#define PROTO_TCP   HTONS(6)
+#define PROTO_UDP   HTONS(17)
+
 struct ipv4_hdr_t {
     uint8_t head_len : 4;
     uint8_t ver : 4;

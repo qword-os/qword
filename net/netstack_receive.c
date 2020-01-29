@@ -6,6 +6,7 @@
 #include <lib/cmem.h>
 #include <net/proto/ipv4.h>
 #include <net/proto/udp.h>
+#include <net/proto/icmp4.h>
 #include "netstack.h"
 #include "net.h"
 #include "socket.h"
@@ -57,17 +58,20 @@ static int process_udp(struct packet_t* pkt) {
         return -1;
     }
 
-    // TODO: pass to the higher level stack for routing
-    //       to the correct socket
-
-    kprint(KPRN_DBG, "netstack: udp: got udp request at port %d", pkt->transport.dst);
+    socket_process_packet(pkt);
     return 0;
+}
+
+static int process_icmp4(struct packet_t* pkt) {
+    // TODO: implement icmp4, this is a stub to stop annoying warnings
+    return -1;
 }
 
 static int process_transport(struct packet_t* pkt) {
     switch (pkt->network.type) {
-        case PROTO_TCP: return process_tcp(pkt);
-        case PROTO_UDP: return process_udp(pkt);
+        case PROTO_ICMP4:   return process_icmp4(pkt);
+        case PROTO_TCP:     return process_tcp(pkt);
+        case PROTO_UDP:     return process_udp(pkt);
         default:
             kprint(KPRN_ERR, "netstack: transport: unknown protocol %x", pkt->network.type);
             return -1;

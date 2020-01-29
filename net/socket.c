@@ -1,7 +1,75 @@
 #include <fd/fd.h>
+#include <net/proto/ipv4.h>
+#include <lib/cmem.h>
+#include <sys/panic.h>
+#include <net/proto/ether.h>
+#include <lib/event.h>
 #include "socket.h"
+#include "net.h"
+
 
 public_dynarray_new(struct socket_t, sockets);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Socket API internal functions
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+int socket_recv(struct socket_t* sock, void* buf, size_t len, int flags) {
+    int ret;
+
+    // TODO: check if connected for TCP
+
+    while (1) {
+        spinlock_acquire(&sock->buffers_lock);
+
+        // if there is no buffer then just release the spinlock and
+        // await for one. if nowait is set then will not await and just
+        // return -1
+        if (sock->buffers == NULL) {
+            spinlock_release(&sock->buffers_lock);
+
+            // if has this flag just exit with errno that
+            // indicates a block
+            if (flags & MSG_DONTWAIT) {
+                errno = EWOULDBLOCK;
+                return -1;
+            }
+
+            // await till has a buffer
+            event_await(&sock->has_buffers);
+            continue;
+        }
+
+        switch (sock->type) {
+            // for dgram sockets get the min len and copy it to the buffer
+            // also set that the returned amount of bytes
+            case SOCK_DGRAM:
+                ret = len > sock->buffers->len ? sock->buffers->len : len;
+                memcpy(buf, sock->buffers->buf, ret);
+
+                // only remove if not peek
+                if (!(flags & MSG_PEEK)) {
+                    struct socket_buffer_t* buf = sock->buffers;
+                    sock->buffers = sock->buffers->next;
+                    kfree(buf->buf);
+                    kfree(buf);
+                }
+
+                spinlock_release(&sock->buffers_lock);
+                return ret;
+
+            case SOCK_STREAM:
+                // this will need some kind of a loop
+                // TODO:
+                panic_if("TODO");
+                break;
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// FD API
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int socket_close(int fd) {
     // get and remove it so no one can find it
@@ -35,10 +103,27 @@ int socket_close(int fd) {
     return 0;
 }
 
+int socket_read(int fd, void* buf, size_t len) {
+    struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, fd);
+    if(sock == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
+    int ret = socket_recv(sock, buf, len, 0);
+
+    dynarray_unref(sockets, fd);
+    return ret;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel socket API
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 int socket(int domain, int type, int protocol) {
     // check the domain
     if (domain != AF_INET && domain != AF_PACKET) {
-        errno = EINVAL;
+        errno = EAFNOSUPPORT;
         return -1;
     }
 
@@ -62,7 +147,7 @@ int socket(int domain, int type, int protocol) {
     // TODO: check the protocol type properly
 
     if (domain != AF_PACKET && protocol == 0) {
-        errno = EINVAL;
+        errno = EPROTONOSUPPORT;
         return -1;
     }
 
@@ -81,5 +166,94 @@ int socket(int domain, int type, int protocol) {
     descriptor.intern_fd = i;
     descriptor.fd_handler = default_fd_handler;
     descriptor.fd_handler.close = socket_close;
+    descriptor.fd_handler.read = socket_read;
     return fd_create(&descriptor);
+}
+
+int recv(int sockfd, void* buf, size_t len, int flags) {
+    struct file_descriptor_t* desc = dynarray_getelem(struct file_descriptor_t, file_descriptors, sockfd);
+    if (desc == NULL || desc->fd_handler.close != socket_close) {
+        errno = EBADF;
+        return -1;
+    }
+
+    struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, desc->intern_fd);
+    if (sock == NULL) {
+        errno = EBADF;
+        return -1;
+    }
+
+    int ret = socket_recv(sock, buf, len, flags);
+
+    dynarray_unref(file_descriptors, sockfd);
+    return ret;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Socket packet stuff
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void socket_process_packet(struct packet_t* pkt) {
+    int domain = -1;
+    int protocol = pkt->network.type; // these are actually the same
+
+    switch(pkt->datalink.type) {
+        case ETHER_IPV4: domain = AF_INET; break;
+    }
+
+    size_t i = 0;
+    struct socket_t* sock = NULL;
+    while (1) {
+        sock = dynarray_search(struct socket_t, sockets, &i,
+                elem->domain == domain && elem->proto == protocol, i);
+        if (sock == NULL) {
+            break;
+        }
+
+        // additional domain related checks
+        switch (sock->domain) {
+            case AF_INET:
+                if(sock->domain_ctx.inet.remote_address.raw != 0 &&
+                !IPV4_EQUAL(sock->domain_ctx.inet.remote_address, pkt->network.src)) {
+                    continue;
+                }
+                break;
+        }
+
+        // additional protocol related checks
+        switch (sock->proto) {
+            // udp checks
+            case PROTO_UDP:
+                if(sock->proto_ctx.udp.local_port != pkt->transport.dst) {
+                    continue;
+                }
+
+                if(sock->proto_ctx.udp.remote_port != 0 &&
+                    sock->proto_ctx.udp.remote_port != pkt->transport.src) {
+                    continue;
+                }
+
+                break;
+
+            // TODO: TCP
+        }
+
+        spinlock_acquire(&sock->buffers_lock);
+
+        // copy the packet
+        struct socket_buffer_t* buffer = kalloc(sizeof(struct socket_buffer_t));
+        buffer->buf = kalloc(pkt->data_len);
+        buffer->len = pkt->data_len;
+        memcpy(buffer->buf, pkt->data, pkt->data_len);
+
+        // link it
+        sock->last_buffer->next = buffer;
+        sock->last_buffer = buffer;
+
+        dynarray_unref(sockets, i);
+        spinlock_release(&sock->buffers_lock);
+
+        // trigger that we have a buffer
+        event_trigger(&sock->has_buffers);
+    }
 }
