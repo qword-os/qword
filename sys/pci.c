@@ -14,40 +14,52 @@
 dynarray_new(struct pci_device_t, pci_devices);
 size_t available_devices;
 
-static void get_address(struct pci_device_t *device, uint32_t offset) {
+#define BYTE  0
+#define WORD  1
+#define DWORD 2
+
+static void get_address(int s, struct pci_device_t *device, uint32_t offset) {
+    switch (s) {
+        case BYTE:
+            offset &= 0xffff;
+        case WORD:
+            offset &= 0xfffe;
+        case DWORD:
+            offset &= 0xfffc;
+    }
     port_out_d(0xcf8, (1 << 31) | (((uint32_t)device->bus) << 16)
         | (((uint32_t)device->device) << 11)
-        | (((uint32_t)device->func) << 8) | (offset & ~0b11));
+        | (((uint32_t)device->func) << 8) | offset);
 }
 
 uint8_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset) {
-    get_address(device, offset);
+    get_address(BYTE, device, offset);
     return port_in_b(0xcfc + (offset % 4));
 }
 
 void pci_write_device_byte(struct pci_device_t *device, uint32_t offset, uint8_t value) {
-    get_address(device, offset);
+    get_address(BYTE, device, offset);
     port_out_b(0xcfc + (offset % 4), value);
 }
 
 uint16_t pci_read_device_word(struct pci_device_t *device, uint32_t offset) {
-    get_address(device, offset);
-    return port_in_w(0xcfc + (offset % 2));
+    get_address(WORD, device, offset);
+    return port_in_w(0xcfc + (offset % 4));
 }
 
 void pci_write_device_word(struct pci_device_t *device, uint32_t offset, uint16_t value) {
-    get_address(device, offset);
-    port_out_w(0xcfc + (offset % 2), value);
+    get_address(WORD, device, offset);
+    port_out_w(0xcfc + (offset % 4), value);
 }
 
 uint32_t pci_read_device_dword(struct pci_device_t *device, uint32_t offset) {
-    get_address(device, offset);
-    return port_in_d(0xcfc);
+    get_address(DWORD, device, offset);
+    return port_in_d(0xcfc + (offset % 4));
 }
 
 void pci_write_device_dword(struct pci_device_t *device, uint32_t offset, uint32_t value) {
-    get_address(device, offset);
-    port_out_d(0xcfc, value);
+    get_address(DWORD, device, offset);
+    port_out_d(0xcfc + (offset % 4), value);
 }
 
 int pci_read_bar(struct pci_device_t *device, int bar, struct pci_bar_t *out) {
