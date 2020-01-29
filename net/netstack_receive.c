@@ -7,6 +7,7 @@
 #include <net/proto/ipv4.h>
 #include <net/proto/udp.h>
 #include <net/proto/icmp4.h>
+#include <lib/event.h>
 #include "netstack.h"
 #include "net.h"
 #include "socket.h"
@@ -274,6 +275,9 @@ void netstack_process_frame(struct packet_t* pkt) {
         // link it
         sock->last_buffer->next = buffer;
         sock->last_buffer = buffer;
+
+        // trigger event
+        event_trigger(&sock->has_buffers);
 
         dynarray_unref(sockets, i);
         spinlock_release(&sock->buffers_lock);
