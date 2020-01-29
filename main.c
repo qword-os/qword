@@ -22,7 +22,6 @@
 #include <fs/fs.h>
 #include <fd/fd.h>
 #include <devices/dev.h>
-#include <sys/vga_font.h>
 #include <lib/rand.h>
 #include <sys/urm.h>
 #include <net/hostname.h>

@@ -6,7 +6,7 @@
 #include <lib/lock.h>
 #include <sys/apic.h>
 #include <devices/display/vbe/vbe.h>
-#include <sys/vga_font.h>
+#include <lib/bitmap_font.h>
 #include <lib/cstring.h>
 
 #define MAX_TTYS 6
@@ -217,9 +217,9 @@ void init_tty(void) {
             vbe_height,
             vbe_width,
             vbe_pitch,
-            vga_font,
-            vga_font_height,
-            vga_font_width);
+            bitmap_font,
+            bitmap_font_height,
+            bitmap_font_width);
 }
 
 void init_dev_tty(void) {
