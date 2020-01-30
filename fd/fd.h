@@ -103,6 +103,7 @@ struct fd_handler_t {
     int (*perfmon_attach)(int);
     int (*unlink)(int);
     int (*getpath)(int, char *);
+    ssize_t (*recv)(int fd, void *buf, size_t len, int flags);
 };
 
 struct file_descriptor_t {
@@ -110,8 +111,6 @@ struct file_descriptor_t {
     int fdflags;
     struct fd_handler_t fd_handler;
 };
-
-public_dynarray_prototype(struct file_descriptor_t, file_descriptors);
 
 int fd_create(struct file_descriptor_t *);
 int close(int);
@@ -135,6 +134,7 @@ int getfdflags(int);
 int setfdflags(int, int);
 
 int getpath(int, char *);
+ssize_t recv(int fd, void *buf, size_t len, int flags);
 
 __attribute__((unused)) static int bogus_fstat() {
     errno = EINVAL;
@@ -219,6 +219,11 @@ __attribute__((unused)) static int bogus_getpath() {
     return -1;
 }
 
+__attribute__((unused)) static int bogus_recv() {
+    errno = ENOTSOCK;
+    return -1;
+}
+
 __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_close,
     (void *)bogus_fstat,
@@ -235,7 +240,8 @@ __attribute__((unused)) static struct fd_handler_t default_fd_handler = {
     (void *)bogus_setflflags,
     (void *)bogus_perfmon_attach,
     (void *)bogus_unlink,
-    (void *)bogus_getpath
+    (void *)bogus_getpath,
+    (void *)bogus_recv
 };
 
 #endif

@@ -2,7 +2,7 @@
 #define __NET__SOCKET_H__
 
 #include <stddef.h>
-#include "net.h"
+#include <net/net.h>
 
 enum socket_domain {
     AF_INET = 2,
@@ -65,6 +65,5 @@ public_dynarray_prototype(struct socket_t, sockets);
 void socket_process_packet(struct packet_t* pkt);
 
 int socket(int domain, int type, int protocol);
-int recv(int sockfd, void* buf, size_t len, int flags);
 
 #endif //__NET__SOCKET_H__

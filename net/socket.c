@@ -4,18 +4,23 @@
 #include <sys/panic.h>
 #include <net/proto/ether.h>
 #include <lib/event.h>
-#include "socket.h"
-#include "net.h"
-
+#include <net/socket.h>
+#include <net/net.h>
 
 public_dynarray_new(struct socket_t, sockets);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Socket API internal functions
+// FD API
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int socket_recv(struct socket_t* sock, void* buf, size_t len, int flags) {
-    int ret;
+static ssize_t socket_recv(int fd, void* buf, size_t len, int flags) {
+    ssize_t ret;
+
+    struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, fd);
+    if(sock == NULL) {
+        errno = EBADF;
+        return -1;
+    }
 
     // TODO: check if connected for TCP
 
@@ -32,6 +37,7 @@ int socket_recv(struct socket_t* sock, void* buf, size_t len, int flags) {
             // indicates a block
             if (flags & MSG_DONTWAIT) {
                 errno = EWOULDBLOCK;
+                dynarray_unref(sockets, fd);
                 return -1;
             }
 
@@ -56,6 +62,7 @@ int socket_recv(struct socket_t* sock, void* buf, size_t len, int flags) {
                 }
 
                 spinlock_release(&sock->buffers_lock);
+                dynarray_unref(sockets, fd);
                 return ret;
 
             case SOCK_STREAM:
@@ -67,11 +74,7 @@ int socket_recv(struct socket_t* sock, void* buf, size_t len, int flags) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// FD API
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-int socket_close(int fd) {
+static int socket_close(int fd) {
     // get and remove it so no one can find it
     struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, fd);
     if(sock == NULL) {
@@ -103,7 +106,7 @@ int socket_close(int fd) {
     return 0;
 }
 
-int socket_read(int fd, void* buf, size_t len) {
+static int socket_read(int fd, void* buf, size_t len) {
     struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, fd);
     if(sock == NULL) {
         errno = EBADF;
@@ -167,26 +170,8 @@ int socket(int domain, int type, int protocol) {
     descriptor.fd_handler = default_fd_handler;
     descriptor.fd_handler.close = socket_close;
     descriptor.fd_handler.read = socket_read;
+    descriptor.fd_handler.recv = socket_recv;
     return fd_create(&descriptor);
-}
-
-int recv(int sockfd, void* buf, size_t len, int flags) {
-    struct file_descriptor_t* desc = dynarray_getelem(struct file_descriptor_t, file_descriptors, sockfd);
-    if (desc == NULL || desc->fd_handler.close != socket_close) {
-        errno = EBADF;
-        return -1;
-    }
-
-    struct socket_t* sock = dynarray_getelem(struct socket_t, sockets, desc->intern_fd);
-    if (sock == NULL) {
-        errno = EBADF;
-        return -1;
-    }
-
-    int ret = socket_recv(sock, buf, len, flags);
-
-    dynarray_unref(file_descriptors, sockfd);
-    return ret;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -9,7 +9,7 @@ void init_fd(void) {
     init_fd_vfs();
 }
 
-public_dynarray_new(struct file_descriptor_t, file_descriptors);
+dynarray_new(struct file_descriptor_t, file_descriptors);
 
 int fd_create(struct file_descriptor_t *fd) {
     return dynarray_add(struct file_descriptor_t, file_descriptors, fd);
@@ -30,6 +30,14 @@ int dup(int fd) {
     new_fd.fd_handler = file_descriptors[fd]->data.fd_handler;
 
     return fd_create(&new_fd);
+}
+
+ssize_t recv(int fd, void *buf, size_t len, int flags) {
+    struct file_descriptor_t *fd_ptr = dynarray_getelem(struct file_descriptor_t, file_descriptors, fd);
+    int intern_fd = fd_ptr->intern_fd;
+    int ret = fd_ptr->fd_handler.recv(intern_fd, buf, len, flags);
+    dynarray_unref(file_descriptors, fd);
+    return ret;
 }
 
 int getpath(int fd, char *buf) {
