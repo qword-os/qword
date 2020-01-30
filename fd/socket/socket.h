@@ -1,5 +1,5 @@
-#ifndef __NET__SOCKET_H__
-#define __NET__SOCKET_H__
+#ifndef __FD__SOCKET__SOCKET_H__
+#define __FD__SOCKET__SOCKET_H__
 
 #include <stddef.h>
 #include <net/net.h>

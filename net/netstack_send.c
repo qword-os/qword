@@ -7,7 +7,7 @@
 #include <net/proto/udp.h>
 #include "net.h"
 #include "netstack.h"
-#include "socket.h"
+#include <fd/socket/socket.h>
 
 static int process_transport(struct packet_t* pkt, char* buf, size_t len) {
     switch (pkt->network.type) {

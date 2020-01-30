@@ -8,9 +8,9 @@
 #include <net/proto/udp.h>
 #include <net/proto/icmp4.h>
 #include <lib/event.h>
-#include "netstack.h"
-#include "net.h"
-#include "socket.h"
+#include <net/netstack.h>
+#include <net/net.h>
+#include <fd/socket/socket.h>
 
 // TODO: we could easily remove the length from the packet structure on
 //       each OSI level

@@ -4,7 +4,7 @@
 #include <sys/panic.h>
 #include <net/proto/ether.h>
 #include <lib/event.h>
-#include <net/socket.h>
+#include <fd/socket/socket.h>
 #include <net/net.h>
 
 public_dynarray_new(struct socket_t, sockets);
