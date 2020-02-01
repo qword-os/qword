@@ -18,48 +18,44 @@ size_t available_devices;
 #define WORD  1
 #define DWORD 2
 
-static void get_address(int s, struct pci_device_t *device, uint32_t offset) {
-    switch (s) {
-        case BYTE:
-            offset &= 0xffff;
-        case WORD:
-            offset &= 0xfffe;
-        case DWORD:
-            offset &= 0xfffc;
-    }
-    port_out_d(0xcf8, (1 << 31) | (((uint32_t)device->bus) << 16)
-        | (((uint32_t)device->device) << 11)
-        | (((uint32_t)device->func) << 8) | offset);
+static void get_address(struct pci_device_t *device, uint32_t offset) {
+    uint32_t address = (device->bus << 16) | (device->device << 11) | (device->func << 8)
+        | (offset & ~((uint32_t)(3))) | 0x80000000;
+    port_out_d(0xcf8, address);
 }
 
 uint8_t pci_read_device_byte(struct pci_device_t *device, uint32_t offset) {
-    get_address(BYTE, device, offset);
-    return port_in_b(0xcfc + (offset % 4));
+    get_address(device, offset);
+    return port_in_b(0xcfc + (offset & 3));
 }
 
 void pci_write_device_byte(struct pci_device_t *device, uint32_t offset, uint8_t value) {
-    get_address(BYTE, device, offset);
-    port_out_b(0xcfc + (offset % 4), value);
+    get_address(device, offset);
+    port_out_b(0xcfc + (offset & 3), value);
 }
 
 uint16_t pci_read_device_word(struct pci_device_t *device, uint32_t offset) {
-    get_address(WORD, device, offset);
-    return port_in_w(0xcfc + (offset % 4));
+    panic_unless(!(offset & 1));
+    get_address(device, offset);
+    return port_in_w(0xcfc + (offset & 3));
 }
 
 void pci_write_device_word(struct pci_device_t *device, uint32_t offset, uint16_t value) {
-    get_address(WORD, device, offset);
-    port_out_w(0xcfc + (offset % 4), value);
+    panic_unless(!(offset & 1));
+    get_address(device, offset);
+    port_out_w(0xcfc + (offset & 3), value);
 }
 
 uint32_t pci_read_device_dword(struct pci_device_t *device, uint32_t offset) {
-    get_address(DWORD, device, offset);
-    return port_in_d(0xcfc + (offset % 4));
+    panic_unless(!(offset & 3));
+    get_address(device, offset);
+    return port_in_d(0xcfc + (offset & 3));
 }
 
 void pci_write_device_dword(struct pci_device_t *device, uint32_t offset, uint32_t value) {
-    get_address(DWORD, device, offset);
-    port_out_d(0xcfc + (offset % 4), value);
+    panic_unless(!(offset & 3));
+    get_address(device, offset);
+    port_out_d(0xcfc + (offset & 3), value);
 }
 
 int pci_read_bar(struct pci_device_t *device, int bar, struct pci_bar_t *out) {
@@ -108,12 +104,6 @@ int pci_read_bar(struct pci_device_t *device, int bar, struct pci_bar_t *out) {
 void pci_enable_busmastering(struct pci_device_t *device) {
     if (!(pci_read_device_dword(device, 0x4) & (1 << 2))) {
         pci_write_device_dword(device, 0x4, pci_read_device_dword(device, 0x4) | (1 << 2));
-    }
-}
-
-void pci_enable_interrupts(struct pci_device_t *device) {
-    if (pci_read_device_dword(device, 0x4) & (1 << 10)) {
-        pci_write_device_dword(device, 0x4, pci_read_device_dword(device, 0x4) & ~(1 << 10));
     }
 }
 
@@ -223,7 +213,6 @@ static void pci_check_function(uint8_t bus, uint8_t slot, uint8_t func, int64_t 
     device.device_class = (uint8_t)(config_8 >> 24);
     device.prog_if = (uint8_t)(config_8 >> 8);
     device.irq_pin = (uint8_t)(config_3c >> 8);
-    device.gsi = UINT32_MAX; // for when the gsi is invalid
 
     if (config_c & 0x800000)
         device.multifunction = 1;
@@ -429,4 +418,10 @@ void init_pci(void) {
     }
 
     pci_route_interrupts();
+}
+
+void pci_enable_interrupts(struct pci_device_t *device) {
+    if (pci_read_device_dword(device, 0x4) & (1 << 10)) {
+        pci_write_device_dword(device, 0x4, pci_read_device_dword(device, 0x4) & ~(1 << 10));
+    }
 }
