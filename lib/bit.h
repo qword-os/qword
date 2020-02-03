@@ -44,4 +44,12 @@
     ret; \
 })
 
+#define bswap(type, value) ({ \
+    type ret = value; \
+    asm volatile( \
+        "bswap %0" \
+        : "+r" (ret)); \
+    ret; \
+})
+
 #endif
