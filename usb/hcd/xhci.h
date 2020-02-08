@@ -59,6 +59,7 @@
 #define EP_ISOC_IN           5
 #define EP_BULK_IN           6
 #define EP_INT_IN            7
+#define RESET_CHANGE_BITS (1 << 9) | (1 << 21) | (1 << 20) | (1 << 19) | (1 << 18) | (1 << 17) | (1 << 22) | (1 << 23)
 
 #define TRB_STATUS(x)  (((x) & (0xFF << 24)) >> 24)
 #define TRB_SLOT_ID(x) (((x) & (0xFF << 24)) >> 24)
@@ -271,6 +272,34 @@ struct xhci_endpoint {
     lock_t lock;
 };
 
+struct xhci_port_speed_id {
+    uint8_t value;
+    uint8_t exponent;
+    uint8_t type;
+
+    int full_duplex;
+
+    uint8_t link_protocol;
+
+    uint16_t mantissa;
+};
+
+struct xhci_port_protocol {
+    int minor;
+    int major;
+
+    char name[5];
+
+    uint8_t compatible_port_off;
+    uint8_t compatible_port_count;
+
+    uint8_t protocol_specific;
+
+    uint8_t protocol_slot_type;
+
+    struct xhci_port_speed_id speeds[16];
+};
+
 struct xhci_hcd {
     volatile struct xhci_cap_regs *cap_regs;
     volatile struct xhci_op_regs *op_regs;
@@ -286,6 +315,9 @@ struct xhci_hcd {
     uint32_t slot_id;
     uint32_t context_size;
     uint64_t *scratchpad_buffer_array;
+
+    int num_protcols;
+    struct xhci_port_protocol protocols[255];
 
     int irq_line;
     int port_events[XHCI_CONFIG_MAX_SLOT + 1];

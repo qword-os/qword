@@ -83,7 +83,7 @@ int init_mass_storage(struct usb_dev_t *device) {
     if (device->class != 0x8 || device->sub_class != 0x6)
         return -1;
 
-    kprint(KPRN_INFO, "usb: MASS STORAGE");
+    kprint(KPRN_INFO, "usb: initializing mass storage device");
     struct mass_storage_dev_t internal_dev = {0};
     internal_dev.device = *device;
 

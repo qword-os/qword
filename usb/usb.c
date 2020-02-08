@@ -90,15 +90,15 @@ int usb_add_device(struct usb_dev_t device) {
     kprint(KPRN_INFO, "usb: getting configuration");
     struct usb_config_t config;
     ret =
-        usb_make_request(&device, (char *)&config, sizeof(struct usb_config_t),
-                         0b10000000, 6, (2 << 8), 0, 0, 0);
+            usb_make_request(&device, (char *)&config, sizeof(struct usb_config_t),
+                             0b10000000, 6, (2 << 8), 0, 0, 0);
     if (ret)
         return -1;
 
     /* set config */
     kprint(KPRN_INFO, "usb: setting configuration");
     ret =
-        usb_make_request(&device, NULL, 0, 0, 9, config.config_value, 0, 0, 1);
+            usb_make_request(&device, NULL, 0, 0, 9, config.config_value, 0, 0, 1);
     if (ret)
         return -1;
 
@@ -111,7 +111,7 @@ int usb_add_device(struct usb_dev_t device) {
         return -1;
 
     struct usb_interface_t *interface =
-        (struct usb_interface_t *)(config_buf + config.length);
+            (struct usb_interface_t *)(config_buf + config.length);
 
     /* set interface */
     kprint(KPRN_INFO, "usb: setting interface");
@@ -128,9 +128,9 @@ int usb_add_device(struct usb_dev_t device) {
         }
 
         struct usb_endpoint_data_t *endpoint =
-            (struct usb_endpoint_data_t
-                 *)(config_buf + config.length + interface->length +
-                    (i * sizeof(struct usb_endpoint_data_t)));
+                (struct usb_endpoint_data_t
+                *)(config_buf + config.length + interface->length +
+                   (i * sizeof(struct usb_endpoint_data_t)));
         device.endpoints[i].data = *endpoint;
         kprint(KPRN_INFO, "usb: ep type: %x, address: %x", endpoint->type,
                endpoint->address);
@@ -150,9 +150,13 @@ int usb_add_device(struct usb_dev_t device) {
 void init_usb(void) {
     //    struct usb_hc_t *controller = usb_init_uhci();
     struct usb_hc_t *xcontroller = usb_init_xhci();
+    if(!usb_devices_i) {
+        return;
+    }
     if (!init_mass_storage(
             dynarray_getelem(struct usb_dev_t, usb_devices, 0))) {
         dynarray_remove(usb_devices, 0);
         return;
     }
 }
+
