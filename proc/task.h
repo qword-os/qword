@@ -56,13 +56,16 @@ struct thread_t {
     int event_abrt;
     uint64_t yield_target;
     int paused;
-    event_t *event_ptr;
     int active_on_cpu;
     size_t kstack;
     size_t ustack;
     size_t thread_errno;
     size_t fs_base;
     struct ctx_t ctx;
+    event_t **event_ptr;
+    int *out_event_ptr;
+    size_t event_timeout;
+    int event_num;
 };
 
 #define AT_ENTRY 10
@@ -120,8 +123,8 @@ void yield(void);
 void relaxed_sleep(uint64_t);
 
 enum tcreate_abi {
-	tcreate_fn_call,
-	tcreate_elf_exec
+    tcreate_fn_call,
+    tcreate_elf_exec
 };
 
 struct tcreate_fn_call_data{
