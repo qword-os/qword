@@ -197,9 +197,24 @@ static inline tid_t task_get_next(tid_t current_task) {
             goto next;
         }
         if (thread->event_ptr) {
-            if (!thread->event_abrt) {
-                if (locked_read(event_t, thread->event_ptr)) {
-                    locked_dec(thread->event_ptr);
+            if(!thread->event_abrt) {
+                int wake = 0;
+                for(int i = 0; i < (thread->event_num); i++) {
+                    if(locked_read(event_t, thread->event_ptr[i])) {
+                        wake = 1;
+                        locked_dec(thread->event_ptr[i]);
+                        thread->out_event_ptr[i] = 1;
+                    }
+                }
+
+                //only trigger timeout if no other events happened
+                if(thread->event_timeout <= uptime_raw && (thread->event_timeout != 0) && !wake) {
+                    thread->event_ptr = 0;
+                    thread->event_timeout = 0;
+                    wake = 1;
+                }
+
+                if(wake) {
                     thread->event_ptr = 0;
                 } else {
                     spinlock_release(&thread->lock);
