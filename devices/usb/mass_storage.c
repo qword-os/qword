@@ -4,6 +4,7 @@
 #include <lib/cmem.h>
 #include <lib/dynarray.h>
 #include <lib/klib.h>
+#include <sys/panic.h>
 #include <lib/scsi.h>
 
 #define MAX_CACHED_BLOCKS 8192
@@ -40,6 +41,7 @@ dynarray_new(struct mass_storage_dev_t, devices);
 
 static int mass_storage_send_cmd(int drive, char *cmd, size_t cmd_length,
                                  char *buf, size_t request_length, int out) {
+
     struct cbw_t cbw = {0};
     cbw.command_length = cmd_length;
     memcpy(&cbw.command, cmd, cmd_length);
@@ -79,40 +81,24 @@ static int mass_storage_send_cmd(int drive, char *cmd, size_t cmd_length,
     return 0;
 }
 
-int init_mass_storage(struct usb_dev_t *device) {
-    if (device->class != 0x8 || device->sub_class != 0x6)
-        return -1;
-
+int init_mass_storage(struct usb_dev_t *device, struct usb_endpoint_t *endpoints) {
+    kprint(KPRN_INFO, "found mass storage device");
     kprint(KPRN_INFO, "usb: initializing mass storage device");
     struct mass_storage_dev_t internal_dev = {0};
     internal_dev.device = *device;
 
-    /* determine endpoints */
-    if (device->num_endpoints != 2)
-        return -1;
-    for (int i = 0; i < 2; i++) {
-        if (device->endpoints[i].data.address & 0x80) {
-            kprint(KPRN_INFO, "usb: endpoint %x is input", i);
-            internal_dev.in = i;
-            continue;
-        }
-        kprint(KPRN_INFO, "usb: endpoint %x is output", i);
-        internal_dev.out = i;
-    }
+    internal_dev.out = usb_get_endpoint(endpoints, USB_EP_TYPE_BULK, 0);
+    panic_if(internal_dev.out == -1);
+    internal_dev.in = usb_get_endpoint(endpoints, USB_EP_TYPE_BULK, 1);
+    panic_if(internal_dev.in == -1);
 
-    /* before we do anything, reset the device */
-    int ret = usb_make_request(device, NULL, 0, 0b00100001, 0xFF, 0, 0, 0, 1);
-    if (ret)
-        return -1;
-
-    ret = dynarray_add(struct mass_storage_dev_t, devices, &internal_dev);
+    int ret = dynarray_add(struct mass_storage_dev_t, devices, &internal_dev);
     if (ret < 0)
         return -1;
 
     scsi_register(ret, mass_storage_send_cmd,
-                  device->endpoints[internal_dev.in].data.max_packet_size);
+                  512);
 
     kprint(KPRN_INFO, "mass_storage: initiated device!");
-
     return 0;
 }

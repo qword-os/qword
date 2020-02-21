@@ -212,7 +212,9 @@ struct xhci_seg {
     uint32_t size;
     uint32_t cycle_state;
     enum xhci_seg_type type;
-    struct xhci_event *seg_events[4096];
+    struct xhci_event **seg_events;
+    lock_t lock;
+    //TODO reduce number
 };
 
 struct xhci_erst_entry {
@@ -305,7 +307,7 @@ struct xhci_hcd {
     volatile struct xhci_op_regs *op_regs;
     volatile struct xhci_run_regs *run_regs;
     volatile struct xhci_db_regs *db_regs;
-    struct xhci_dev *xdevs[XHCI_CONFIG_MAX_SLOT + 1];
+    struct xhci_dev **xdevs;
     volatile uint64_t *dcbaap;
     size_t dcbaap_dma;
     struct xhci_seg ering;

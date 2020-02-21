@@ -66,37 +66,67 @@ struct usb_endpoint_data_t {
     uint8_t attributes;
     uint16_t max_packet_size;
     uint8_t interval;
-    void *hcd_ep;
 } __attribute__((packed));
 
 struct usb_endpoint_t {
-    struct usb_endpoint_data_t data;
-    void *hcd_ep;
+    uint8_t address;
+    uint8_t attributes;
+    int hcd_ep_num;
 };
 
 struct usb_dev_t {
     int address;
     int low_speed;
+    int speed;
     size_t max_packet_size;
     struct usb_hc_t *controller;
-    struct usb_endpoint_t endpoints[15];
+    void *internal_controller;
     int num_endpoints;
-    int class;
-    int sub_class;
     int claimed;
-    void *hcd_dev;
+    int hcd_devno;
+    struct usb_interface_t interface;
+
+    uint16_t vendor;
+    uint16_t product;
+    uint16_t usb_ver;
+    uint16_t dev_ver;
+    uint8_t class;
+    uint8_t subclass;
+
+    int num_configs;
 };
 
 struct usb_hc_t {
-    int (*send_control)(struct usb_dev_t *, char *, size_t, int, int);
-    int (*send_bulk)(struct usb_dev_t *, char *, size_t, int, int);
+    int (*send_control)(struct usb_dev_t *, void *, struct usb_request_t, int);
+    int (*send_bulk)(struct usb_dev_t *, char *, size_t, int epno, int);
     int (*probe)(void *);
-    int (*setup_endpoint)(struct usb_dev_t *, int);
+    int (*setup_endpoint)(struct usb_dev_t *, int, int);
+};
+
+#define MATCH_VENDOR       (1 << 0)
+#define MATCH_PRODUCT      (1 << 1)
+#define MATCH_USB_VERSION  (1 << 2)
+#define MATCH_DEV_VERSION  (1 << 3)
+#define MATCH_CLASS        (1 << 4)
+#define MATCH_SUBCLASS     (1 << 5)
+
+struct usb_driver_t {
+    uint8_t match;
+    uint16_t vendor;
+    uint16_t product;
+    uint16_t usb_ver;
+    uint16_t dev_ver;
+    uint8_t class;
+    uint8_t subclass;
+
+    int (*probe)(struct usb_dev_t *, struct usb_endpoint_t *);
 };
 
 int usb_make_request(struct usb_dev_t *, char *, size_t, uint8_t, uint8_t,
                      uint16_t, uint16_t, uint8_t, uint8_t);
-int usb_add_device(struct usb_dev_t);
+int usb_add_device(struct usb_dev_t, int devno);
+int usb_get_endpoint(struct usb_endpoint_t *endpoints, int ep_type, int in);
+void usb_register_driver(struct usb_driver_t driver);
 void init_usb(void);
 
 #endif

@@ -1,162 +1,144 @@
-//#include <devices/usb/uhci.h>
 #include <devices/usb/mass_storage.h>
 #include <lib/alloc.h>
-#include <lib/cmem.h>
 #include <lib/dynarray.h>
 #include <lib/klib.h>
 #include <usb/hcd/xhci.h>
 
-static int device_address = 0;
-dynarray_new(struct usb_dev_t, usb_devices);
+static int num_drivers = 0;
+dynarray_new(struct usb_driver_t, usb_drivers);
 
-static int usb_set_addr(struct usb_dev_t *device, int address) {
-    device->address = 0;
-    if (usb_make_request(device, NULL, 0, 0, 5, address, 0, 0, 1))
-        return -1;
-    device->address = address;
+static int usb_get_descriptor(struct usb_dev_t *device, uint8_t desc_type, uint8_t desc_index, void *dest, uint16_t size) {
+    struct usb_request_t req = {0};
+    req.length = size;
+    req.request_type = 0b10000000;
+    req.request = 6;
+    req.value = (desc_type << 8) | desc_index;
+    device->controller->send_control(device, dest, req, 0);
     return 0;
 }
 
-static int
-usb_get_device_descriptor(struct usb_dev_t *device,
-                          struct usb_device_descriptor_t *descriptor) {
-    char *buffer = kalloc(sizeof(struct usb_device_descriptor_t));
-    if (usb_make_request(device, buffer, sizeof(struct usb_device_descriptor_t),
-                         0b10000000, 6, (1 << 8), 0, 0, 0)) {
-        kfree(buffer);
-        return -1;
-    }
-
-    memcpy(descriptor, buffer, sizeof(struct usb_device_descriptor_t));
-    return 0;
+void *get_configuration_space(struct usb_dev_t *device, uint8_t num) {
+    struct usb_config_t config = {0};;
+    usb_get_descriptor(device, 2, 0, &config, sizeof(struct usb_config_t));
+    kprint(KPRN_INFO, "usb: Device descriptor is %X bytes", config.total_length);
+    void* res = kalloc(config.total_length);
+    usb_get_descriptor(device, 2, num, res, config.total_length);
+    return res;
 }
 
-static int usb_get_max_packet_size(struct usb_dev_t *device) {
-    char *buffer = kalloc(8);
-    if (usb_make_request(device, buffer, 8, 0b10000000, 6, (1 << 8), 0, 0, 0)) {
-        kfree(buffer);
-        return -1;
-    }
-    int ret = buffer[7];
-    kfree(buffer);
-    return ret;
-}
-
-int usb_make_request(struct usb_dev_t *device, char *buffer, size_t size,
-                     uint8_t type, uint8_t request_no, uint16_t value,
-                     uint16_t index, uint8_t endpoint, uint8_t out) {
-    char *temp_buffer = kalloc(sizeof(struct usb_request_t) + size);
-    struct usb_request_t *request = (struct usb_request_t *)temp_buffer;
-    request->request_type = type;
-    request->request = request_no;
-    request->value = value;
-    request->index = index;
-    request->length = size;
-    if (device->controller->send_control(device, temp_buffer,
-                                         sizeof(struct usb_request_t) + size,
-                                         endpoint, out)) {
-        kfree(temp_buffer);
-        return -1;
-    }
-    memcpy(buffer, temp_buffer + sizeof(struct usb_request_t), size);
-    kfree(temp_buffer);
-    return 0;
-}
-
-int usb_add_device(struct usb_dev_t device) {
-    kprint(KPRN_INFO, "usb: Adding device");
-    // TODO do this only if the device is not on xhci
-    /*
-    int ret = usb_set_addr(&device, ++device_address);
-       if (ret) return -1;
-       */
-    int ret = 0;
-
-    relaxed_sleep(10);
-
-    kprint(KPRN_INFO, "usb: getting max packet size");
-    ret = usb_get_max_packet_size(&device);
-    if (ret < 0)
-        return -1;
-    device.max_packet_size = ret;
-
-    struct usb_device_descriptor_t dev_descriptor;
-    kprint(KPRN_INFO, "usb: getting device descriptor");
-    ret = usb_get_device_descriptor(&device, &dev_descriptor);
-    if (ret)
-        return -1;
-
-    /* get config */
-    kprint(KPRN_INFO, "usb: getting configuration");
-    struct usb_config_t config;
-    ret =
-            usb_make_request(&device, (char *)&config, sizeof(struct usb_config_t),
-                             0b10000000, 6, (2 << 8), 0, 0, 0);
-    if (ret)
-        return -1;
-
-    /* set config */
+void usb_set_configuration(struct usb_dev_t *device, uint8_t num) {
     kprint(KPRN_INFO, "usb: setting configuration");
-    ret =
-            usb_make_request(&device, NULL, 0, 0, 9, config.config_value, 0, 0, 1);
-    if (ret)
-        return -1;
+    struct usb_request_t req = {0};
+    req.length = 0;
+    req.request = 9;
+    req.value = num;
+    device->controller->send_control(device, NULL, req, 1);
+}
 
-    /* get entire config space */
-    kprint(KPRN_INFO, "usb: getting configuration space");
-    char *config_buf = kalloc(config.total_length);
-    ret = usb_make_request(&device, config_buf, config.total_length, 0b10000000,
-                           6, (2 << 8), 0, 0, 0);
-    if (ret)
-        return -1;
-
-    struct usb_interface_t *interface =
-            (struct usb_interface_t *)(config_buf + config.length);
-
-    /* set interface */
+void usb_set_interface(struct usb_dev_t *device, uint8_t int_num, uint8_t setting_num) {
     kprint(KPRN_INFO, "usb: setting interface");
-    ret = usb_make_request(&device, NULL, 0, 0b00000001, 11, 0, 0, 0, 1);
-    if (ret)
-        return -1;
+    struct usb_request_t req = {0};
+    req.length = 0;
+    req.request_type = 0b00000001;
+    req.request = 11;
+    req.value = setting_num;
+    req.value = int_num;
+    device->controller->send_control(device, NULL, req, 1);
+}
 
-    /* get all the endpoints */
-    device.num_endpoints = interface->num_endpoints;
-    for (int i = 0; i < interface->num_endpoints; i++) {
-        if (i >= 15) {
-            kprint(KPRN_ERR, "usb: device interface has over 15 endpoints!");
-            return -1;
-        }
-
-        struct usb_endpoint_data_t *endpoint =
-                (struct usb_endpoint_data_t
-                *)(config_buf + config.length + interface->length +
-                   (i * sizeof(struct usb_endpoint_data_t)));
-        device.endpoints[i].data = *endpoint;
-        kprint(KPRN_INFO, "usb: ep type: %x, address: %x", endpoint->type,
-               endpoint->address);
-        if (device.controller->setup_endpoint) {
-            device.controller->setup_endpoint(&device, i);
+int usb_get_endpoint(struct usb_endpoint_t *endpoints, int ep_type, int in) {
+    for(int i = 0; i < 15; i++) {
+        int is_in = (endpoints[i].address & 0x80) > 0;
+        int type = endpoints[i].attributes & 0x3;
+        kprint(KPRN_INFO, "%X", type);
+        if(is_in == in && ep_type == type) {
+            return endpoints[i].hcd_ep_num;
         }
     }
-    device.class = interface->class;
-    device.sub_class = interface->sub_class;
+    return -1;
+}
 
-    kprint(KPRN_INFO, "usb: initiated device with class %x and subclass %x!",
-           device.class, device.sub_class);
-    dynarray_add(struct usb_dev_t, usb_devices, &device);
+int usb_add_device(struct usb_dev_t device, int devno) {
+    kprint(KPRN_INFO, "usb: Adding device");
+    struct usb_device_descriptor_t descriptor = {0};
+    device.hcd_devno = devno;
+    usb_get_descriptor(&device, 1, 0, &descriptor, sizeof(struct usb_device_descriptor_t));;
+    kprint(KPRN_INFO, "Initialized device with vendor id: %x product id: %x class: %x subclass: %x",
+           descriptor.vendor_id,
+           descriptor.product_id,
+           descriptor.device_class,
+           descriptor.device_sub_class
+    );
+    device.num_configs = descriptor.num_configs;
+    device.class = descriptor.device_class;
+    device.subclass = descriptor.device_sub_class;
+    device.vendor = descriptor.vendor_id;
+    device.product = descriptor.product_id;
+    device.usb_ver = descriptor.usb_version;
+    device.dev_ver = descriptor.device_release;
+
+    int assigned = 0;
+    for (int i = 0; i < descriptor.num_configs; i++) {
+        struct usb_config_t *config = get_configuration_space(&device, i);
+        size_t interface_base = ((size_t)config + config->length);
+        //TODO add support for matching vendor/product
+        for (int j = 0; j < config->num_interfaces;) {
+            struct usb_interface_t *interface = (struct usb_interface_t*)interface_base;
+            interface_base += interface->length;
+            if(interface->type != 0x04) {
+                continue;
+            }
+            for (int k = 0; k < num_drivers; k++) {
+                struct usb_driver_t *driver = dynarray_getelem(struct usb_driver_t, usb_drivers, k);
+                if (!driver) {
+                    break;
+                }
+
+                uint8_t match = driver->match;
+                if(((match & MATCH_CLASS) && (driver->class == interface->class)) &&
+                   ((match & MATCH_SUBCLASS) && (driver->subclass == interface->sub_class))) {
+                    assigned = 1;
+
+                    struct usb_endpoint_t endpoints[15] = {0};
+                    size_t base = (size_t)interface + interface->length;
+                    for(int l = 0; l < interface->num_endpoints;) {
+                        struct usb_endpoint_data_t *ep_info = (struct usb_endpoint_data_t *) base;
+                        base += ep_info->length;
+                        if (ep_info->type != 0x05) {
+                            continue;
+                        } else {
+                            endpoints[l].address = ep_info->address;
+                            endpoints[l].attributes = ep_info->attributes;
+                            endpoints[l].hcd_ep_num = device.controller->setup_endpoint(&device, ep_info->address, ep_info->max_packet_size);
+                        }
+                        l++;
+                    }
+
+                    usb_set_configuration(&device, config->config_value);
+                    driver->probe(&device, endpoints);
+                }
+            }
+            j++;
+        }
+        if(assigned) {
+            break;
+        }
+    }
     return 0;
+}
+
+void usb_register_driver(struct usb_driver_t driver) {
+    dynarray_add(struct usb_driver_t, usb_drivers, &driver);
+    num_drivers++;
 }
 
 void init_usb(void) {
-    //    struct usb_hc_t *controller = usb_init_uhci();
-    struct usb_hc_t *xcontroller = usb_init_xhci();
-    if(!usb_devices_i) {
-        return;
-    }
-    if (!init_mass_storage(
-            dynarray_getelem(struct usb_dev_t, usb_devices, 0))) {
-        dynarray_remove(usb_devices, 0);
-        return;
-    }
+    struct usb_driver_t driver = {0};
+    driver.match = MATCH_CLASS | MATCH_SUBCLASS;
+    driver.probe = init_mass_storage;
+    driver.class = 0x8;
+    driver.subclass = 0x6;
+    usb_register_driver(driver);
+    usb_init_xhci();
 }
 

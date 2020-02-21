@@ -3,6 +3,6 @@
 
 #include <usb/usb.h>
 
-int init_mass_storage(struct usb_dev_t *);
+int init_mass_storage(struct usb_dev_t *device, struct usb_endpoint_t *endpoints);
 
 #endif
