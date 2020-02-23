@@ -59,7 +59,9 @@
 #define EP_ISOC_IN           5
 #define EP_BULK_IN           6
 #define EP_INT_IN            7
-#define RESET_CHANGE_BITS (1 << 9) | (1 << 21) | (1 << 20) | (1 << 19) | (1 << 18) | (1 << 17) | (1 << 22) | (1 << 23)
+#define RESET_CHANGE_BITS                                                  \
+    (1 << 9) | (1 << 21) | (1 << 20) | (1 << 19) | (1 << 18) | (1 << 17) | \
+        (1 << 22) | (1 << 23)
 
 #define TRB_STATUS(x)  (((x) & (0xFF << 24)) >> 24)
 #define TRB_SLOT_ID(x) (((x) & (0xFF << 24)) >> 24)
@@ -214,7 +216,7 @@ struct xhci_seg {
     enum xhci_seg_type type;
     struct xhci_event **seg_events;
     lock_t lock;
-    //TODO reduce number
+    // TODO reduce number
 };
 
 struct xhci_erst_entry {

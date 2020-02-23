@@ -25,7 +25,6 @@ static int xhci_setup_seg(struct xhci_seg *seg, uint32_t size, uint32_t type) {
     void *addr = kalloc(size);
     seg->trbs = addr;
     seg->trbs_dma = (size_t)seg->trbs - MEM_PHYS_OFFSET;
-    kprint(KPRN_INFO, "setting up seg: %X", addr, seg->trbs_dma);
     struct xhci_link_trb *link;
 
     seg->size = size / 16;
@@ -54,7 +53,7 @@ static void *xhci_get_trb(volatile struct xhci_seg *seg) {
 
     enq = seg->enq;
     index = (enq - (uint64_t)seg->trbs) / 16 + 1;
-    //Check if we should cycle back to the beginning
+    // Check if we should cycle back to the beginning
     if (index == (seg->size - 1)) {
         seg->enq = (uint64_t)seg->trbs;
         seg->cycle_state ^= seg->cycle_state;
@@ -68,16 +67,16 @@ static void *xhci_get_trb(volatile struct xhci_seg *seg) {
     return (void *)enq;
 }
 
-static void fill_trb_buf(volatile struct xhci_command_trb *cmd,
-                           uint32_t field1, uint32_t field2, uint32_t field3,
-                           uint32_t field4, int first) {
+static void fill_trb_buf(volatile struct xhci_command_trb *cmd, uint32_t field1,
+                         uint32_t field2, uint32_t field3, uint32_t field4,
+                         int first) {
     uint32_t val, cycle_state;
 
     cmd->field[0] = (field1);
     cmd->field[1] = (field2);
     cmd->field[2] = (field3);
 
-    if(!first) {
+    if (!first) {
         val = (cmd->field[3]);
         cycle_state = (val & 0x1) ? 0 : 1;
         val = cycle_state | (field4 & ~0x1);
@@ -97,7 +96,8 @@ static int xhci_send_command(struct xhci_hcd *controller, uint32_t field1,
 
     dbr = controller->db_regs;
 
-    uint32_t index = (controller->crseg.enq - (uint64_t)controller->crseg.trbs) / 0x10;
+    uint32_t index =
+        (controller->crseg.enq - (uint64_t)controller->crseg.trbs) / 0x10;
     struct xhci_command_trb *command = xhci_get_trb(&controller->crseg);
     fill_trb_buf(command, field1, field2, field3, field4, 0);
     controller->crseg.seg_events[index] = ev;
@@ -125,7 +125,7 @@ int xhci_enable_slot(struct xhci_hcd *controller) {
 }
 
 static int xhci_send_addr_device(struct xhci_hcd *xhcd, uint32_t slot_id,
-                                  uint64_t dma_in_ctx, int bsr) {
+                                 uint64_t dma_in_ctx, int bsr) {
     uint32_t field1, field2, field3, field4;
 
     field1 = TRB_ADDR_LOW(dma_in_ctx) & ~0xF;
@@ -147,7 +147,7 @@ static int xhci_send_addr_device(struct xhci_hcd *xhcd, uint32_t slot_id,
 }
 
 static int xhci_configure_ep(struct xhci_hcd *xhcd, uint32_t slot_id,
-                              uint64_t dma_in_ctx) {
+                             uint64_t dma_in_ctx) {
     uint32_t field1, field2, field3, field4;
 
     field1 = TRB_ADDR_LOW(dma_in_ctx) & ~0xF;
@@ -204,7 +204,8 @@ static struct xhci_ep_ctx *xhci_get_ep0_ctx(struct xhci_ctx *ctx,
     return (struct xhci_ep_ctx *)(ctx->addr + offset * mul);
 }
 
-static int xhci_send_control(struct usb_dev_t *device, void* data, struct usb_request_t request, int toDevice) {
+static int xhci_send_control(struct usb_dev_t *device, void *data,
+                             struct usb_request_t request, int toDevice) {
     struct xhci_command_trb *command;
 
     struct xhci_hcd *controller = device->internal_controller;
@@ -216,26 +217,27 @@ static int xhci_send_control(struct usb_dev_t *device, void* data, struct usb_re
     command = xhci_get_trb(ctrl);
     struct xhci_command_trb *first = command;
 
-    //We want to keep this value for later
+    // We want to keep this value for later
     uint32_t val, cycle_state;
     val = (command->field[3]);
     cycle_state = (val & 0x1) ? 0 : 1;
 
     fill_trb_buf(command,
-                   request.request_type | (request.request << 8) | (request.value << 16),
-                   request.length << 16 | request.index,
-                   8,
-                   ((toDevice ? 2 : 3) << 16) | (1 << 6) | (TRB_SETUP_STAGE << 10) | (1 << 5), 1);
+                 request.request_type | (request.request << 8) |
+                     (request.value << 16),
+                 request.length << 16 | request.index, 8,
+                 ((toDevice ? 2 : 3) << 16) | (1 << 6) |
+                     (TRB_SETUP_STAGE << 10) | (1 << 5),
+                 1);
 
-    if(request.length) {
+    if (request.length) {
         command = xhci_get_trb(ctrl);
-        size_t addr = ((size_t) data) - MEM_PHYS_OFFSET;
+        size_t addr = ((size_t)data) - MEM_PHYS_OFFSET;
 
-        fill_trb_buf(command,
-                       addr & 0xFFFFFFFF,
-                       addr >> 32,
-                       request.length,
-                       (1 << 2) | (!toDevice << 16) | (TRB_DATA_STAGE << 10) | (1 << 5), 0);
+        fill_trb_buf(command, addr & 0xFFFFFFFF, addr >> 32, request.length,
+                     (1 << 2) | (!toDevice << 16) | (TRB_DATA_STAGE << 10) |
+                         (1 << 5),
+                     0);
     }
 
     command = xhci_get_trb(ctrl);
@@ -253,7 +255,8 @@ static int xhci_send_control(struct usb_dev_t *device, void* data, struct usb_re
     return (ev.trb.status >> 24) != 1;
 }
 
-static int xhci_get_descriptor(struct usb_dev_t *device, uint8_t desc_type, uint8_t desc_index, void *dest, uint16_t size) {
+static int xhci_get_descriptor(struct usb_dev_t *device, uint8_t desc_type,
+                               uint8_t desc_index, void *dest, uint16_t size) {
     struct usb_request_t req = {0};
     req.length = size;
     req.request_type = 0b10000000;
@@ -296,9 +299,10 @@ int xhci_init_device(struct xhci_hcd *controller, uint32_t port,
     uint8_t port_speed = (port_regs->portsc >> 10) & 0b1111;
     switch (port_speed) {
         case 1:
-            //TODO handle full speed
+            // TODO handle full speed
             kprint(KPRN_ERR, "usb/xhci: full speed devices are not handled");
-            //TODO set a temporary max transfer size and read the first 8 bytes of the device descriptor
+            // TODO set a temporary max transfer size and read the first 8 bytes
+            // of the device descriptor
             return -1;
         case 2:
             max_packet = 8;
@@ -313,12 +317,11 @@ int xhci_init_device(struct xhci_hcd *controller, uint32_t port,
             max_packet = 512;
             break;
     }
-    kprint(KPRN_INFO, "usb/xhci: max packet size: %X", max_packet);
 
     uint32_t val = EP_TYPE(EP_CTRL) | MAX_BURST(0) | ERROR_COUNT(3) |
                    MAX_PACKET_SIZE(max_packet);
     ep0->field2 = val;
-    //Average trb length is always 8.
+    // Average trb length is always 8.
     ep0->field4 = 8;
     xhci_setup_seg(&xhci_dev->control, 4096, TYPE_CTRL);
     ep0->deq_addr =
@@ -393,13 +396,12 @@ int xhci_setup_endpoint(struct usb_dev_t *dev, int address, int max_packet) {
     in_slot->field1 &= ~((0x1f << 27));
     in_slot->field1 |= ((x_epno + 1) << 27);
 
-    //TODO add support for other kinds of endpoints
+    // TODO add support for other kinds of endpoints
     if (out) {
         ctrl = xhci_get_control_ctx(&xdev->in_ctx);
         ep_ctx =
             xhci_get_ep_ctx(&xdev->in_ctx, controller->context_size, (x_epno));
-        int val = (2 << 3) | (3 << 1) |
-                  (max_packet << 16);
+        int val = (2 << 3) | (3 << 1) | (max_packet << 16);
         ep_ctx->field2 = val;
 
         ep->seg = new_seg;
@@ -417,8 +419,7 @@ int xhci_setup_endpoint(struct usb_dev_t *dev, int address, int max_packet) {
         ctrl = xhci_get_control_ctx(&xdev->in_ctx);
         ep_ctx =
             xhci_get_ep_ctx(&xdev->in_ctx, controller->context_size, (x_epno));
-        int val = (6 << 3) | (3 << 1) |
-                  (max_packet << 16);
+        int val = (6 << 3) | (3 << 1) | (max_packet << 16);
         ep_ctx->field2 = val;
 
         ep->seg = new_seg;
@@ -443,7 +444,8 @@ void xhci_get_port_speeds(struct xhci_hcd *controller) {
     cparams = controller->cap_regs->hccparams1;
 
     size_t eoff = (((cparams & 0xFFFF0000) >> 16) * 4);
-    volatile uint32_t *extcap = (uint32_t*)((size_t)controller->cap_regs + eoff);
+    volatile uint32_t *extcap =
+        (uint32_t *)((size_t)controller->cap_regs + eoff);
     if (!extcap) {
         return;
     }
@@ -459,7 +461,7 @@ void xhci_get_port_speeds(struct xhci_hcd *controller) {
 
         kprint(KPRN_INFO, "usb/xhci found extcap: %X %X", val & 0xFF, extcap);
         if ((val & 0xff) == 2) {
-            uint32_t *old_ext = (uint32_t*)extcap;
+            uint32_t *old_ext = (uint32_t *)extcap;
 
             struct xhci_port_protocol protocol = {0};
             uint32_t value = *extcap;
@@ -483,7 +485,7 @@ void xhci_get_port_speeds(struct xhci_hcd *controller) {
             protocol.protocol_slot_type = value & 0xF;
             extcap++;
 
-            for(int i = 0; i < speed_id_cnt; i++) {
+            for (int i = 0; i < speed_id_cnt; i++) {
                 value = *extcap;
 
                 protocol.speeds[i].value = value & 0xF;
@@ -497,15 +499,20 @@ void xhci_get_port_speeds(struct xhci_hcd *controller) {
             }
 
             kprint(KPRN_INFO, "usb/xhci: port speed capability");
-            kprint(KPRN_INFO, "usb/xhci: protocol version: %u.%u, name: %s, offset: %X, count = %X", protocol.major, protocol.minor, protocol.name, protocol.compatible_port_off, protocol.compatible_port_count);
+            kprint(KPRN_INFO,
+                   "usb/xhci: protocol version: %u.%u, name: %s, offset: %X, "
+                   "count = %X",
+                   protocol.major, protocol.minor, protocol.name,
+                   protocol.compatible_port_off,
+                   protocol.compatible_port_count);
 
             extcap = old_ext;
             controller->protocols[controller->num_protcols] = protocol;
             controller->num_protcols++;
         }
 
-        uint32_t *old = (uint32_t*)extcap;
-        extcap = (uint32_t*)((size_t)extcap + (((val >> 8) & 0xFF) << 2));
+        uint32_t *old = (uint32_t *)extcap;
+        extcap = (uint32_t *)((size_t)extcap + (((val >> 8) & 0xFF) << 2));
         if (old == extcap) {
             break;
         }
@@ -521,7 +528,8 @@ void xhci_take_controller(struct xhci_hcd *controller) {
     cparams = controller->cap_regs->hccparams1;
 
     size_t eoff = (((cparams & 0xFFFF0000) >> 16) * 4);
-    volatile uint32_t *extcap = (uint32_t*)((size_t)controller->cap_regs + eoff);
+    volatile uint32_t *extcap =
+        (uint32_t *)((size_t)controller->cap_regs + eoff);
     if (!extcap) {
         return;
     }
@@ -556,8 +564,8 @@ void xhci_take_controller(struct xhci_hcd *controller) {
             }
         }
 
-        uint32_t *old = (uint32_t*)extcap;
-        extcap = (uint32_t*)((size_t)extcap + (((val >> 8) & 0xFF) << 2));
+        uint32_t *old = (uint32_t *)extcap;
+        extcap = (uint32_t *)((size_t)extcap + (((val >> 8) & 0xFF) << 2));
         if (old == extcap) {
             break;
         }
@@ -567,24 +575,29 @@ void xhci_take_controller(struct xhci_hcd *controller) {
 static void xhci_detect_devices(struct xhci_hcd *controller) {
     xhci_get_port_speeds(controller);
     uint32_t hccparams = controller->cap_regs->hcsparams1;
-    for(int i = 0; i < controller->num_protcols; i++) {
-        for(int j = controller->protocols[i].compatible_port_off; (j - controller->protocols[i].compatible_port_off) < controller->protocols[i].compatible_port_count; j++) {
-            volatile struct xhci_port_regs *port_regs1 = &controller->op_regs->prs[j - 1];
-            //try to power the port if it's off
-            if(!(port_regs1->portsc & (1 << 9))) {
-               port_regs1->portsc = 1 << 9;
-               ksleep(20);
-               if(!(port_regs1->portsc & (1 << 9))) {
-                   //TODO use interrupt here
-                   continue;
-               }
+    for (int i = 0; i < controller->num_protcols; i++) {
+        for (int j = controller->protocols[i].compatible_port_off;
+             (j - controller->protocols[i].compatible_port_off) <
+             controller->protocols[i].compatible_port_count;
+             j++) {
+            volatile struct xhci_port_regs *port_regs1 =
+                &controller->op_regs->prs[j - 1];
+            // try to power the port if it's off
+            if (!(port_regs1->portsc & (1 << 9))) {
+                port_regs1->portsc = 1 << 9;
+                ksleep(20);
+                if (!(port_regs1->portsc & (1 << 9))) {
+                    // TODO use interrupt here
+                    continue;
+                }
             }
 
-            //clear status change bits
-            port_regs1->portsc = (1 << 9) | ((1<<17) | (1<<18) | (1<<20) | (1<<21) | (1<<22));
+            // clear status change bits
+            port_regs1->portsc = (1 << 9) | ((1 << 17) | (1 << 18) | (1 << 20) |
+                                             (1 << 21) | (1 << 22));
 
-            //usb 2 devices have bit 4 as reset, usb 3 has 31
-            if(controller->protocols[i].major == 2) {
+            // usb 2 devices have bit 4 as reset, usb 3 has 31
+            if (controller->protocols[i].major == 2) {
                 port_regs1->portsc = (1 << 9) | (1 << 4);
             } else {
                 port_regs1->portsc = (1 << 9) | (1 << 31);
@@ -592,8 +605,8 @@ static void xhci_detect_devices(struct xhci_hcd *controller) {
 
             int timeout = 0;
             int reset = 0;
-            while(1) {
-                if(port_regs1->portsc & (1 << 21)) {
+            while (1) {
+                if (port_regs1->portsc & (1 << 21)) {
                     reset = 1;
                     break;
                 }
@@ -602,13 +615,15 @@ static void xhci_detect_devices(struct xhci_hcd *controller) {
                 }
                 ksleep(1);
             }
-            if(!reset) {
+            if (!reset) {
                 continue;
             }
-            //apparently this delay is necessary
+            // apparently this delay is necessary
             ksleep(3);
-            if(port_regs1->portsc & (1 << 1)) {
-                port_regs1->portsc = (1 << 9) | ((1<<17) | (1<<18) | (1<<20) | (1<<21) | (1<<22));
+            if (port_regs1->portsc & (1 << 1)) {
+                port_regs1->portsc =
+                    (1 << 9) |
+                    ((1 << 17) | (1 << 18) | (1 << 20) | (1 << 21) | (1 << 22));
                 xhci_init_device(controller, j - 1, controller->protocols[i]);
             }
         }
@@ -617,7 +632,6 @@ static void xhci_detect_devices(struct xhci_hcd *controller) {
 
 static int xhci_send_bulk(struct usb_dev_t *dev, char *data, size_t size,
                           int epno, int out) {
-    kprint(KPRN_INFO, "BULK");
     (void)out;
     struct xhci_hcd *controller = dev->internal_controller;
     struct xhci_dev *xdev = controller->xdevs[dev->hcd_devno];
@@ -636,10 +650,9 @@ static int xhci_send_bulk(struct usb_dev_t *dev, char *data, size_t size,
     struct xhci_transfer_trb *trb = xhci_get_trb(seg);
 
     fill_trb_buf((struct xhci_command_trb *)trb,
-                   (uint32_t)(((size_t)data - MEM_PHYS_OFFSET) & 0xFFFFFFFF),
-                   (uint32_t)(((size_t)data - MEM_PHYS_OFFSET) >> 32),
-                   size,
-                   TRB_CMD_TYPE(TRB_NORMAL) | (1 << 2) | (1 << 5) | (0 << 4), 0);
+                 (uint32_t)(((size_t)data - MEM_PHYS_OFFSET) & 0xFFFFFFFF),
+                 (uint32_t)(((size_t)data - MEM_PHYS_OFFSET) >> 32), size,
+                 TRB_CMD_TYPE(TRB_NORMAL) | (1 << 2) | (1 << 5) | (0 << 4), 0);
 
     uint32_t index = (seg->enq - (uint64_t)seg->trbs) / 0x10;
     struct xhci_event ev = {0};
@@ -661,20 +674,23 @@ void xhci_irq_handler(struct xhci_hcd *controller) {
             (struct xhci_event_trb *)controller->ering.deq;
         size_t deq = 0;
         while ((event->flags & 0x1) == controller->ering.cycle_state) {
-            if(DEBUG_EVENTS) {
+            if (DEBUG_EVENTS) {
                 kprint(KPRN_INFO, "usb/xhci: event deq: %X", event);
-                kprint(KPRN_INFO, "usb/xhci: TRB type: %X", TRB_TYPE(event->flags));
+                kprint(KPRN_INFO, "usb/xhci: TRB type: %X",
+                       TRB_TYPE(event->flags));
                 kprint(KPRN_INFO, "usb/xhci: TRB status: %X", (event->status));
             }
 
             switch (TRB_TYPE(event->flags)) {
                 case 33: {
-                    size_t index = (event->addr - ((size_t)controller->crseg.trbs -
-                                                MEM_PHYS_OFFSET)) /
-                                0x10;
-                    if(DEBUG_EVENTS) {
+                    size_t index =
+                        (event->addr -
+                         ((size_t)controller->crseg.trbs - MEM_PHYS_OFFSET)) /
+                        0x10;
+                    if (DEBUG_EVENTS) {
                         kprint(KPRN_INFO, "usb/xhci: Got command completion");
-                        kprint(KPRN_INFO, "usb/xhci: dequeueing event at index %X", index);
+                        kprint(KPRN_INFO,
+                               "usb/xhci: dequeueing event at index %X", index);
                     }
                     if (controller->crseg.seg_events[index]) {
                         controller->crseg.seg_events[index]->trb = *event;
@@ -685,13 +701,13 @@ void xhci_irq_handler(struct xhci_hcd *controller) {
                     break;
                 }
                 case 0x20: {
-                    if(DEBUG_EVENTS) {
+                    if (DEBUG_EVENTS) {
                         kprint(KPRN_INFO, "usb/xhci: Got transfer completion");
                     }
                     int slot_id = (event->flags >> 24) & 0xFF;
                     int epid = (event->flags >> 16) & 0x1F;
                     struct xhci_seg *tseg = NULL;
-                    if(epid == 1) {
+                    if (epid == 1) {
                         tseg = &controller->xdevs[slot_id]->control;
                     } else {
                         tseg = controller->xdevs[slot_id]->ep_segs[epid];
@@ -712,8 +728,9 @@ void xhci_irq_handler(struct xhci_hcd *controller) {
                 case 34: {
                     kprint(KPRN_INFO, "usb/xhci: Port %X changed state",
                            (event->addr));
-                    if((event->addr >> 24) < XHCI_CONFIG_MAX_SLOT) {
-                        event_trigger(&controller->port_events[event->addr >> 24]);
+                    if ((event->addr >> 24) < XHCI_CONFIG_MAX_SLOT) {
+                        event_trigger(
+                            &controller->port_events[event->addr >> 24]);
                     }
                     break;
                 }
@@ -778,8 +795,9 @@ void xhci_controller_init(struct pci_device_t *pci_dev) {
     controller->db_regs =
         (struct xhci_db_regs *)(base + (controller->cap_regs->dboff));
 
-    //Allocate as many devices as there are slots available.
-    controller->xdevs = kalloc(sizeof(struct xhci_dev) * (controller->cap_regs->hcsparams1 & 0xFF));
+    // Allocate as many devices as there are slots available.
+    controller->xdevs = kalloc(sizeof(struct xhci_dev) *
+                               (controller->cap_regs->hcsparams1 & 0xFF));
 
     xhci_take_controller(controller);
 
@@ -796,10 +814,12 @@ void xhci_controller_init(struct pci_device_t *pci_dev) {
     int32_t cmd = controller->op_regs->usbcmd;
     controller->op_regs->usbcmd = cmd | 1 << 1;
     // Wait for controller not ready
-    //intel xhci controllers need this delay
+    // intel xhci controllers need this delay
     ksleep(100);
-    while ((controller->op_regs->usbcmd & (1 << 1))) {};
-    while (!(controller->op_regs->usbsts & 0x00000001UL)) {};
+    while ((controller->op_regs->usbcmd & (1 << 1))) {
+    };
+    while (!(controller->op_regs->usbsts & 0x00000001UL)) {
+    };
     kprint(KPRN_INFO, "usb/xhci: controller halted");
 
     controller->op_regs->config = XHCI_CONFIG_MAX_SLOT;
@@ -826,7 +846,7 @@ void xhci_controller_init(struct pci_device_t *pci_dev) {
                 scratchpad_buffer - MEM_PHYS_OFFSET;
         }
     }
-    //the first entry in the dcbapp has to point to the buffers if they exist
+    // the first entry in the dcbapp has to point to the buffers if they exist
     controller->dcbaap[0] =
         (size_t)controller->scratchpad_buffer_array - MEM_PHYS_OFFSET;
     xhci_setup_seg(&controller->crseg, 4096, TYPE_COMMAND);

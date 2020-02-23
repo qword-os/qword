@@ -4,8 +4,8 @@
 #include <lib/cmem.h>
 #include <lib/dynarray.h>
 #include <lib/klib.h>
-#include <sys/panic.h>
 #include <lib/scsi.h>
+#include <sys/panic.h>
 
 #define MAX_CACHED_BLOCKS 8192
 #define CBW_SIGNATURE     0x43425355
@@ -81,9 +81,9 @@ static int mass_storage_send_cmd(int drive, char *cmd, size_t cmd_length,
     return 0;
 }
 
-int init_mass_storage(struct usb_dev_t *device, struct usb_endpoint_t *endpoints) {
+int init_mass_storage(struct usb_dev_t *device,
+                      struct usb_endpoint_t *endpoints) {
     kprint(KPRN_INFO, "found mass storage device");
-    kprint(KPRN_INFO, "usb: initializing mass storage device");
     struct mass_storage_dev_t internal_dev = {0};
     internal_dev.device = *device;
 
@@ -96,8 +96,7 @@ int init_mass_storage(struct usb_dev_t *device, struct usb_endpoint_t *endpoints
     if (ret < 0)
         return -1;
 
-    scsi_register(ret, mass_storage_send_cmd,
-                  512);
+    scsi_register(ret, mass_storage_send_cmd, 512);
 
     kprint(KPRN_INFO, "mass_storage: initiated device!");
     return 0;

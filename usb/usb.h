@@ -103,12 +103,12 @@ struct usb_hc_t {
     int (*setup_endpoint)(struct usb_dev_t *, int, int);
 };
 
-#define MATCH_VENDOR       (1 << 0)
-#define MATCH_PRODUCT      (1 << 1)
-#define MATCH_USB_VERSION  (1 << 2)
-#define MATCH_DEV_VERSION  (1 << 3)
-#define MATCH_CLASS        (1 << 4)
-#define MATCH_SUBCLASS     (1 << 5)
+#define MATCH_VENDOR      (1 << 0)
+#define MATCH_PRODUCT     (1 << 1)
+#define MATCH_USB_VERSION (1 << 2)
+#define MATCH_DEV_VERSION (1 << 3)
+#define MATCH_CLASS       (1 << 4)
+#define MATCH_SUBCLASS    (1 << 5)
 
 struct usb_driver_t {
     uint8_t match;
