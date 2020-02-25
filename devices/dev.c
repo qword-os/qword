@@ -2,6 +2,7 @@
 #include <devices/storage/nvme/nvme.h>
 #include <fs/devfs/devfs.h>
 #include <proc/task.h>
+#include <usb/usb.h>
 
 void init_dev_streams(void);
 void init_dev_tty(void);
@@ -18,6 +19,7 @@ void init_dev(void) {
     init_dev_nvme();
     init_dev_sata();
     init_dev_vesafb();
+	init_usb();
 
     /* probe for all net devices */
     probe_rtl81x9();
