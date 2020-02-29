@@ -96,7 +96,7 @@ int init_mass_storage(struct usb_dev_t *device,
     if (ret < 0)
         return -1;
 
-    scsi_register(ret, mass_storage_send_cmd, 512);
+    scsi_register(ret, mass_storage_send_cmd);
 
     kprint(KPRN_INFO, "mass_storage: initiated device!");
     return 0;

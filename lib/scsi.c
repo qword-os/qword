@@ -8,7 +8,7 @@
 #include <lib/scsi.h>
 
 #define MAX_CACHED_BLOCKS 8192
-size_t CACHE_BLOCK_SIZE = 65536;
+#define CACHE_BLOCK_SIZE 65536
 #define CACHE_READY 1
 #define CACHE_DIRTY 2
 
@@ -203,14 +203,12 @@ static int scsi_flush_cache(int drive) {
 }
 
 int scsi_register(int intern_fd,
-                  int (*send_cmd)(int, char *, size_t, char *, size_t, int),
-                  size_t mtransf) {
+                  int (*send_cmd)(int, char *, size_t, char *, size_t, int)) {
     struct scsi_dev_t device = {0};
     device.intern_fd = intern_fd;
     device.send_cmd = send_cmd;
     device.lock = new_lock;
     scsi_lock = new_lock;
-    // CACHE_BLOCK_SIZE = mtransf;
 
     kprint(KPRN_INFO, "SCSI INIT");
     /* read in block size */
@@ -237,8 +235,8 @@ int scsi_register(int intern_fd,
     dev.calls = default_device_calls;
     char *dev_name = prefixed_itoa("usbd", 0, 10);
     strcpy(dev.name, dev_name);
-    kprint(KPRN_INFO, "scsi: Initialised /dev/%s with maximum transfer size %X",
-           dev_name, mtransf);
+    kprint(KPRN_INFO, "scsi: Initialised /dev/%s",
+           dev_name);
     kfree(dev_name);
     dev.intern_fd = ret;
     dev.size = lba_num * block_size;
