@@ -43,7 +43,7 @@ void init_cpu_features(void) {
     // Syscall entry address
     wrmsr(0xc0000082, (uint64_t)syscall_entry);
     // Flags mask
-    wrmsr(0xc0000084, ~0x002);
+    wrmsr(0xc0000084, (uint64_t)~((uint32_t)0x002));
 
     uint32_t a, b, c, d;
     cpuid(1, 0, &a, &b, &c, &d);
