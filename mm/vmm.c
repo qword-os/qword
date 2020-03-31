@@ -112,7 +112,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
                                     map_page(new_pagemap,
                                              new_page,
                                              entries_to_virt_addr(i, j, k, l),
-                                             (pt[l] & 0xfff),0);
+                                             (pt[l] & 0xfff));
                                 }
                             }
                         }
@@ -134,7 +134,7 @@ struct pagemap_t *fork_address_space(struct pagemap_t *old_pagemap) {
 
 /* map physaddr -> virtaddr using pml4 pointer */
 /* Returns 0 on success, -1 on failure */
-int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size_t flags, int a) {
+int map_page(struct pagemap_t *pagemap, size_t phys_addr, size_t virt_addr, size_t flags) {
     spinlock_acquire(&pagemap->lock);
 
     /* Calculate the indices in the various tables using the virtual address */
@@ -378,9 +378,9 @@ void init_vmm(void) {
     /* Map 32 MiB for the phys mem area, and 32 MiB for the kernel in the higher half */
     for (size_t i = 0; i < (0x2000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
-        map_page(kernel_pagemap, addr, addr, 0x03, 0);
-        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
-        map_page(kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03 | (1 << 8), 0);
+        map_page(kernel_pagemap, addr, addr, 0x03);
+        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
+        map_page(kernel_pagemap, addr, KERNEL_PHYS_OFFSET + addr, 0x03 | (1 << 8));
     }
 
     /* Reload new pagemap */
@@ -390,7 +390,7 @@ void init_vmm(void) {
     for (size_t i = 0; i < (0x100000000 / PAGE_SIZE); i++) {
         size_t addr = i * PAGE_SIZE;
 
-        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
+        map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
     }
 
     /* Map the rest according to e820 into the higher half */
@@ -406,7 +406,7 @@ void init_vmm(void) {
             if (addr < 0x100000000)
                 continue;
 
-            map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03, 0);
+            map_page(kernel_pagemap, addr, MEM_PHYS_OFFSET + addr, 0x03);
         }
     }
 

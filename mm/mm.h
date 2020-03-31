@@ -11,9 +11,6 @@
 #define KERNEL_PHYS_OFFSET ((size_t)0xffffffffc0000000)
 #define MEM_PHYS_OFFSET ((size_t)0xffff800000000000)
 
-#define VMM_ATTR_REG 1
-#define VMM_ATTR_SHARED 2
-
 typedef uint64_t pt_entry_t;
 
 struct page_attributes_t {
@@ -40,7 +37,7 @@ void *pmm_allocz(size_t);
 void pmm_free(void *, size_t);
 void init_pmm(void);
 
-int map_page(struct pagemap_t *, size_t, size_t, size_t, int);
+int map_page(struct pagemap_t *, size_t, size_t, size_t);
 int unmap_page(struct pagemap_t *, size_t);
 int remap_page(struct pagemap_t *, size_t, size_t);
 void init_vmm(void);

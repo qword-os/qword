@@ -144,8 +144,7 @@ int exec(pid_t pid, const char *filename, const char *argv[], const char *envp[]
     map_page(new_pagemap,
              (size_t)trampoline_ptr,
              (size_t)(SIGNAL_TRAMPOLINE_VADDR),
-             0x05,
-             VMM_ATTR_REG);
+             0x05);
 
     /* Free previous address space */
     free_address_space(old_pagemap);

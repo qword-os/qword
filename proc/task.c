@@ -736,8 +736,7 @@ found_new_task_id:;
             map_page(process_table[pid]->pagemap,
                      (size_t)(stack_pm + (i * PAGE_SIZE)),
                      (size_t)(stack_bottom + (i * PAGE_SIZE)),
-                     pid ? 0x07 : 0x03,
-                     VMM_ATTR_REG);
+                     pid ? 0x07 : 0x03);
         }
         /* Add a guard page */
         unmap_page(process_table[pid]->pagemap, stack_guardpage);
