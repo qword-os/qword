@@ -2,6 +2,7 @@
 #define __VBE_H__
 
 #include <stdint.h>
+#include <startup/stivale.h>
 
 extern int vbe_available;
 
@@ -10,6 +11,6 @@ extern int vbe_width;
 extern int vbe_height;
 extern int vbe_pitch;
 
-void init_vbe(void);
+void init_vbe(struct stivale_framebuffer_t *);
 
 #endif

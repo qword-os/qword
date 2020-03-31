@@ -4,7 +4,6 @@
 #include <lib/klib.h>
 #include <devices/display/vbe/vbe.h>
 #include <devices/term/tty/tty.h>
-#include <sys/e820.h>
 #include <mm/mm.h>
 #include <sys/idt.h>
 #include <sys/pic.h>
@@ -26,9 +25,12 @@
 #include <sys/urm.h>
 #include <net/hostname.h>
 #include <lib/cstring.h>
+#include <startup/stivale.h>
 
 #include <lai/core.h>
 #include <lai/helpers/sci.h>
+
+char *cmdline;
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -112,9 +114,12 @@ void kmain_thread(void *arg) {
     for (;;) asm volatile ("hlt;");
 }
 
+extern void *gdt_ptr[];
+
 /* Main kernel entry point, only initialise essential services and scheduler */
-void kmain(void) {
+void kmain(struct stivale_struct_t *stivale) {
     char cmdline_val[64];
+    cmdline = stivale->cmdline;
 
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
@@ -124,13 +129,14 @@ void kmain(void) {
     init_cpu_features();
 
     /* Memory-related stuff */
-    init_e820();
-    init_pmm();
+    init_pmm(&(stivale->memmap));
     init_rand();
-    init_vmm();
+    init_vmm(&(stivale->memmap));
 
-    init_vbe();
+    init_vbe(&(stivale->fb));
     init_tty();
+
+    asm volatile ("lgdt [%0];": :"r"(gdt_ptr));
 
     /* Time stuff */
     struct s_time_t s_time;

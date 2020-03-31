@@ -1,37 +1,33 @@
-ENTRY(_start)
+ENTRY(kmain)
 
 SECTIONS
 {
-    kernel_phys_offset = 0xffffffffc0000000;
+    kernel_phys_offset = 0xffffffff80000000;
     . = kernel_phys_offset + 0x100000;
+
+    .stivalehdr ALIGN(4K) :
+    {
+        KEEP(*(.stivalehdr))
+    }
 
     .text ALIGN(4K) :
     {
-        sections_text = . - kernel_phys_offset;
-        KEEP(*(.multiboot))
         KEEP(*(.text*))
-        sections_text_end = . - kernel_phys_offset;
     }
 
     .rodata ALIGN(4K) :
     {
-        sections_rodata = . - kernel_phys_offset;
         KEEP(*(.rodata*))
-        sections_rodata_end = . - kernel_phys_offset;
     }
 
     .data ALIGN(4K) :
     {
-        sections_data = . - kernel_phys_offset;
         KEEP(*(.data*))
-        sections_data_end = . - kernel_phys_offset;
     }
 
     .bss ALIGN(4K) :
     {
-        sections_bss = . - kernel_phys_offset;
         KEEP(*(COMMON))
         KEEP(*(.bss*))
-        sections_bss_end = . - kernel_phys_offset;
     }
 }

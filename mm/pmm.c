@@ -4,7 +4,7 @@
 #include <lib/klib.h>
 #include <lib/lock.h>
 #include <lib/bit.h>
-#include <sys/e820.h>
+#include <startup/stivale.h>
 
 #define MEMORY_BASE 0x1000000
 #define BITMAP_BASE (MEMORY_BASE / PAGE_SIZE)
@@ -54,11 +54,10 @@ __attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t 
 }
 
 /* Populate bitmap using e820 data. */
-void init_pmm(void) {
+void init_pmm(struct stivale_memmap_t *memmap) {
     mem_bitmap = initial_bitmap;
     if (!(tmp_bitmap = pmm_allocz(BMREALLOC_STEP))) {
-        kprint(KPRN_ERR, "pmm_alloc failure in init_pmm(). Halted.");
-        for (;;);
+        panic("pmm_alloc failure in init_pmm(). Halted.", 0, 0, NULL);
     }
 
     tmp_bitmap = (uint32_t *)((size_t)tmp_bitmap + MEM_PHYS_OFFSET);
@@ -70,19 +69,24 @@ void init_pmm(void) {
 
     bitmap_entries = ((PAGE_SIZE / sizeof(uint32_t)) * 32) * BMREALLOC_STEP;
 
-    kprint(KPRN_INFO, "pmm: Mapping memory as specified by the e820...");
+    kprint(KPRN_INFO, "pmm: Mapping memory");
 
-    /* For each region specified by the e820, iterate over each page which
+    /* For each region specified by the memmap, iterate over each page which
        fits in that region and if the region type indicates the area itself
        is usable, write that page as free in the bitmap. Otherwise, mark the page as used. */
-    for (size_t i = 0; e820_map[i].type; i++) {
+    for (size_t i = 0; i < memmap->entries; i++) {
         size_t aligned_base;
-        if (e820_map[i].base % PAGE_SIZE)
-            aligned_base = e820_map[i].base + (PAGE_SIZE - (e820_map[i].base % PAGE_SIZE));
+        struct stivale_memmap_entry_t *entry = &(memmap->address[i]);
+
+        if (entry->base % PAGE_SIZE)
+            aligned_base = entry->base + (PAGE_SIZE - (entry->base % PAGE_SIZE));
         else
-            aligned_base = e820_map[i].base;
-        size_t aligned_length = (e820_map[i].length / PAGE_SIZE) * PAGE_SIZE;
-        if ((e820_map[i].base % PAGE_SIZE) && aligned_length) aligned_length -= PAGE_SIZE;
+            aligned_base = entry->base;
+
+        size_t aligned_length = (entry->size / PAGE_SIZE) * PAGE_SIZE;
+
+        if ((entry->base % PAGE_SIZE) && aligned_length)
+            aligned_length -= PAGE_SIZE;
 
         for (size_t j = 0; j * PAGE_SIZE < aligned_length; j++) {
             size_t addr = aligned_base + j * PAGE_SIZE;
@@ -117,7 +121,7 @@ void init_pmm(void) {
                 pmm_free(old_bitmap, cur_bitmap_size_in_pages);
             }
 
-            if (e820_map[i].type == 1) {
+            if (entry->type == USABLE) {
                 total_pages++;
                 unset_bitmap(page, 1);
             }

@@ -62,7 +62,6 @@ endif
 LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld
 
 QEMUHARDFLAGS := $(QEMUFLAGS)          \
-	-kernel $(KERNELBIN)               \
 	-debugcon stdio                    \
 	# -netdev tap,id=mynet0,ifname=tap0,script=no,downscript=no -device rtl8139,netdev=mynet0
 
@@ -79,12 +78,10 @@ endif
 $(LAI_DIR):
 	git clone $(LAI_URL) $(LAI_DIR)
 
-$(KERNELBIN): $(KERNELELF)
+$(KERNELELF): $(BINS) $(OBJ) symlist
+	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -o $@
 	OBJDUMP=$(CC:-gcc:-objdump) ./gensyms.sh
 	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
-	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -Wl,--oformat=binary -o $@
-
-$(KERNELELF): $(BINS) $(OBJ) symlist
 	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -o $@
 
 symlist:
@@ -92,7 +89,7 @@ symlist:
 	echo 'struct symlist_t symlist[] = {{0xffffffffffffffff,""}};' >> symlist.gen
 	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
 
-build: $(KERNELBIN)
+build: $(KERNELELF)
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/boot
@@ -113,7 +110,7 @@ uninstall:
 	$(AS) $< -f elf64 -o $@
 
 clean:
-	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELBIN) $(KERNELELF) $(DEPS)
+	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELELF) $(DEPS)
 
 run:
 	$(QEMU) $(QEMUHARDFLAGS)
