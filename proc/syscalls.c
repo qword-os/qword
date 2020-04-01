@@ -1252,6 +1252,11 @@ int syscall_write(struct regs_t *regs) {
     return ptr;
 }
 
+int syscall_umount(struct regs_t *regs) {
+    // rdi: target
+    return umount((char*)regs->rdi);
+}
+
 int syscall_mount(struct regs_t *regs) {
     // rdi: source
     // rsi: target

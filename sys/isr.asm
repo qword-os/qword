@@ -355,6 +355,8 @@ syscall_table:
     dq syscall_sleep ;40
     extern syscall_mount
     dq syscall_mount ;41
+    extern syscall_umount
+    dq syscall_umount ;42
   .end:
 
 section .text

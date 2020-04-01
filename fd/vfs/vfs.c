@@ -389,3 +389,17 @@ int mount(const char *source, const char *target,
 
     return 0;
 }
+
+int umount(const char *target) {
+    struct mnt_t *mount = ht_get(struct mnt_t, mountpoints, target);
+
+    int ret = mount->fs->umount(mount->magic);
+
+    if (ret)
+        return ret;
+
+    ht_remove(struct mnt_t, mountpoints, target);
+    kfree(mount);
+
+    return 0;
+}
