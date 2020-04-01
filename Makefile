@@ -20,6 +20,7 @@ DBGSYM = no
 PREFIX = $(shell pwd)
 
 CC      = gcc
+LD      = $(CC:gcc=ld)
 AS      = nasm
 QEMU    = qemu-system-x86_64
 
@@ -59,7 +60,7 @@ ifeq ($(DBGSYM), yes)
 CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
 endif
 
-LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld
+LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld -z max-page-size=0x1000
 
 QEMUHARDFLAGS := $(QEMUFLAGS)          \
 	-debugcon stdio                    \
@@ -79,10 +80,10 @@ $(LAI_DIR):
 	git clone $(LAI_URL) $(LAI_DIR)
 
 $(KERNELELF): $(BINS) $(OBJ) symlist
-	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -o $@
+	$(LD) $(LDHARDFLAGS) $(OBJ) symlist.o -o $@
 	OBJDUMP=$(CC:-gcc:-objdump) ./gensyms.sh
 	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
-	$(CC) $(OBJ) symlist.o $(LDHARDFLAGS) -o $@
+	$(LD) $(LDHARDFLAGS) $(OBJ) symlist.o -o $@
 
 symlist:
 	echo '#include <symlist.h>' > symlist.gen
