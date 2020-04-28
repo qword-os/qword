@@ -138,20 +138,12 @@ void kmain(struct stivale_struct_t *stivale) {
 
     asm volatile ("lgdt [%0];": :"r"(gdt_ptr));
 
-    /* Time stuff */
-    struct s_time_t s_time;
-    bios_get_time(&s_time);
-    kprint(KPRN_INFO, "Current date & time: %u/%u/%u %u:%u:%u",
-           s_time.years, s_time.months, s_time.days,
-           s_time.hours, s_time.minutes, s_time.seconds);
-    unix_epoch = get_unix_epoch(s_time.seconds, s_time.minutes, s_time.hours,
-                                s_time.days, s_time.months, s_time.years);
-    kprint(KPRN_INFO, "Current unix epoch: %U", unix_epoch);
-
     /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
     flush_irqs();
     init_acpi();
     init_pic();
+
+    // TODO read date from RTC and set UNIX epoch accordingly
 
     /* Init the PIT */
     init_pit();

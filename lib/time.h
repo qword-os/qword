@@ -26,15 +26,6 @@ struct timeval {
     long tv_usec;
 };
 
-struct s_time_t {
-    uint32_t seconds;
-    uint32_t minutes;
-    uint32_t hours;
-    uint32_t days;
-    uint32_t months;
-    uint32_t years;
-};
-
 #define RUSAGE_SELF 1
 #define RUSAGE_CHILDREN 2
 
@@ -42,8 +33,6 @@ struct rusage_t {
     struct timeval ru_utime; /* user CPU time used */
     struct timeval ru_stime; /* system CPU time used */
 };
-
-void bios_get_time(struct s_time_t *);
 
 extern volatile uint64_t uptime_raw;
 extern volatile uint64_t uptime_sec;
