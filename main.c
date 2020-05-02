@@ -143,7 +143,7 @@ void kmain(struct stivale_struct_t *stivale) {
     init_acpi();
     init_pic();
 
-    // TODO read date from RTC and set UNIX epoch accordingly
+    unix_epoch = stivale->epoch;
 
     /* Init the PIT */
     init_pit();

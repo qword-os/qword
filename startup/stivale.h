@@ -43,7 +43,8 @@ struct stivale_struct_t {
     struct stivale_framebuffer_t fb;
     uint64_t rsdp;
     uint64_t module_count;
-    struct stivale_module_t module[];
+    struct stivale_module_t module;
+    uint64_t epoch;
 } __attribute__((packed));
 
 #endif
