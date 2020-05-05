@@ -1,14 +1,18 @@
 # Globals and files to compile.
 KERNEL    := qword
-KERNELBIN := $(KERNEL).bin
 KERNELELF := $(KERNEL).elf
+KERNELHDD := $(KERNEL).hdd
+SOURCEDIR := src
+RUNDIR    := run
 
-LAI_URL := https://github.com/qword-os/lai.git
-LAI_DIR := acpi/lai
+LAI_URL     := https://github.com/qword-os/lai.git
+LAI_DIR     := $(SOURCEDIR)/acpi/lai
+QLOADER_URL := https://github.com/qloader2/qloader2.git
+QLOADER_DIR := qloader2
 
-CFILES    := $(shell find . -type f -name '*.c')
-ASMFILES  := $(shell find . -type f -name '*.asm')
-REALFILES := $(shell find . -type f -name '*.real')
+CFILES    := $(shell find $(SOURCEDIR) -type f -name '*.c')
+ASMFILES  := $(shell find $(SOURCEDIR) -type f -name '*.asm')
+REALFILES := $(shell find $(SOURCEDIR) -type f -name '*.real')
 BINS      := $(REALFILES:.real=.bin)
 OBJ       := $(CFILES:.c=.o) $(ASMFILES:.asm=.asm.o)
 DEPS      := $(CFILES:.c=.d)
@@ -45,7 +49,7 @@ CHARDFLAGS := $(CFLAGS)            \
 	-ffreestanding                 \
 	-fno-stack-protector           \
 	-fno-omit-frame-pointer        \
-	-I.                            \
+	-I$(SOURCEDIR)                 \
 	-I$(LAI_DIR)/include
 
 ifeq ($(DBGOUT), tty)
@@ -60,26 +64,33 @@ ifeq ($(DBGSYM), yes)
 CHARDFLAGS := $(CHARDFLAGS) -g -D_DEBUG_
 endif
 
-LDHARDFLAGS := $(LDFLAGS) -nostdlib -no-pie -T linker.ld -z max-page-size=0x1000
+LDHARDFLAGS := $(LDFLAGS)     \
+	-nostdlib                 \
+	-no-pie                   \
+	-z max-page-size=0x1000   \
+	-T $(SOURCEDIR)/linker.ld
 
-QEMUHARDFLAGS := $(QEMUFLAGS)          \
-	-debugcon stdio                    \
-	# -netdev tap,id=mynet0,ifname=tap0,script=no,downscript=no -device rtl8139,netdev=mynet0
+QEMUHARDFLAGS := $(QEMUFLAGS) \
+	-debugcon stdio           \
+	-hda $(KERNELHDD)
 
 .PHONY: symlist all prepare build install uninstall clean run
 
 all: $(LAI_DIR)
 ifeq ($(PULLREPOS), true)
-	cd $(LAI_DIR) && git pull
+	cd $(LAI_DIR)     && git pull
+	cd $(QLOADER_DIR) && git pull
 else
 	true # -- NOT PULLING LAI REPO -- #
 endif
 	$(MAKE) build
 
+build: $(KERNELELF)
+
 $(LAI_DIR):
 	git clone $(LAI_URL) $(LAI_DIR)
 
-$(KERNELELF): $(BINS) $(OBJ) symlist
+$(KERNELELF): $(LAI_DIR) $(BINS) $(OBJ) symlist
 	$(LD) $(LDHARDFLAGS) $(OBJ) symlist.o -o $@
 	OBJDUMP=$(CC:-gcc:-objdump) ./gensyms.sh
 	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
@@ -90,15 +101,6 @@ symlist:
 	echo 'struct symlist_t symlist[] = {{0xffffffffffffffff,""}};' >> symlist.gen
 	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
 
-build: $(KERNELELF)
-
-install: all
-	install -d $(DESTDIR)$(PREFIX)/boot
-	install $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
-
-uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/boot/$(KERNELBIN)
-
 -include $(DEPS)
 
 %.o: %.c
@@ -108,13 +110,35 @@ uninstall:
 	$(AS) $< -f bin -o $@
 
 %.asm.o: %.asm
-	$(AS) $< -f elf64 -o $@
+	$(AS) $< -I$(SOURCEDIR) -f elf64 -o $@
+
+run: $(KERNELHDD)
+	$(QEMU) $(QEMUHARDFLAGS)
+
+$(KERNELHDD): $(QLOADER_DIR) $(KERNELELF)
+	dd if=/dev/zero bs=1M count=0 seek=64 of=$(KERNELHDD)
+	parted -s $(KERNELHDD) mklabel msdos
+	parted -s $(KERNELHDD) mkpart primary 1 100%
+	echfs-utils -m -p0 $(KERNELHDD) quick-format 32768
+	echfs-utils -m -p0 $(KERNELHDD) import $(KERNELELF) $(KERNELELF)
+	echfs-utils -m -p0 $(KERNELHDD) import $(RUNDIR)/qloader2.cfg qloader2.cfg
+	$(QLOADER_DIR)/qloader2-install $(QLOADER_DIR)/qloader2.bin ${KERNELHDD}
+
+$(QLOADER_DIR):
+	git clone $(QLOADER_URL) $(QLOADER_DIR)
+
+install: all
+	install -d $(DESTDIR)$(PREFIX)/boot
+	install $(KERNELBIN) $(DESTDIR)$(PREFIX)/boot/
+
+uninstall:
+	rm -f $(DESTDIR)$(PREFIX)/boot/$(KERNELBIN)
 
 clean:
-	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELELF) $(DEPS)
+	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELELF) $(KERNELHDD) $(DEPS)
 
-run:
-	$(QEMU) $(QEMUHARDFLAGS)
+distclean: clean
+	rm -rf $(LAI_DIR) $(QLOADER_DIR)
 
 format:
 	find -not -path "./acpi/lai/*" -type f  -name "*.h" -exec clang-format -style=file -i {} \;
