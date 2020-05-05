@@ -54,14 +54,14 @@ void init_hpet(void) {
     struct hpet_table_t *hpet_table = acpi_find_sdt("HPET", 0);
 
     if (!hpet_table)
-        panic("HPET ACPI table not found", 0, 0, NULL);
+        panic(NULL, 0, "HPET ACPI table not found");
 
     hpet = (struct hpet_t *)(hpet_table->address + MEM_PHYS_OFFSET);
     tmp = hpet->general_capabilities;
 
     /* Check that the HPET is valid for our uses */
     if (!(tmp & (1 << 15)))
-        panic("HPET is not legacy replacement capable", 0, 0, NULL);
+        panic(NULL, 0, "HPET is not legacy replacement capable");
 
     uint64_t counter_clk_period = tmp >> 32;
     uint64_t frequency = 1000000000000000 / counter_clk_period;
@@ -78,7 +78,7 @@ void init_hpet(void) {
     kprint(KPRN_INFO, "hpet: Enabling interrupts on timer #0");
     tmp = hpet->timers[0].config_and_capabilities;
     if (!(tmp & (1 << 4)))
-        panic("HPET timer #0 does not support periodic mode", 0, 0, NULL);
+        panic(NULL, 0, "HPET timer #0 does not support periodic mode");
 
     tmp |= (1 << 2) | (1 << 3) | (1 << 6);
     hpet->timers[0].config_and_capabilities = tmp;

@@ -57,7 +57,7 @@ __attribute__((always_inline)) static inline void unset_bitmap(size_t i, size_t 
 void init_pmm(struct stivale_memmap_t *memmap) {
     mem_bitmap = initial_bitmap;
     if (!(tmp_bitmap = pmm_allocz(BMREALLOC_STEP))) {
-        panic("pmm_alloc failure in init_pmm(). Halted.", 0, 0, NULL);
+        panic(NULL, 0, "pmm_alloc failure in init_pmm()");
     }
 
     tmp_bitmap = (uint32_t *)((size_t)tmp_bitmap + MEM_PHYS_OFFSET);
@@ -147,7 +147,7 @@ static void *pmm_alloc_slow(size_t pg_count) {
 
     spinlock_release(&pmm_lock);
 
-    panic2(NULL, 1, "Kernel ran out of memory.");
+    panic(NULL, 1, "Kernel ran out of memory.");
 
 found:;
     size_t start = i - pg_count;
@@ -180,7 +180,7 @@ static void *pmm_alloc_fast(size_t pg_count) {
 
     spinlock_release(&pmm_lock);
 
-    panic2(NULL, 1, "Kernel ran out of memory.");
+    panic(NULL, 1, "Kernel ran out of memory.");
 
 found:;
     size_t start = cur_ptr - pg_count;

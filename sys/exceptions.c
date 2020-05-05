@@ -89,5 +89,6 @@ void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
     }
 
     // this is a kernel exception/unhandled exception, ouch!
-    panic(exception_names[exception], exception, error_code, regs);
+    panic(regs, "%s, Number: %X, Error code: %X", exception_names[exception],
+        exception, error_code);
 }

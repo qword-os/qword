@@ -197,7 +197,7 @@ void init_tty_extended(uint32_t *__fb,
         ttys[i].gridbg = kalloc(rows * cols * sizeof(uint32_t));
         ttys[i].gridfg = kalloc(rows * cols * sizeof(uint32_t));
         if (!ttys[i].grid || !ttys[i].gridbg || !ttys[i].gridfg)
-            panic("Out of memory", 0, 0, NULL);
+            panic(NULL, 0, "Out of memory");
         for (size_t j = 0; j < (size_t)(rows * cols); j++) {
             ttys[i].grid[j] = ' ';
             ttys[i].gridbg[j] = ttys[i].text_bg_col;

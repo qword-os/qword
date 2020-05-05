@@ -84,7 +84,7 @@ static inline void setup_cpu_local(int cpu_number, uint8_t lapic_id) {
 
 static int start_ap(uint8_t target_apic_id, int cpu_number) {
     if (cpu_number == MAX_CPUS) {
-        panic("smp: CPU limit exceeded", smp_cpu_count, 0, NULL);
+        panic(NULL, 0, "smp: CPU limit exceeded");
     }
 
     setup_cpu_local(cpu_number, target_apic_id);

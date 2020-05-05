@@ -10,6 +10,6 @@ void init_pic(void) {
         pic_8259_mask_all();
         init_apic();
     } else {
-        panic("APIC not available", 0, 0, NULL);
+        panic(NULL, 0, "APIC not available");
     }
 }

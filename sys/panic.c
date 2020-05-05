@@ -12,12 +12,7 @@
 
 static int panic_lock = 0;
 
-void panic(const char *msg, size_t debug_info, size_t error_code, struct regs_t *regs) {
-    asm volatile ("cli");
-    panic2(regs, 1, "%s\nDebug info: %16X\nError code: %16X", msg, debug_info, error_code);
-}
-
-void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...) {
+void panic(struct regs_t *regs, int print_trace, const char *fmt, ...) {
     asm volatile ("cli");
 
     // Be the only one to panic no matter what, no double panics!

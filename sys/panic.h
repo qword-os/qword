@@ -20,7 +20,6 @@
               __FILE__ ":" expand_stringify(__LINE__), 0, 0, NULL); \
 })
 
-void panic(const char *msg, size_t debug_info, size_t error_code, struct regs_t *regs);
-void panic2(struct regs_t *regs, int print_trace, const char *fmt, ...);
+void panic(struct regs_t *regs, int print_trace, const char *fmt, ...);
 
 #endif

@@ -35,7 +35,7 @@ void init_acpi(void) {
         }
     }
 
-    panic("Non-ACPI compliant system", 0, 0, NULL);
+    panic(NULL, 0, "Non-ACPI compliant system");
     return;
 
 rsdp_found:

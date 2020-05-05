@@ -49,18 +49,18 @@ void init_sched(void) {
 
     /* Make room for task table */
     if ((task_table = kalloc(MAX_TASKS * sizeof(struct thread_t *))) == 0) {
-        panic("sched: Unable to allocate task table.", 0, 0, NULL);
+        panic(NULL, 1, "sched: Unable to allocate task table.");
     }
     if ((process_table = kalloc(MAX_PROCESSES * sizeof(struct process_t *))) == 0) {
-        panic("sched: Unable to allocate process table.", 0, 0, NULL);
+        panic(NULL, 1, "sched: Unable to allocate process table.");
     }
     /* Now make space for PID 0 */
     kprint(KPRN_INFO, "sched: Creating PID 0");
     if ((process_table[0] = kalloc(sizeof(struct process_t))) == 0) {
-        panic("sched: Unable to allocate space for kernel task", 0, 0, NULL);
+        panic(NULL, 1, "sched: Unable to allocate space for kernel task");
     }
     if ((process_table[0]->threads = kalloc(MAX_THREADS * sizeof(struct thread_t *))) == 0) {
-        panic("sched: Unable to allocate space for kernel threads.", 0, 0, NULL);
+        panic(NULL, 1, "sched: Unable to allocate space for kernel threads.");
     }
     process_table[0]->pagemap = kernel_pagemap;
     process_table[0]->pid = 0;

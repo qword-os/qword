@@ -85,7 +85,7 @@ void laihost_sleep(uint64_t duration) {
 }
 
 void laihost_pci_writeb(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset, uint8_t val) {
-	if (seg) panic("TODO: support PCI segments", 0, 0, NULL);
+	if (seg) panic(NULL, 1, "TODO: support PCI segments");
     struct pci_device_t dev = {0};
     dev.bus = bus;
     dev.func = function;
@@ -94,7 +94,7 @@ void laihost_pci_writeb(uint16_t seg, uint8_t bus, uint8_t device, uint8_t funct
 }
 
 uint8_t laihost_pci_readb(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset) {
-	if (seg) panic("TODO: support PCI segments", 0, 0, NULL);
+	if (seg) panic(NULL, 1, "TODO: support PCI segments");
     struct pci_device_t dev = {0};
     dev.bus = bus;
     dev.func = function;
@@ -103,7 +103,7 @@ uint8_t laihost_pci_readb(uint16_t seg, uint8_t bus, uint8_t device, uint8_t fun
 }
 
 void laihost_pci_writew(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset, uint16_t val) {
-	if (seg) panic("TODO: support PCI segments", 0, 0, NULL);
+	if (seg) panic(NULL, 1, "TODO: support PCI segments");
     struct pci_device_t dev = {0};
     dev.bus = bus;
     dev.func = function;
@@ -112,7 +112,7 @@ void laihost_pci_writew(uint16_t seg, uint8_t bus, uint8_t device, uint8_t funct
 }
 
 uint16_t laihost_pci_readw(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset) {
-	if (seg) panic("TODO: support PCI segments", 0, 0, NULL);
+	if (seg) panic(NULL, 1, "TODO: support PCI segments");
     struct pci_device_t dev = {0};
     dev.bus = bus;
     dev.func = function;
@@ -121,7 +121,7 @@ uint16_t laihost_pci_readw(uint16_t seg, uint8_t bus, uint8_t device, uint8_t fu
 }
 
 void laihost_pci_writed(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset, uint32_t val) {
-	if (seg) panic("TODO: support PCI segments", 0, 0, NULL);
+	if (seg) panic(NULL, 1, "TODO: support PCI segments");
     struct pci_device_t dev = {0};
     dev.bus = bus;
     dev.func = function;
@@ -130,7 +130,7 @@ void laihost_pci_writed(uint16_t seg, uint8_t bus, uint8_t device, uint8_t funct
 }
 
 uint32_t laihost_pci_readd(uint16_t seg, uint8_t bus, uint8_t device, uint8_t function, uint16_t offset) {
-	if (seg) panic("TODO: support PCI segments", 0, 0, NULL);
+	if (seg) panic(NULL, 1, "TODO: support PCI segments");
     struct pci_device_t dev = {0};
     dev.bus = bus;
     dev.func = function;

@@ -72,7 +72,7 @@ void init_cpu_features(void) {
         if (cpuid(0xD, 0, &a, &b, &c, &d)) {
             cpu_simd_region_size = c;
         } else {
-            panic("Enabled xsave but cpuid leaf doesn't exist", 0, 0, NULL);
+            panic(NULL, 0, "Enabled xsave but cpuid leaf doesn't exist");
         }
 
         cpu_save_simd = xsave;
