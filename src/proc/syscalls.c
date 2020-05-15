@@ -59,6 +59,35 @@ void leave_syscall(void) {
 
 /* Conventional argument passing: rdi, rsi, rdx, r10, r8, r9 */
 
+int syscall_poll(struct regs_t *regs) {
+    struct pollfd *fds     = (struct pollfd *)regs->rdi;
+    size_t         nfds    = (size_t)regs->rsi;
+    int            timeout = (int)regs->rdx;
+
+    spinlock_acquire(&scheduler_lock);
+    pid_t current_process = cpu_locals[current_cpu].current_process;
+    struct process_t *process = process_table[current_process];
+    spinlock_release(&scheduler_lock);
+
+    struct pollfd *system_fds = kalloc(sizeof(struct pollfd) * nfds);
+    for (size_t i = 0; i < nfds; i++) {
+        system_fds[i].events  = fds[i].events;
+        system_fds[i].revents = fds[i].revents;
+        system_fds[i].fd      = process->file_handles[fds[i].fd];
+    }
+
+    int ret = poll(fds, system_fds, timeout);
+
+    for (size_t i = 0; i < nfds; i++) {
+        fds[i].events  = system_fds[i].events;
+        fds[i].revents = system_fds[i].revents;
+    }
+
+    kfree(system_fds);
+
+    return ret;
+}
+
 int syscall_sleep(struct regs_t *regs) {
     unsigned int secs = (unsigned int)regs->rdi;
     relaxed_sleep(secs * HPET_FREQUENCY_HZ);

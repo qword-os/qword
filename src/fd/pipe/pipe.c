@@ -17,6 +17,7 @@ struct pipe_t {
     size_t size;
     event_t event;
     int refcount;
+    short *poll_status;
 };
 
 dynarray_new(struct pipe_t, pipes);
@@ -100,6 +101,9 @@ static int pipe_read(int fd, void *buf, size_t count) {
 
     pipe->size = new_pipe_size;
 
+    if (!new_pipe_size)
+        locked_write(short, pipe->poll_status, 0);
+
     spinlock_release(&pipe->lock);
     dynarray_unref(pipes, fd);
     return count;
@@ -121,6 +125,7 @@ static int pipe_write(int fd, const void *buf, size_t count) {
 
     pipe->size = new_pipe_size;
 
+    locked_write(short, pipe->poll_status, POLLIN);
     event_trigger(&pipe->event);
 
     spinlock_release(&pipe->lock);
@@ -173,6 +178,11 @@ int pipe(int *pipefd) {
     new_pipe.refcount = 2;
     new_pipe.lock = new_lock;
 
+    struct file_descriptor_t fd_read = {0};
+    struct file_descriptor_t fd_write = {0};
+
+    new_pipe.poll_status = &fd_read.status;
+
     int fd = dynarray_add(struct pipe_t, pipes, &new_pipe);
     if (fd == -1)
         return -1;
@@ -187,14 +197,12 @@ int pipe(int *pipefd) {
     pipe_functions.getflflags = pipe_getflflags;
     pipe_functions.setflflags = pipe_setflflags;
 
-    struct file_descriptor_t fd_read = {0};
-    struct file_descriptor_t fd_write = {0};
-
     fd_read.intern_fd = fd;
     fd_read.fd_handler = pipe_functions;
 
     fd_write.intern_fd = fd;
     fd_write.fd_handler = pipe_functions;
+    locked_write(short, &fd_write.status, POLLOUT);
 
     pipefd[0] = fd_create(&fd_read);
     pipefd[1] = fd_create(&fd_write);

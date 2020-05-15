@@ -107,10 +107,27 @@ struct fd_handler_t {
 };
 
 struct file_descriptor_t {
-    int intern_fd;
-    int fdflags;
+    int   intern_fd;
+    int   fdflags;
+    short status;
     struct fd_handler_t fd_handler;
 };
+
+struct pollfd {
+    int   fd;
+    short events;
+    short revents;
+};
+
+#define POLLIN 0x01
+#define POLLOUT 0x02
+#define POLLPRI 0x04
+#define POLLHUP 0x08
+#define POLLERR 0x10
+#define POLLRDHUP 0x20
+#define POLLNVAL 0x40
+
+int poll(struct pollfd *fds, size_t nfds, int timeout);
 
 int fd_create(struct file_descriptor_t *);
 int close(int);

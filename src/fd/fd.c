@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include <fd/fd.h>
 #include <lib/lock.h>
+#include <sys/pit.h>
+#include <proc/task.h>
 
 void init_fd_vfs(void);
 
@@ -10,6 +12,48 @@ void init_fd(void) {
 }
 
 dynarray_new(struct file_descriptor_t, file_descriptors);
+
+int poll(struct pollfd *fds, size_t nfds, int timeout) {
+    if (!timeout) {
+        return 0;
+    }
+
+    uint64_t timeout_target;
+
+    if (timeout < 0) {
+        timeout_target = 0xffffffffffffffff; // effectively disable a timeout
+    } else {
+        timeout_target = (uptime_raw + (timeout * (PIT_FREQUENCY_HZ / 1000))) + 1;
+    }
+
+    int polled_fds = 0;
+
+    while (timeout_target > uptime_raw) {
+        for (size_t i = 0; i < nfds; i++) {
+            if (fds[i].fd < 0) {
+                fds[i].revents = 0;
+                continue;
+            }
+
+            struct file_descriptor_t *fd = dynarray_getelem(struct file_descriptor_t, file_descriptors, fds[i].fd);
+
+            if (fd->status & fds[i].events) {
+                fds[i].revents = fd->status;
+                polled_fds++;
+            } else {
+                fds[i].revents = 0;
+            }
+
+            dynarray_unref(file_descriptors, fds[i].fd);
+        }
+        if (polled_fds) {
+            break;
+        }
+        yield();
+    }
+
+    return polled_fds;
+}
 
 int fd_create(struct file_descriptor_t *fd) {
     return dynarray_add(struct file_descriptor_t, file_descriptors, fd);

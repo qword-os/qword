@@ -357,6 +357,8 @@ syscall_table:
     dq syscall_mount ;41
     extern syscall_umount
     dq syscall_umount ;42
+    extern syscall_poll
+    dq syscall_poll ;43
   .end:
 
 section .text

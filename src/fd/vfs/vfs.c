@@ -357,6 +357,9 @@ int open(const char *path, int mode) {
 
     fd.fd_handler = vfs_functions;
 
+    // TODO actually implement poll shit
+    fd.status = POLLOUT | POLLIN;
+
     return fd_create(&fd);
 }
 
