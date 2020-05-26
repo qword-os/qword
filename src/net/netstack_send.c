@@ -5,8 +5,8 @@
 #include <lib/errno.h>
 #include <net/proto/ipv4.h>
 #include <net/proto/udp.h>
-#include "net.h"
-#include "netstack.h"
+#include <net/net.h>
+#include <net/netstack.h>
 #include <fd/socket/socket.h>
 
 static int process_transport(struct packet_t* pkt, char* buf, size_t len) {

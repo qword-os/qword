@@ -29,12 +29,10 @@ struct arp_request_t {
 
 dynarray_new(struct arp_request_t, arp_requests);
 
-/**
- * Simply check if the ip addr is already in the cache
- */
+/* check if ipv4 addr already in cache */
 static int is_in_cache(ipv4_addr_t addr) {
     size_t i = 0;
-    void* res = dynarray_search(struct arp_entry_t, arp_cache, &i,
+    void *res = dynarray_search(struct arp_entry_t, arp_cache, &i,
             IPV4_EQUAL(elem->ip, addr), 0);
 
     if (res) {
@@ -45,7 +43,7 @@ static int is_in_cache(ipv4_addr_t addr) {
     }
 }
 
-static int send_arp_request(struct nic_t* nic, ipv4_addr_t addr, mac_addr_t* mac) {
+static int send_arp_request(struct nic_t *nic, ipv4_addr_t addr, mac_addr_t *mac) {
     event_t event = 0;
     struct arp_request_t request = {
         .event = &event,
@@ -75,7 +73,7 @@ static int send_arp_request(struct nic_t* nic, ipv4_addr_t addr, mac_addr_t* mac
     // form a proper packet request
     struct packet_t pkt_req = {
         .nic = nic,
-        .data = (char *) &arp_request,
+        .data = (char *)&arp_request,
         .data_len = sizeof(arp_request),
         .datalink.type = ETHER_ARP,
         .datalink.src = nic->mac_addr,
@@ -95,7 +93,7 @@ static int send_arp_request(struct nic_t* nic, ipv4_addr_t addr, mac_addr_t* mac
     return 0;
 }
 
-void arp_process_packet(struct packet_t* pkt) {
+void arp_process_packet(struct packet_t *pkt) {
     switch (pkt->network.type) {
         case ARP_OPCODE_REPLY: {
 
@@ -114,7 +112,7 @@ void arp_process_packet(struct packet_t* pkt) {
             }
 
             // got over all related requests and trigger them
-            struct arp_request_t* req = NULL;
+            struct arp_request_t *req = NULL;
             size_t i = 0;
             do {
                 req = dynarray_search(struct arp_request_t, arp_requests, &i,
@@ -162,7 +160,7 @@ void arp_process_packet(struct packet_t* pkt) {
                 // form a proper packet request
                 struct packet_t pkt_req = {
                     .nic = pkt->nic,
-                    .data = (char *) &arp_request,
+                    .data = (char *)&arp_request,
                     .data_len = sizeof(arp_request),
                     .datalink.type = ETHER_ARP,
                     .datalink.src = pkt->nic->mac_addr,
@@ -178,10 +176,10 @@ void arp_process_packet(struct packet_t* pkt) {
     }
 }
 
-int arp_query_ipv4(struct nic_t* nic, ipv4_addr_t addr, mac_addr_t* mac) {
+int arp_query_ipv4(struct nic_t *nic, ipv4_addr_t addr, mac_addr_t *mac) {
     // first check in the cache if we have the ip
     int i = 0;
-    struct arp_entry_t* entry = dynarray_search(struct arp_entry_t, arp_cache, &i, IPV4_EQUAL(elem->ip, addr), 0);
+    struct arp_entry_t *entry = dynarray_search(struct arp_entry_t, arp_cache, &i, IPV4_EQUAL(elem->ip, addr), 0);
 
     if (entry) {
         // check the timeout on the entry
