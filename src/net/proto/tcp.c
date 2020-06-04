@@ -55,7 +55,7 @@ void tcp_new(struct socket_descriptor_t *sock, struct packet_t *pkt, int flags,
     tcp->urg_ptr = 0;
 
     /* copy data */
-    memcpy(tcp->data, data, data_len);
+    memcpy(tcp->data, tcp_data, data_len);
     /* tcpchecksum(pkt) */
     pkt->pkt_len = ntohs(ipv4_hdr->total_length);
 }
