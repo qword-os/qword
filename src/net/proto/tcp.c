@@ -8,14 +8,12 @@
 
 /* TODO: the packet stuff is pretty superfluous now, slim down struct packet_t ? */
 /* constructing a tcp segment: ethernet header -> ipv4 header -> tcp header */
-void tcp_new(int fd, struct packet_t *pkt, int flags, const void *tcp_data, size_t data_len) {
-    /* could abstract away socket resolving */
-    struct socket_descriptor_t *sock = socket_from_fd(fd);
-
+void tcp_new(struct socket_descriptor_t *sock, struct packet_t *pkt, int flags,
+        const void *tcp_data, size_t data_len) {
     struct ether_hdr *ether = (struct ether_hdr *)pkt->buf;
     ether->type = ETHER_IPV4;
 
-    struct ipv4_hdr_hdr_t *ipv4 = (struct ipv4_hdr_t *)(pkt->buf + sizeof(struct ether_hdr));
+    struct ipv4_hdr_t *ipv4_hdr = (struct ipv4_hdr_t *)(pkt->buf + sizeof(struct ether_hdr));
 
     /* ignore checksum and total length till i understand more what to do with them */
     ipv4_hdr->ver = 4;
@@ -31,12 +29,14 @@ void tcp_new(int fd, struct packet_t *pkt, int flags, const void *tcp_data, size
     ipv4_hdr->dest = sock->dest_ip;
 
     /* tcp header 20 bytes after start of ipv4_hdr header */
-    struct tcp_hdr_t *tcp_hdr = (struct tcp_hdr_t *)((void *)ipv4_hdr  + (ipv4->head_len * 4));
+    struct tcp_hdr_t *tcp_hdr = (struct tcp_hdr_t *)((void *)ipv4_hdr  + (ipv4_hdr->head_len * 4));
 
     tcp->source = sock->source_port;
     tcp->dest = sock->dest_port;
 
-    /* TODO: sequence numbers and other crap */
+    tcp->seq_num = HTONL(sock->tcp.snd_sq);
+    tcp->ack_num = (flags & TCP_ACK) ? HTONL(sock->tcp.recv_sq) : 0;
+
     /* tcp header is 20 bytes wide */
     tcp->doff = 5;
     tcp->res1 = 0;
@@ -58,4 +58,10 @@ void tcp_new(int fd, struct packet_t *pkt, int flags, const void *tcp_data, size
     memcpy(tcp->data, data, data_len);
     /* tcpchecksum(pkt) */
     pkt->pkt_len = ntohs(ipv4_hdr->total_length);
+}
+
+void tcp_send_pkt(struct packet_t *pkt) {
+    struct ipv4_hdr_t *ipv4_hdr = (struct ipv4_hdr_t *)(pkt->buf + sizeof(struct ether_hdr));
+    struct tcp_hdr_t *tcp_hdr = (struct tcp_hdr_t *)((void *)ipv4_hdr + (ipv4_hdr->head_len * 4));
+
 }

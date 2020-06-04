@@ -1,6 +1,11 @@
 #ifndef __TCP_H__
 #define __TCP_H__
 
+#include <stdint.h>
+#include <stddef.h>
+#include <net/net.h>
+#include <net/socket.h>
+
 /* define each flag simply as 1 << N where N is the offset of the bit
  * from the bitfield detailed in tcp_hdr_t.
  * if the Nth bit in the `flags` variable is set,
@@ -41,6 +46,7 @@ struct tcp_hdr_t {
 
 /* construct a tcp header with specified parameters */
 /* TODO: socket stuff */
-void tcp_new(int fd, struct packet_t *packet, int flags, const void *buf, size_t len);
+void tcp_new(struct socket_descriptor_t *, struct packet_t *, int, const void *, size_t);
+void tcp_send_pkt(struct packet_t *);
 
 #endif

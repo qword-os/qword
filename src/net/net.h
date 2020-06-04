@@ -106,9 +106,9 @@ struct nic_t {
 }; */
 
 struct packet_t {
-    char *data;
+    char *buf;
     size_t pkt_len;
-}
+};
 
 public_dynarray_prototype(struct nic_t*, nics);
 

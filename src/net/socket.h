@@ -20,9 +20,14 @@ struct socket_descriptor_t {
     uint16_t source_port;
     uint32_t dest_ip;
     uint16_t dest_port;
-};
 
-struct in_addr;
+    struct {
+        uint32_t snd_sq;
+        uint32_t ack_sq;
+        uint32_t recq_sq;
+        uint16_t win_sz;
+    } tcp;
+};
 
 /* maybe typedefs ? */
 /* https://linux.die.net/man/7/ip */
