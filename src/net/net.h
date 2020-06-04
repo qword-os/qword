@@ -60,11 +60,11 @@ struct nic_t {
 };
 
 // packet descriptor
-struct packet_t {
-    char* data;
+/* struct packet_t {
+    char *data;
     size_t data_len;
 
-    struct nic_t* nic;
+    struct nic_t *nic;
 
     // flags passed from the nic
     uint64_t nic_flags;
@@ -98,8 +98,17 @@ struct packet_t {
         size_t size;
         int src;
         int dst;
+        uint32_t snd_sq;
+        uint32_t snd_ack;
+        uint32_t rcv_sq;
+        uint16_t win_sz;
     } transport;
-};
+}; */
+
+struct packet_t {
+    char *data;
+    size_t pkt_len;
+}
 
 public_dynarray_prototype(struct nic_t*, nics);
 
@@ -112,7 +121,6 @@ void net_add_nic(struct nic_t* nic);
  * Route an ip address to the correct interface to send on
  */
 int net_route_ipv4(ipv4_addr_t addr, struct nic_t** nic);
-
 /**
  * Query the mac to send to for an ip address
  *
