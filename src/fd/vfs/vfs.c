@@ -33,8 +33,10 @@ static struct mnt_t *vfs_get_mountpoint(const char *path, char **local_path) {
     spinlock_acquire(&mountpoints_lock);
 
     struct mnt_t **mnts = ht_dump(struct mnt_t, mountpoints, &size);
-    if (!mnts)
+    if (!mnts) {
+        spinlock_release(&mountpoints_lock);
         return NULL;
+    }
 
     ssize_t guess = -1;
     size_t guess_size = 0;
@@ -149,8 +151,10 @@ int vfs_sync(void) {
     spinlock_acquire(&filesystems_lock);
 
     struct fs_t **fs = ht_dump(struct fs_t, filesystems, &size);
-    if (!fs)
+    if (!fs) {
+        spinlock_release(&filesystems_lock);
         return 0;
+    }
 
     for (size_t i = 0; i < size; i++)
         fs[i]->sync();
