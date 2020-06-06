@@ -81,6 +81,9 @@ typedef socklen_t int;
 struct socket_descriptor_t *socket_from_fd(int fd);
 int socket_new(int, int, int);
 int socket_bind(int, const struct *sockaddr, socklen_t);
+int socket_listen(int, int);
+int socket_accept(int, struct sockaddr *, socklen_t *);
+int socket_conect(int, const struct sockasddr *, socklen_t);
 
 public_dynarray_new(struct socket_descriptor_t *, sockets);
 

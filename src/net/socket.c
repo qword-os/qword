@@ -52,7 +52,7 @@ int socket_new(int domain, int type, int proto) {
 
 /* bind a socket to a given external address. return 0 on success. */
 int socket_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
-    struct socket_descriptor_t *sock = socket_from_fd()
+    struct socket_descriptor_t *sock = socket_from_fd(fd);
     /* first, check addr has the right length */
     if (addrlen != sizeof(struct sockaddr_in)) {
         return -1;
