@@ -15,7 +15,7 @@ void tcp_new(struct socket_descriptor_t *sock, struct packet_t *pkt, int flags,
 
     struct ipv4_hdr_t *ipv4_hdr = (struct ipv4_hdr_t *)(pkt->buf + sizeof(struct ether_hdr));
 
-    /* ignore checksum and total length till i understand more what to do with them */
+    /* ignore checksum for now */
     ipv4_hdr->ver = 4;
     ipv4_hdr->head_len = sizeof(struct ipv4_hdr_t) / 4;
     ipv4_hdr->tos = 0; /* TOS/DSCP: we don't need this */
@@ -58,10 +58,4 @@ void tcp_new(struct socket_descriptor_t *sock, struct packet_t *pkt, int flags,
     memcpy(tcp->data, tcp_data, data_len);
     /* tcpchecksum(pkt) */
     pkt->pkt_len = ntohs(ipv4_hdr->total_length);
-}
-
-void tcp_send_pkt(struct packet_t *pkt) {
-    struct ipv4_hdr_t *ipv4_hdr = (struct ipv4_hdr_t *)(pkt->buf + sizeof(struct ether_hdr));
-    struct tcp_hdr_t *tcp_hdr = (struct tcp_hdr_t *)((void *)ipv4_hdr + (ipv4_hdr->head_len * 4));
-
 }
