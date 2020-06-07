@@ -100,7 +100,7 @@ static void process_received_packets(struct r81x9_device_t* dev) {
         };
 
         // let the network stack handle it
-        netstack_process_frame(&pkt);
+        //netstack_process_frame(&pkt);
 
         // reset the descriptor
         uint16_t eor = desc->opts1 * EOR;

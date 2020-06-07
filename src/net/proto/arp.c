@@ -44,7 +44,7 @@ static int is_in_cache(ipv4_addr_t addr) {
 }
 
 static int send_arp_request(struct nic_t *nic, ipv4_addr_t addr, mac_addr_t *mac) {
-    event_t event = 0;
+/*    event_t event = 0;
     struct arp_request_t request = {
         .event = &event,
         .ip = addr
@@ -90,11 +90,11 @@ static int send_arp_request(struct nic_t *nic, ipv4_addr_t addr, mac_addr_t *mac
     event_await(&event);
     arp_query_ipv4(nic, addr, mac);
 
-    return 0;
+    return 0; */
 }
 
 void arp_process_packet(struct packet_t *pkt) {
-    switch (pkt->network.type) {
+/*    switch (pkt->network.type) {
         case ARP_OPCODE_REPLY: {
 
             // add to cache if not in cache
@@ -173,11 +173,11 @@ void arp_process_packet(struct packet_t *pkt) {
                 }
             }
         } break;
-    }
+    } */
 }
 
 int arp_query_ipv4(struct nic_t *nic, ipv4_addr_t addr, mac_addr_t *mac) {
-    // first check in the cache if we have the ip
+    /* // first check in the cache if we have the ip
     int i = 0;
     struct arp_entry_t *entry = dynarray_search(struct arp_entry_t, arp_cache, &i, IPV4_EQUAL(elem->ip, addr), 0);
 
@@ -198,5 +198,5 @@ int arp_query_ipv4(struct nic_t *nic, ipv4_addr_t addr, mac_addr_t *mac) {
     //       double request we wanna have a single request
 
     // we don't have it, lets request it
-    return send_arp_request(nic, addr, mac);
+    return send_arp_request(nic, addr, mac); */
 }

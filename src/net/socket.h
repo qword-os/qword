@@ -44,7 +44,7 @@ struct socket_descriptor_t {
     struct {
         uint32_t snd_sq;
         uint32_t ack_sq;
-        uint32_t recq_sq;
+        uint32_t recv_sq;
         uint16_t win_sz;
     } tcp;
 

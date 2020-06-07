@@ -13,7 +13,7 @@ public_dynarray_new(struct nic_t *, nics);
 static struct nic_t *default_nic;
 
 struct packet_t *pkt_new(void) {
-    struct packet_t *pkt = kalloc(sizeof(packet_t) + 1536); /* ETH_MTU */
+    struct packet_t *pkt = kalloc(sizeof(struct packet_t) + 1536); /* ETH_MTU */
     pkt->pkt_len = -1;
     pkt->nic = NULL;
 
