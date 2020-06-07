@@ -11,6 +11,7 @@
 #include <acpi/lai/core/libc.h>
 #include <net/netstack.h>
 #include <stdbool.h>
+#include <net/net.h>
 
 #include "rtl81x9_private.h"
 
@@ -94,10 +95,8 @@ static void process_received_packets(struct r81x9_device_t* dev) {
         }
 
         struct packet_t pkt = {
-            .nic = &dev->nic,
-            .data = (char *) buf,
-            .data_len = len,
-            .nic_flags = flags
+            .buf = (char *)buf,
+            .pkt_len = len,
         };
 
         // let the network stack handle it

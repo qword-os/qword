@@ -6,7 +6,7 @@
 #include <lib/dynarray.h>
 #include <lib/lock.h>
 #include <lib/event.h>
-#include <lib/net.h>
+#include <net/net.h>
 
 #define PF_INET 2
 #define AF_INET PF_INET
@@ -48,13 +48,17 @@ struct socket_descriptor_t {
         uint16_t win_sz;
     } tcp;
 
-    struct lock_t socket_lock;
-    struct event_t event;
+    //struct lock_t socket_lock;
+    //struct event_t event;
 
 
     /* TODO construct queues for udp datagrams, tcp accept() packets, packets to be ack'd, etc. */
     /* should probably figure out how these will be programmed first */
 };
+
+typedef struct {
+    uint32_t s_addr;
+} in_addr;
 
 /* maybe typedefs ? */
 /* https://linux.die.net/man/7/ip */
@@ -71,20 +75,15 @@ struct sockaddr {
     uint8_t sa_family;
     char sa_data[14];
 };
-
-typedef struct {
-    uint32_t s_addr;
-} in_addr;
-
-typedef socklen_t int;
+typedef int socklen_t;
 
 struct socket_descriptor_t *socket_from_fd(int fd);
 int socket_new(int, int, int);
-int socket_bind(int, const struct *sockaddr, socklen_t);
+int socket_bind(int, const struct sockaddr *, socklen_t);
 int socket_listen(int, int);
 int socket_accept(int, struct sockaddr *, socklen_t *);
-int socket_conect(int, const struct sockasddr *, socklen_t);
+int socket_conect(int, const struct sockaddr *, socklen_t);
 
-public_dynarray_new(struct socket_descriptor_t *, sockets);
+public_dynarray_prototype(struct socket_descriptor_t, sockets);
 
 #endif

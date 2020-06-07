@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <net/socket.h>
 #include <lib/dynarray.h>
+#include <net/proto/ipv4.h>
 
 /* a simple implementation of sockets for handling tcp and udp connections */
 /* provides the follow functions:
@@ -10,6 +11,8 @@
  * int socket_listen(): Setup socket to begin listening for incoming connections
  * int socket_bind(): Bind a socket to a certain address
  * int socket_new(): Create a new socket and return an associated file descriptor */
+
+public_dynarray_new(struct socket_descriptor_t, sockets);
 
 static int next(void);
 
@@ -26,7 +29,7 @@ int socket_new(int domain, int type, int proto) {
                                                      !elem->valid, 0);
     if (!sock)
         return -1;
-    sock->valid = true;
+    sock->valid = 1;
 
     /* TODO validate domain */
 
@@ -44,8 +47,8 @@ int socket_new(int domain, int type, int proto) {
     sock->domain = domain;
     sock->type = type;
     sock->proto = proto;
-    sock->status = STATUS_REQ;
-    sock->socket_lock = new_lock;
+    sock->state = STATE_REQ;
+    //sock->socket_lock = new_lock;
 
     return fd;
 }
@@ -63,8 +66,8 @@ int socket_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     /* validate domain */
     if (sockaddr->sin_family != AF_INET)
         return -1;
-    sock->local_ip = sockaddr->sin_addr.s_addr;
-    sock->local_port = sockaddr->sin_port;
+    sock->ip.source_ip = sockaddr->sin_addr.s_addr;
+    sock->ip.source_port = sockaddr->sin_port;
 
     sock->state = STATE_BOUND;
 
