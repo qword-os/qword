@@ -63,7 +63,8 @@ static int check_type(volatile struct hba_port_t *port) {
 static int probe_port(volatile struct hba_mem_t *mem, size_t portno) {
     uint32_t pi = mem->pi;
 
-    if (pi & 1) {
+    /* PI is bit-significant */
+    if (pi & (1 << portno)) {
         return check_type(&mem->ports[portno]);
     }
 
