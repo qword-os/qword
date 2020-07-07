@@ -9,7 +9,7 @@ extern load_tss
 section .data
 
 %define smp_trampoline_size  smp_trampoline_end - smp_trampoline
-smp_trampoline:              incbin "real/smp_trampoline.bin"
+smp_trampoline:              incbin "sys/smp_trampoline.bin"
 smp_trampoline_end:
 
 section .text

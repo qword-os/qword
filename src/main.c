@@ -136,10 +136,27 @@ void kmain(struct stivale_struct_t *stivale) {
     init_vbe(&(stivale->fb));
     init_tty();
 
-    asm volatile ("lgdt [%0];": :"r"(gdt_ptr));
+    asm volatile (
+        "lgdt %0\n\t"
+        "push rbp\n\t"
+        "mov rbp, rsp\n\t"
+        "push %1\n\t"
+        "push rbp\n\t"
+        "pushfq\n\t"
+        "push %2\n\t"
+        "push OFFSET 1f\n\t"
+        "iretq\n\t"
+        "1:\n\t"
+        "pop rbp\n\t"
+        "mov ds, %1\n\t"
+        "mov es, %1\n\t"
+        "mov fs, %1\n\t"
+        "mov gs, %1\n\t"
+        "mov ss, %1\n\t"
+        :
+        : "m"(gdt_ptr), "r"((uint64_t)0x10), "r"((uint64_t)0x08)
+        : "memory");
 
-    /*** NO MORE REAL MODE CALLS AFTER THIS POINT ***/
-    flush_irqs();
     init_acpi();
     init_pic();
 
@@ -159,10 +176,9 @@ void kmain(struct stivale_struct_t *stivale) {
     init_pci();
 
     /* Init Symmetric Multiprocessing */
-    asm volatile ("sti");
+    asm volatile ("sti":::"memory");
     init_smp();
-
-    asm volatile ("cli");
+    asm volatile ("cli":::"memory");
 
     /* Initialise scheduler */
     init_sched();
@@ -177,6 +193,6 @@ void kmain(struct stivale_struct_t *stivale) {
          INSTEAD! ***/
 
     /* Pre-scheduler init done. Wait for the main kernel thread to be scheduled. */
-    asm volatile ("sti");
-    for (;;) asm volatile ("hlt");
+    asm volatile ("sti":::"memory");
+    for (;;) asm volatile ("hlt":::"memory");
 }
