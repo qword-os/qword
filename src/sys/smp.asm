@@ -65,7 +65,7 @@ smp_init_cpu0_local:
     mov rdi, rsi
     call load_tss
 
-    mov ax, 0x38
+    mov ax, 0x28
     ltr ax
 
     ret

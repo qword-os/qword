@@ -61,7 +61,7 @@ mov edx, dword [0x560+4]
 wrmsr
 
 ; Load TSS
-mov ax, 0x38
+mov ax, 0x28
 ltr ax
 
 ; jump to entry point

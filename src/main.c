@@ -5,6 +5,7 @@
 #include <devices/display/vbe/vbe.h>
 #include <devices/term/tty/tty.h>
 #include <mm/mm.h>
+#include <sys/gdt.h>
 #include <sys/idt.h>
 #include <sys/pic.h>
 #include <acpi/acpi.h>
@@ -125,6 +126,7 @@ void kmain(struct stivale_struct_t *stivale) {
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
     kprint(KPRN_INFO, "Command line: %s", cmdline);
 
+    init_gdt();
     init_idt();
     init_cpu_features();
 
@@ -135,27 +137,6 @@ void kmain(struct stivale_struct_t *stivale) {
 
     init_vbe(&(stivale->fb));
     init_tty();
-
-    asm volatile (
-        "lgdt %0\n\t"
-        "push rbp\n\t"
-        "mov rbp, rsp\n\t"
-        "push %1\n\t"
-        "push rbp\n\t"
-        "pushfq\n\t"
-        "push %2\n\t"
-        "push OFFSET 1f\n\t"
-        "iretq\n\t"
-        "1:\n\t"
-        "pop rbp\n\t"
-        "mov ds, %1\n\t"
-        "mov es, %1\n\t"
-        "mov fs, %1\n\t"
-        "mov gs, %1\n\t"
-        "mov ss, %1\n\t"
-        :
-        : "m"(gdt_ptr), "r"((uint64_t)0x10), "r"((uint64_t)0x08)
-        : "memory");
 
     init_acpi();
     init_pic();
