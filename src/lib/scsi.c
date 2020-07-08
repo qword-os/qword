@@ -202,7 +202,7 @@ static int scsi_flush_cache(int drive) {
     return 0;
 }
 
-int scsi_register(int intern_fd,
+int scsi_register(int intern_fd, char *name,
                   int (*send_cmd)(int, char *, size_t, char *, size_t, int)) {
     struct scsi_dev_t device = {0};
     device.intern_fd = intern_fd;
@@ -233,18 +233,16 @@ int scsi_register(int intern_fd,
 
     struct device_t dev = {0};
     dev.calls = default_device_calls;
-    char *dev_name = prefixed_itoa("usbd", 0, 10);
-    strcpy(dev.name, dev_name);
+    strcpy(dev.name, name);
     kprint(KPRN_INFO, "scsi: Initialised /dev/%s",
-           dev_name);
-    kfree(dev_name);
+           name);
     dev.intern_fd = ret;
     dev.size = lba_num * block_size;
     dev.calls.read = scsi_read;
     dev.calls.write = scsi_write;
     dev.calls.flush = scsi_flush_cache;
     device_add(&dev);
-    enum_partitions(dev_name, &dev);
+    enum_partitions(name, &dev);
 
     return 0;
 }

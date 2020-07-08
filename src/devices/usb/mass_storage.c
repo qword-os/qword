@@ -38,6 +38,7 @@ struct mass_storage_dev_t {
 };
 
 dynarray_new(struct mass_storage_dev_t, devices);
+unsigned int msd_devices = 0;
 
 static int mass_storage_send_cmd(int drive, char *cmd, size_t cmd_length,
                                  char *buf, size_t request_length, int out) {
@@ -96,7 +97,10 @@ int init_mass_storage(struct usb_dev_t *device,
     if (ret < 0)
         return -1;
 
-    scsi_register(ret, mass_storage_send_cmd);
+    char *dev_name = prefixed_itoa("usbd", msd_devices, 10);
+    scsi_register(ret, dev_name, mass_storage_send_cmd);
+    kfree(dev_name);
+    msd_devices++;
 
     kprint(KPRN_INFO, "mass_storage: initiated device!");
     return 0;

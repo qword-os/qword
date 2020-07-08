@@ -40,6 +40,6 @@ struct scsi_read_capacity_16_t {
     uint8_t control;
 } __attribute__((packed));
 
-int scsi_register(int, int (*)(int, char *, size_t, char *, size_t, int));
+int scsi_register(int, char *, int (*)(int, char *, size_t, char *, size_t, int));
 
 #endif
