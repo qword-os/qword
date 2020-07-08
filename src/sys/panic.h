@@ -10,16 +10,17 @@
 
 #define panic_unless(c) ({ \
     if(!(c)) \
-        panic("panic_unless(" #c ") triggered in " \
-              __FILE__ ":" expand_stringify(__LINE__), 0, 0, NULL); \
+        panic(NULL, 1, "panic_unless(" #c ") triggered in " \
+              __FILE__ ":" expand_stringify(__LINE__));     \
 })
 
 #define panic_if(c) ({ \
     if((c)) \
-        panic("panic_if(" #c ") triggered in " \
-              __FILE__ ":" expand_stringify(__LINE__), 0, 0, NULL); \
+        panic(NULL, 1, "panic_if(" #c ") triggered in " \
+              __FILE__ ":" expand_stringify(__LINE__)); \
 })
 
+__attribute__((noreturn))
 void panic(struct regs_t *regs, int print_trace, const char *fmt, ...);
 
 #endif

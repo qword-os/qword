@@ -286,7 +286,7 @@ static int fat32_read(int handle, void *buf, size_t count) {
     uint32_t *fat = kalloc(fat_len);
     read_offset(mnt->device, SECTOR_TO_OFFSET(mnt->info.fat_offset), fat, fat_len);
 
-    int read_size = min(count, ent.file_size);
+    size_t read_size = min(count, ent.file_size);
 
     size_t bytes_per_cluster = mnt->volumeid.sectors_per_cluster * SECTORSIZE;
     size_t cluster_bytes = ((read_size + bytes_per_cluster - 1) / bytes_per_cluster) * bytes_per_cluster;
@@ -309,7 +309,6 @@ static int fat32_read(int handle, void *buf, size_t count) {
         index += bytes_per_cluster;
 
         if (index + hdl->offset < read_size) {
-            size_t old_cluster = cluster;
             cluster = next_cluster(cluster, fat, fat_len);
         }
     }

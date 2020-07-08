@@ -368,7 +368,7 @@ fail:
 void init_vmm(struct stivale_memmap_t *memmap) {
     kernel_pagemap->pml4 = (pt_entry_t *)((size_t)pmm_allocz(1) + MEM_PHYS_OFFSET);
     if ((size_t)kernel_pagemap->pml4 == MEM_PHYS_OFFSET)
-        panic("init_vmm failure", 0, 0, NULL);
+        panic(NULL, 1, "init_vmm failure");
 
     spinlock_release(&kernel_pagemap->lock);
 

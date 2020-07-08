@@ -12,6 +12,7 @@
 
 static int panic_lock = 0;
 
+__attribute__((noreturn))
 void panic(struct regs_t *regs, int print_trace, const char *fmt, ...) {
     asm volatile ("cli");
 

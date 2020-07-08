@@ -159,7 +159,8 @@ static inline void wr_entry(struct mount_t *mnt, uint64_t entry, struct entry_t 
     write(mnt->device, (void *)entry_src, sizeof(struct entry_t));
 }
 
-static void echfs_sync(void) {
+static int echfs_sync(void) {
+    return 0;
 }
 
 static uint64_t allocate_empty_block(struct mount_t *mnt, uint64_t prev_block) {

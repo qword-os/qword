@@ -5,6 +5,7 @@
 #include <lib/lock.h>
 #include <lib/bit.h>
 #include <startup/stivale.h>
+#include <sys/panic.h>
 
 #define MEMORY_BASE 0x1000000
 #define BITMAP_BASE (MEMORY_BASE / PAGE_SIZE)

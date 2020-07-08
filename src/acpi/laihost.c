@@ -24,7 +24,7 @@ void laihost_log(int level, const char *str) {
 }
 
 void laihost_panic(const char *str) {
-    panic(str, 0, 0, NULL);
+    panic(NULL, 1, str);
 }
 
 void *laihost_malloc(size_t size) {

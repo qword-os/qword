@@ -396,7 +396,7 @@ static int create_handle(struct handle_t handle) {
     return handle_n;
 }
 
-static char *load_name(struct directory_entry_t *entry, int *name_length) {
+static char *load_name(struct directory_entry_t *entry, size_t *name_length) {
 
     unsigned char* sysarea = ((unsigned char*)entry) + sizeof(struct directory_entry_t) + entry->name_length;
     int sysarea_len = entry->length - sizeof(struct directory_entry_t) - entry->name_length;
@@ -415,7 +415,7 @@ static char *load_name(struct directory_entry_t *entry, int *name_length) {
         sysarea += sysarea[2];
     }
 
-    int name_len = 0;
+    size_t name_len = 0;
     char *buf;
     if (rrnamelen) {
         /* rock ridge naming scheme */
@@ -478,7 +478,7 @@ static struct path_result_t resolve_path(struct mount_t *mount,
                 memcpy(result.rr_area, sysarea, result.rr_length);
             }
 
-            int name_length = 0;
+            size_t name_length = 0;
             char *lower_name = load_name(entry, &name_length);
 
             if (seg_length != name_length)
@@ -846,7 +846,7 @@ static int iso9660_readdir(int handle, struct dirent *dir) {
     if (target->length <= 0) goto end_of_dir;
     dir->d_ino = target->extent_location.little;
     dir->d_reclen = sizeof(struct dirent);
-    int name_length = 0;
+    size_t name_length = 0;
     char *name = load_name(target, &name_length);
     memcpy(dir->d_name, name, name_length);
     dir->d_name[name_length] = '\0';
