@@ -72,7 +72,7 @@ void init_gdt(void) {
     gdt.entries[4].base_low16  = 0;
     gdt.entries[4].base_mid8   = 0;
     gdt.entries[4].access      = 0b11111010;
-    gdt.entries[4].granularity = 0;
+    gdt.entries[4].granularity = 0b00100000;
     gdt.entries[4].base_high8  = 0;
 
     // TSS.

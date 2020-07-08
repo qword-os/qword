@@ -64,7 +64,6 @@ static const char *exception_names[] = {
 };
 
 void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
-
     if (regs->cs == 0x23) {
         // userspace
         switch (exception) {
@@ -73,22 +72,20 @@ void exception_handler(int exception, struct regs_t *regs, size_t error_code) {
             case 19:
                 asm volatile ("sti");
                 kill(cpu_locals[current_cpu].current_process, SIGFPE);
-                break;
+                return;
             case 6:
                 asm volatile ("sti");
                 kill(cpu_locals[current_cpu].current_process, SIGILL);
-                break;
+                return;
             case 13:
             case 14:
                 asm volatile ("sti");
                 kill(cpu_locals[current_cpu].current_process, SIGSEGV);
-                break;
-            default:
-                break;
+                return;
         }
     }
 
     // this is a kernel exception/unhandled exception, ouch!
-    panic(regs, "%s, Number: %X, Error code: %X", exception_names[exception],
+    panic(regs, 1, "%s, Number: %X, Error code: %X", exception_names[exception],
         exception, error_code);
 }

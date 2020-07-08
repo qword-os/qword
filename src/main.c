@@ -115,8 +115,6 @@ void kmain_thread(void *arg) {
     for (;;) asm volatile ("hlt;");
 }
 
-extern void *gdt_ptr[];
-
 /* Main kernel entry point, only initialise essential services and scheduler */
 void kmain(struct stivale_struct_t *stivale) {
     char cmdline_val[64];
