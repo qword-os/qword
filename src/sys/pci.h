@@ -55,7 +55,7 @@ union msi_address_t {
         uint32_t base_address : 12;
     };
     uint32_t raw;
-} __attribute__((packed)) msi_address_t;
+} __attribute__((packed));
 
 union msi_data_t {
     struct {
