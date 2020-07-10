@@ -3,6 +3,12 @@
 #include <lib/cmdline.h>
 #include <lib/cstring.h>
 
+static const char *cmdline;
+
+void init_cmdline(const char *cmd) {
+    cmdline = cmd;
+}
+
 char *cmdline_get_value(char *buf, size_t limit, const char *key) {
     if (!limit || !buf)
         return NULL;

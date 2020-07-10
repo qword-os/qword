@@ -19,7 +19,7 @@ void init_dev(void) {
     init_dev_nvme();
     init_dev_sata();
     init_dev_vesafb();
-	init_usb();
+    init_usb();
 
     /* probe for all net devices */
     probe_rtl81x9();

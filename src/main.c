@@ -31,8 +31,6 @@
 #include <lai/core.h>
 #include <lai/helpers/sci.h>
 
-char *cmdline;
-
 void kmain_thread(void *arg) {
     (void)arg;
 
@@ -78,7 +76,7 @@ void kmain_thread(void *arg) {
 
     /* Mount root partition */
     if (mount(root, "/", rootfs, 0, 0)) {
-        panic("Unable to mount root", 0, 0, NULL);
+        panic(NULL, 0, "Unable to mount root");
     }
 
     /* Set hostname */
@@ -117,13 +115,11 @@ void kmain_thread(void *arg) {
 
 /* Main kernel entry point, only initialise essential services and scheduler */
 void kmain(struct stivale_struct_t *stivale) {
-    char cmdline_val[64];
-    cmdline = stivale->cmdline;
-
     kprint(KPRN_INFO, "Kernel booted");
     kprint(KPRN_INFO, "Build time: %s", BUILD_TIME);
-    kprint(KPRN_INFO, "Command line: %s", cmdline);
+    kprint(KPRN_INFO, "Command line: %s", stivale->cmdline);
 
+    init_cmdline(stivale->cmdline);
     init_gdt();
     init_idt();
     init_cpu_features();
@@ -145,6 +141,7 @@ void kmain(struct stivale_struct_t *stivale) {
     init_pit();
 
     /* LAI */
+    char cmdline_val[64];
     if (!cmdline_get_value(cmdline_val, 64, "acpi") || !strcmp(cmdline_val, "enabled")) {
         lai_set_acpi_revision(rsdp->rev);
         lai_create_namespace();
