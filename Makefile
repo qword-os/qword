@@ -5,8 +5,6 @@ KERNELHDD := $(KERNEL).hdd
 SOURCEDIR := src
 RUNDIR    := run
 
-LAI_URL     := https://github.com/qword-os/lai.git
-LAI_DIR     := $(SOURCEDIR)/acpi/lai
 QLOADER_URL := https://github.com/qloader2/qloader2.git
 QLOADER_DIR := qloader2
 
@@ -49,8 +47,7 @@ CHARDFLAGS := $(CFLAGS)            \
 	-ffreestanding                 \
 	-fno-stack-protector           \
 	-fno-omit-frame-pointer        \
-	-I$(SOURCEDIR)                 \
-	-I$(LAI_DIR)/include
+	-I$(SOURCEDIR)
 
 ifeq ($(DBGOUT), tty)
 CHARDFLAGS := $(CHARDFLAGS) -D_DBGOUT_TTY_
@@ -74,23 +71,11 @@ QEMUHARDFLAGS := $(QEMUFLAGS) \
 	-debugcon stdio           \
 	-hda $(KERNELHDD)
 
-.PHONY: symlist all prepare build install uninstall clean run
+.PHONY: symlist all prepare install uninstall clean run
 
-all: $(LAI_DIR)
-ifeq ($(PULLREPOS), true)
-	cd $(LAI_DIR)     && git pull
-	cd $(QLOADER_DIR) && git pull
-else
-	true # -- NOT PULLING LAI REPO -- #
-endif
-	$(MAKE) build
+all: $(KERNELELF)
 
-build: $(KERNELELF)
-
-$(LAI_DIR):
-	git clone $(LAI_URL) $(LAI_DIR)
-
-$(KERNELELF): $(LAI_DIR) $(BINS) $(OBJ) symlist
+$(KERNELELF): $(BINS) $(OBJ) symlist
 	$(LD) $(LDHARDFLAGS) $(OBJ) symlist.o -o $@
 	OBJDUMP=$(CC:-gcc:-objdump) ./gensyms.sh
 	$(CC) -x c $(CHARDFLAGS) -c symlist.gen -o symlist.o
@@ -138,8 +123,8 @@ clean:
 	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELELF) $(KERNELHDD) $(DEPS)
 
 distclean: clean
-	rm -rf $(LAI_DIR) $(QLOADER_DIR)
+	rm -rf $(QLOADER_DIR)
 
 format:
-	find -not -path "./acpi/lai/*" -type f  -name "*.h" -exec clang-format -style=file -i {} \;
-	find -not -path "./acpi/lai/*" -type f  -name "*.c" -exec clang-format -style=file -i {} \;
+	find -type f -name "*.h" -exec clang-format -style=file -i {} \;
+	find -type f -name "*.c" -exec clang-format -style=file -i {} \;

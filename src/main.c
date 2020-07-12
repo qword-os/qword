@@ -24,12 +24,9 @@
 #include <devices/dev.h>
 #include <lib/rand.h>
 #include <sys/urm.h>
-#include <net/hostname.h>
 #include <lib/cstring.h>
+#include <net/hostname.h>
 #include <startup/stivale.h>
-
-#include <lai/core.h>
-#include <lai/helpers/sci.h>
 
 void kmain_thread(void *arg) {
     (void)arg;
@@ -139,14 +136,6 @@ void kmain(struct stivale_struct_t *stivale) {
 
     /* Init the PIT */
     init_pit();
-
-    /* LAI */
-    char cmdline_val[64];
-    if (!cmdline_get_value(cmdline_val, 64, "acpi") || !strcmp(cmdline_val, "enabled")) {
-        lai_set_acpi_revision(rsdp->rev);
-        lai_create_namespace();
-        // lai_enable_acpi(1);
-    }
 
     /* Initialise PCI */
     init_pci();
