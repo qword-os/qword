@@ -2,6 +2,7 @@
 #define __TTY_H__
 
 #include <stddef.h>
+#include <stdint.h>
 
 typedef unsigned int cc_t;
 typedef unsigned int speed_t;

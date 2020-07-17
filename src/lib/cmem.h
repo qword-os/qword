@@ -2,6 +2,7 @@
 #define __LIB__CMEM_H__
 
 #include <stddef.h>
+#include <stdint.h>
 
 void *memcpy(void *dest, const void *src, size_t n);
 void *memcpy64(void *dest, const void *src, size_t n);

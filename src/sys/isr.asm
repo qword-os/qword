@@ -266,10 +266,11 @@ ipi_abort:
 ; Syscalls
 
 section .data
-
+global syscall_count
 syscall_count equ ((syscall_table.end - syscall_table) / 8)
 
 align 16
+global syscall_table
 syscall_table:
     extern syscall_debug_print
     dq syscall_debug_print ;0
@@ -359,6 +360,8 @@ syscall_table:
     dq syscall_umount ;42
     extern syscall_poll
     dq syscall_poll ;43
+    extern syscall_interp
+    dq syscall_interp
   .end:
 
 section .text

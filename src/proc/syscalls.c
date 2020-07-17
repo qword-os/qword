@@ -14,6 +14,7 @@
 #include <devices/term/tty/tty.h>
 #include <sys/urm.h>
 #include <net/hostname.h>
+#include <proc/qwordvm.h>
 #include <sys/hpet.h>
 #include <lib/cstring.h>
 #include <lib/cmem.h>
@@ -1294,4 +1295,12 @@ int syscall_mount(struct regs_t *regs) {
     // r8: data
     return mount((char*)regs->rdi, (char *)regs->rsi, (char *)regs->rdx,
         regs->r10, (void *)regs->r8);
+}
+
+int syscall_interp(struct regs_t *regs) {
+    // rdi: code
+    // rsi: code size
+    // rdx: stack
+    // r10: stack size
+    return qwordvm_interp(regs->rdi, regs->rsi, regs->rdx, regs->r10);
 }
