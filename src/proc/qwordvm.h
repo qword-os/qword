@@ -65,4 +65,6 @@ enum qwordvm_error {
     QWORDVM_ERROR_UNKNOWN_SYSCALL,
 };
 
+int qwordvm_interp(uint64_t, size_t, uint64_t, uint64_t);
+
 #endif

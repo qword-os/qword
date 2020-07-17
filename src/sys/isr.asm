@@ -361,7 +361,7 @@ syscall_table:
     extern syscall_poll
     dq syscall_poll ;43
     extern syscall_interp
-    dq syscall_interp
+    dq syscall_interp ;44
   .end:
 
 section .text

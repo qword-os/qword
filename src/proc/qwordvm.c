@@ -19,6 +19,20 @@ static int qwordvm_is_poke_allowed(uint64_t addr, uint64_t size) {
     return !privilege_check(addr, size);
 }
 
+static inline int qwordvm_is_syscall_supported(uint64_t syscall_num) {
+    uint64_t unsupported_syscalls[] = {
+        10, // fork syscall
+        11, // execve syscall
+        44, // interp syscall
+    };
+    for (uint64_t i = 0; i < sizeof(unsupported_syscalls) / 8; ++i) {
+        if (unsupported_syscalls[i] == syscall_num) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 #define QWORDVM_DEFINE_BINARY_OP_HANDLER(name, op)                  \
     case name:                                                      \
         if (sp < 2) {                                               \
@@ -78,25 +92,18 @@ static int qwordvm_is_poke_allowed(uint64_t addr, uint64_t size) {
 
 int qwordvm_interp(uint64_t code_start, size_t code_size, uint64_t stack_start,
                    uint64_t stack_size) {
-    kprint(KPRN_DBG,
-           "qwordvm_interp: code and stack are fine, executing code...");
-    kprint(KPRN_DBG, "qwordvm_interp: params: %u %u %u %u", code_start,
-           code_size, stack_start, stack_size);
     if (!qwordvm_is_peek_allowed(code_start, code_size)) {
-        kprint(KPRN_DBG, "qwordvm_interp: invalid code");
+        kprint(KPRN_INFO, "qwordvm_interp: invalid code");
         return QWORDVM_ERROR_INVALID_CODE;
     }
     if (!qwordvm_is_poke_allowed(stack_start, stack_size)) {
-        kprint(KPRN_DBG, "qwordvm_interp: invalid stack");
+        kprint(KPRN_INFO, "qwordvm_interp: invalid stack");
         return QWORDVM_ERROR_INVALID_STACK;
     }
-    kprint(KPRN_DBG, "qwordvm_interp: code and stack are valid");
     uint64_t *stack = (uint64_t *)stack_start;
     uint64_t sp = 0, ip = 0;
     while (0 <= ip && ip < code_size) {
         enum qwordvm_opcode opcode = *(uint8_t *)(code_start + ip);
-        kprint(KPRN_DBG, "qwordvm_interp: ip: %u sp: %u opcode: %d", ip, sp,
-               opcode);
         switch (opcode) {
             QWORDVM_DEFINE_BINARY_OP_HANDLER(QWORDVM_OPCODE_ADD, +);
             QWORDVM_DEFINE_BINARY_OP_HANDLER(QWORDVM_OPCODE_SUB, -);
@@ -202,6 +209,9 @@ int qwordvm_interp(uint64_t code_start, size_t code_size, uint64_t stack_start,
                 extern syscall_count;
                 // TODO: Detect whether syscall is supported in interpreted mode
                 if (syscall_number >= &syscall_count) {
+                    return QWORDVM_ERROR_UNKNOWN_SYSCALL;
+                }
+                if (!qwordvm_is_syscall_supported(syscall_number)) {
                     return QWORDVM_ERROR_UNKNOWN_SYSCALL;
                 }
                 sp -= 2;
