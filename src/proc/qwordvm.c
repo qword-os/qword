@@ -2,6 +2,7 @@
 #include <lib/klib.h>
 #include <proc/qwordvm.h>
 #include <proc/task.h>
+#include <sys/cpu.h>
 
 // TODO: change to something normal in the future
 static inline int privilege_check(size_t base, size_t len) {
@@ -100,6 +101,12 @@ int qwordvm_interp(uint64_t code_start, size_t code_size, uint64_t stack_start,
         kprint(KPRN_INFO, "qwordvm_interp: invalid stack");
         return QWORDVM_ERROR_INVALID_STACK;
     }
+
+    // make this system call preemtable as it doesn't lock anything
+    pid_t current_task = cpu_locals[current_cpu].current_task;
+    struct thread_t *thread = task_table[current_task];
+    locked_write(int, &thread->in_syscall, 0);
+
     uint64_t *stack = (uint64_t *)stack_start;
     uint64_t sp = 0, ip = 0;
     while (0 <= ip && ip < code_size) {
@@ -243,9 +250,13 @@ int qwordvm_interp(uint64_t code_start, size_t code_size, uint64_t stack_start,
                 sp -= args_count;
                 extern uint64_t syscall_table[];
                 uint64_t syscall = syscall_table[syscall_number];
-                kprint(KPRN_DBG, "qwordvm_interp: calling syscall at %u",
+                kprint(KPRN_DBG, "qwordvm_interp: calling syscall at %X",
                        syscall);
+                // okey, now we want to be non-preemtable
+                locked_write(int, &thread->in_syscall, 1);
                 int result = ((int (*)(struct regs_t *))syscall)(&regs);
+                // back to being preemtable
+                locked_write(int, &thread->in_syscall, 0);
                 stack[sp] = (uint64_t)result;
                 stack[sp + 1] = regs.rdx;
                 sp += 2;
