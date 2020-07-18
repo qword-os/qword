@@ -88,7 +88,7 @@ static int create_partition_device(const char *device, int part_no, uint64_t fir
 
 struct gpt_table_header_t {
     // the head
-    uint64_t signature;
+    char signature[8];
     uint32_t revision;
     uint32_t header_size;
     uint32_t crc32;
@@ -146,9 +146,8 @@ static int enum_gpt(int fd, const char *device, struct device_t *dev_struct) {
     lseek(fd, 512, SEEK_SET);
     read(fd, &header, sizeof(header));
 
-    // check the header
-    // 'EFI PART'
-    if (header.signature != 'TRAP IFE') return -1;
+    // Check the header
+    if (strncmp(header.signature, "EFI PART", 8)) return -1;
     if (header.revision != 0x00010000) return -1;
     if (header.header_size < 92) return -1;
     if (header.header_size > dev_struct->size) return -1;
