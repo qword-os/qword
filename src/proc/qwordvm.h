@@ -45,7 +45,8 @@ enum qwordvm_opcode {
     QWORDVM_OPCODE_JMP,
     QWORDVM_OPCODE_JMPC,
     QWORDVM_OPCODE_SYSCALL,
-    QWORDVM_OPCODE_HALT
+    QWORDVM_OPCODE_HALT,
+    QWORDVM_OPCODE_CLEAR
 };
 
 enum qwordvm_error {

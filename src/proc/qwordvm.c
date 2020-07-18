@@ -251,6 +251,13 @@ int qwordvm_interp(uint64_t code_start, size_t code_size, uint64_t stack_start,
                 sp += 2;
                 ip += 1;
                 break;
+            case QWORDVM_OPCODE_CLEAR:
+                if (sp < 1) {
+                    return QWORDVM_ERROR_STACK_UNDERFLOW;
+                }
+                sp -= 1;
+                ip += 1;
+                break;
             default:
                 return QWORDVM_ERROR_UNKNOWN_INSTRUCTION;
         }
