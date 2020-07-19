@@ -5,17 +5,17 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum rb_color_t { RB_COLOR_BLACK, RB_COLOR_RED };
+enum rb_color { RB_COLOR_BLACK, RB_COLOR_RED };
 
 struct rb_node {
     struct rb_node *desc[2];
     struct rb_node *anc;
-    enum rb_color_t color;
+    enum rb_color color;
 };
 
 typedef int (*rb_comp)(struct rb_node *, struct rb_node *, void *);
 
-struct rb_root_t {
+struct rb_root {
     struct rb_node *root;
     size_t node_size;
 };
@@ -52,14 +52,14 @@ static inline struct rb_node *rb_get_gpar(struct rb_node *node) {
     return rb_get_par(rb_get_par(node));
 }
 
-static inline enum rb_color_t rb_get_color(struct rb_node *node) {
+static inline enum rb_color rb_get_color(struct rb_node *node) {
     if (node == NULL) {
         return RB_COLOR_BLACK;
     }
     return node->color;
 }
 
-static inline void rb_set_color(struct rb_node *node, enum rb_color_t color) {
+static inline void rb_set_color(struct rb_node *node, enum rb_color color) {
     if (node != NULL) {
         node->color = color;
     }
@@ -78,7 +78,7 @@ static inline struct rb_node *rb_get_unc(struct rb_node *node) {
 }
 
 static inline void *rb_rotate(struct rb_node *root, int direction,
-                              struct rb_root_t *tree) {
+                              struct rb_root *tree) {
     int root_pos = rb_get_pos(root);
     struct rb_node *root_parent = rb_get_par(root);
     struct rb_node *new_root = rb_get_desc(root, 1 - direction);
@@ -95,7 +95,7 @@ static inline void *rb_rotate(struct rb_node *root, int direction,
 }
 
 static inline void rb_fix_insertion(struct rb_node *node,
-                                    struct rb_root_t *root) {
+                                    struct rb_root *root) {
     if (node == NULL) {
         return;
     }
@@ -130,7 +130,7 @@ static inline void rb_fix_insertion(struct rb_node *node,
 }
 
 // 0 - node is added already, 1 - new node added
-static inline int rb_insert(struct rb_root_t *root, rb_comp comp,
+static inline int rb_insert(struct rb_root *root, rb_comp comp,
                             void *comp_arg, struct rb_node *node) {
     rb_set_desc(node, 0, NULL);
     rb_set_desc(node, 1, NULL);
@@ -190,14 +190,14 @@ static inline void rb_memswap(char *p1, char *p2, size_t size) {
 
 static inline void rb_swap_nodes_content(struct rb_node *node1,
                                          struct rb_node *node2,
-                                         struct rb_root_t *root) {
+                                         struct rb_root *root) {
     char *content1 = (char *)(node1 + 1);
     char *content2 = (char *)(node2 + 1);
     size_t size = root->node_size - sizeof(struct rb_node);
     rb_memswap(content1, content2, size);
 }
 
-static struct rb_node *rb_remove_internal_nodes(struct rb_root_t *root,
+static struct rb_node *rb_remove_internal_nodes(struct rb_root *root,
                                                 struct rb_node *node) {
     if (rb_get_desc(node, 0) != NULL && rb_get_desc(node, 1) != NULL) {
         struct rb_node *next = rb_find_replacement(node);
@@ -207,7 +207,7 @@ static struct rb_node *rb_remove_internal_nodes(struct rb_root_t *root,
     return node;
 }
 
-static void rb_fix_double_black(struct rb_root_t *root, struct rb_node *node) {
+static void rb_fix_double_black(struct rb_root *root, struct rb_node *node) {
     if (rb_get_par(node) == NULL) {
         return;
     }
@@ -251,7 +251,7 @@ static void rb_fix_double_black(struct rb_root_t *root, struct rb_node *node) {
 }
 
 // 0 - there is no such node, 1 - node deleted
-static inline void rb_delete(struct rb_root_t *root, struct rb_node *node) {
+static inline void rb_delete(struct rb_root *root, struct rb_node *node) {
     // handle case with internal node
     node = rb_remove_internal_nodes(root, node);
     // get node's child
@@ -278,7 +278,7 @@ static inline void rb_delete(struct rb_root_t *root, struct rb_node *node) {
     kfree(node);
 }
 
-static inline struct rb_node *rb_query(struct rb_root_t *root,
+static inline struct rb_node *rb_query(struct rb_root *root,
                                        struct rb_node *node, rb_comp comp,
                                        void *comp_arg) {
     struct rb_node *current = root->root;
