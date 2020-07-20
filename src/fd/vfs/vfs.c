@@ -399,6 +399,10 @@ int mount(const char *source, const char *target,
 
 int umount(const char *target) {
     struct mnt_t *mount = ht_get(struct mnt_t, mountpoints, target);
+    if (!mount) {
+        errno = ENOENT;
+        return -1;
+    }
 
     int ret = mount->fs->umount(mount->magic);
 
