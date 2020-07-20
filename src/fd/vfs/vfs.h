@@ -11,7 +11,7 @@
 struct fs_t {
     char name[256];
     int (*mount)(const char *, unsigned long, const void *);
-    int (*umount)(const char *);
+    int (*umount)(int);
     int (*open)(const char *, int, int);
     int (*close)(int);
     int (*fstat)(int, struct stat *);

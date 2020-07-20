@@ -1017,7 +1017,10 @@ static int echfs_fstat(int handle, struct stat *st) {
     return 0;
 }
 
-static int echfs_mount(const char *source) {
+static int echfs_mount(const char *source, unsigned long flags, const void *data) {
+    (void)flags;
+    (void)data;
+
     /* open device */
     int device = open(source, O_RDWR);
     if (device == -1) {
@@ -1058,23 +1061,57 @@ static int echfs_mount(const char *source) {
     return ret;
 }
 
+static int echfs_umount(int magic) {
+    // First, get the filesystem.
+    struct mount_t *mount = dynarray_getelem(struct mount_t, mounts, magic);
+    if (!mount) {
+        errno = ENOENT;
+        return -1;
+    }
+    spinlock_acquire(&mount->lock);
+
+    // Check if the filesystem is busy.
+    for (size_t i = 0; i < locked_read(size_t, &handles_i); i++) {
+        struct echfs_handle_t *handle =
+            dynarray_getelem(struct echfs_handle_t, handles, i);
+        if (!handle)
+            continue;
+
+        if (handle->mnt == mount) {
+            dynarray_unref(handles, i);
+            dynarray_unref(mounts, magic);
+            spinlock_release(&mount->lock);
+            errno = EBUSY;
+            return -1;
+        }
+
+        dynarray_unref(handles, i);
+    }
+
+    // Cleanup.
+    dynarray_unref(mounts, magic);
+    dynarray_remove(mounts, magic);
+    return 0;
+}
+
 void init_fs_echfs(void) {
     struct fs_t echfs = {0};
 
     echfs = default_fs_handler;
     strcpy(echfs.name, "echfs");
-    echfs.mount = (void *)echfs_mount;
-    echfs.open = echfs_open;
-    echfs.close = echfs_close;
-    echfs.read = echfs_read;
-    echfs.write = echfs_write;
-    echfs.lseek = echfs_lseek;
-    echfs.fstat = echfs_fstat;
-    echfs.dup = echfs_dup;
+    echfs.mount   = echfs_mount;
+    echfs.umount  = echfs_umount;
+    echfs.open    = echfs_open;
+    echfs.close   = echfs_close;
+    echfs.read    = echfs_read;
+    echfs.write   = echfs_write;
+    echfs.lseek   = echfs_lseek;
+    echfs.fstat   = echfs_fstat;
+    echfs.dup     = echfs_dup;
     echfs.readdir = echfs_readdir;
-    echfs.sync = echfs_sync;
-    echfs.unlink = echfs_unlink;
-    echfs.mkdir = echfs_mkdir;
+    echfs.sync    = echfs_sync;
+    echfs.unlink  = echfs_unlink;
+    echfs.mkdir   = echfs_mkdir;
     echfs.getpath = echfs_getpath;
 
     vfs_install_fs(&echfs);
