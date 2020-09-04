@@ -5,8 +5,8 @@ KERNELHDD := $(KERNEL).hdd
 SOURCEDIR := src
 RUNDIR    := run
 
-QLOADER_URL := https://github.com/qloader2/qloader2.git
-QLOADER_DIR := qloader2
+LIMINE_URL := https://github.com/limine-bootloader/limine.git
+LIMINE_DIR := limine
 
 CFILES    := $(shell find $(SOURCEDIR) -type f -name '*.c')
 ASMFILES  := $(shell find $(SOURCEDIR) -type f -name '*.asm')
@@ -100,17 +100,18 @@ symlist:
 run: $(KERNELHDD)
 	$(QEMU) $(QEMUHARDFLAGS)
 
-$(KERNELHDD): $(QLOADER_DIR) $(KERNELELF)
+$(KERNELHDD): $(LIMINE_DIR) $(KERNELELF)
 	dd if=/dev/zero bs=1M count=0 seek=64 of=$(KERNELHDD)
 	parted -s $(KERNELHDD) mklabel msdos
 	parted -s $(KERNELHDD) mkpart primary 1 100%
 	echfs-utils -m -p0 $(KERNELHDD) quick-format 32768
 	echfs-utils -m -p0 $(KERNELHDD) import $(KERNELELF) $(KERNELELF)
-	echfs-utils -m -p0 $(KERNELHDD) import $(RUNDIR)/qloader2.cfg qloader2.cfg
-	$(QLOADER_DIR)/qloader2-install $(QLOADER_DIR)/qloader2.bin ${KERNELHDD}
+	echfs-utils -m -p0 $(KERNELHDD) import $(RUNDIR)/limine.cfg limine.cfg
+	make -C $(LIMINE_DIR) limine-install
+	$(LIMINE_DIR)/limine-install $(LIMINE_DIR)/limine.bin ${KERNELHDD}
 
-$(QLOADER_DIR):
-	git clone $(QLOADER_URL) $(QLOADER_DIR)
+$(LIMINE_DIR):
+	git clone $(LIMINE_URL) $(LIMINE_DIR) --depth=1
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/boot
@@ -123,7 +124,7 @@ clean:
 	rm -f symlist.gen symlist.o $(OBJ) $(BINS) $(KERNELELF) $(KERNELHDD) $(DEPS)
 
 distclean: clean
-	rm -rf $(QLOADER_DIR)
+	rm -rf $(LIMINE_DIR)
 
 format:
 	find -type f -name "*.h" -exec clang-format -style=file -i {} \;
