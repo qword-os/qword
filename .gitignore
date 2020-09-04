@@ -5,7 +5,7 @@ qword.bin
 qword.elf
 src/acpi/lai
 symlist.gen
-qloader2
+limine
 
 # IDE related
 .idea

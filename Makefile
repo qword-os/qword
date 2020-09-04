@@ -107,11 +107,11 @@ $(KERNELHDD): $(LIMINE_DIR) $(KERNELELF)
 	echfs-utils -m -p0 $(KERNELHDD) quick-format 32768
 	echfs-utils -m -p0 $(KERNELHDD) import $(KERNELELF) $(KERNELELF)
 	echfs-utils -m -p0 $(KERNELHDD) import $(RUNDIR)/limine.cfg limine.cfg
-	make -C $(LIMINE_DIR) limine-install
-	$(LIMINE_DIR)/limine-install $(LIMINE_DIR)/limine.bin ${KERNELHDD}
+	make -C $(LIMINE_DIR)
+	$(LIMINE_DIR)/limine-install $(KERNELHDD)
 
 $(LIMINE_DIR):
-	git clone $(LIMINE_URL) $(LIMINE_DIR) --depth=1
+	git clone $(LIMINE_URL) $(LIMINE_DIR) --depth=1 --branch=v0.4
 
 install: all
 	install -d $(DESTDIR)$(PREFIX)/boot

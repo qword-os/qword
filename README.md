@@ -35,6 +35,8 @@ These are the tools needed for the build:
 - `nasm`.
 - `objcopy`.
 - `qemu` (to test it).
+- `clang` (to test it).
+- `llvm` (to test it).
 
 ## Building
 
