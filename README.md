@@ -8,22 +8,7 @@ As the name implies, this is just the kernel. To build the whole system, follow 
 instructions at <https://github.com/qword-os/build>.
 
 ## Discord
-Join our Discord! Invite: https://discord.gg/z6b3qZC
-
-## Prebuilt image
-Get a prebuilt image today at: https://ci.oogacraft.com/job/qword/lastSuccessfulBuild/artifact/qword.hdd.xz
-
-Note 1: This is a hard drive image compressed with xz. Unpack it with
-```bash
-xzcat < qword.hdd.xz > qword.hdd
-```
-
-Note 2: This image can be ran on QEMU using the following recommended command
-```bash
-qemu-system-x86_64 -enable-kvm -cpu host -smp 4 -m 2G -hda qword.hdd
-```
-
-Note 3: The default user/password is 'root/root'.
+Join our Discord! Invite: https://discord.gg/YWdGJEu
 
 ## Build requirements
 
