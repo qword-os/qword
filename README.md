@@ -4,11 +4,18 @@
 
 ![Reference screenshot](/screenshot.png?raw=true "Reference screenshot")
 
+# THIS PROJECT IS DEFUNCT.
+Sorry about that.
+
+Please do not send PRs or open issues against this defunct project which will
+no longer be updated.
+
+You're free to check out the code, fork it, and all that, as long as the license
+(LICENSE.md) is respected.
+
+# Moving on
 As the name implies, this is just the kernel. To build the whole system, follow the
 instructions at <https://github.com/qword-os/build>.
-
-## Discord
-Join our Discord! Invite: https://discord.gg/YWdGJEu
 
 ## Build requirements
 
